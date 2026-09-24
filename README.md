@@ -51,3 +51,19 @@ ruff check .
 ruff format --check .
 mypy src
 ```
+
+## Docker
+
+Build and run the API image:
+
+```bash
+docker build -t signalscope .
+docker run --rm -p 8000:8000 signalscope
+```
+
+Pass settings as environment variables, for example
+`-e SIGNALSCOPE_LOG_LEVEL=DEBUG`. The same image can run migrations:
+
+```bash
+docker run --rm -e SIGNALSCOPE_DATABASE_URL=... signalscope alembic upgrade head
+```
