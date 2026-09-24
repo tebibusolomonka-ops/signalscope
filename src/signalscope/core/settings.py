@@ -3,12 +3,14 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
 
+from signalscope.core.errors import SignalScopeError
+
 TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
 FALSE_VALUES = frozenset({"0", "false", "no", "off"})
 DATABASE_URL_PREFIX = "postgresql+asyncpg://"
 
 
-class SettingsError(ValueError):
+class SettingsError(SignalScopeError, ValueError):
     pass
 
 
