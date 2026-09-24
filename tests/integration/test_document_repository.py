@@ -5,7 +5,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from signalscope.domain.documents.model import Document
-from signalscope.domain.documents.repository import DocumentRepository
+from signalscope.domain.documents.repository import DocumentFilters, DocumentRepository
 from signalscope.domain.sources.model import Source, SourceType
 
 pytestmark = pytest.mark.anyio
@@ -84,7 +84,7 @@ async def test_list_all_returns_documents_in_creation_order(
     await add_document(session_factory, source, "Third")
 
     async with session_factory() as session:
-        documents = await DocumentRepository(session).list_all()
+        documents = await DocumentRepository(session).list_all(DocumentFilters())
 
     assert [document.title for document in documents] == ["First", "Second", "Third"]
 
@@ -100,7 +100,7 @@ async def test_list_all_breaks_ties_by_id(
         await session.commit()
 
     async with session_factory() as session:
-        documents = await DocumentRepository(session).list_all()
+        documents = await DocumentRepository(session).list_all(DocumentFilters())
 
     assert len({document.created_at for document in documents}) == 1
     assert [document.id for document in documents] == sorted(document.id for document in documents)

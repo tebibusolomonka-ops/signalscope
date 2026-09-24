@@ -2,8 +2,10 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, status
+from pydantic import AwareDatetime
 
 from signalscope.api.dependencies import DatabaseSession
+from signalscope.domain.documents.repository import DocumentFilters
 from signalscope.domain.documents.schemas import DocumentCreate, DocumentRead
 from signalscope.domain.documents.service import DocumentService
 
@@ -14,7 +16,22 @@ def get_document_service(session: DatabaseSession) -> DocumentService:
     return DocumentService(session)
 
 
+def get_document_filters(
+    source_id: uuid.UUID | None = None,
+    language: str | None = None,
+    published_from: AwareDatetime | None = None,
+    published_to: AwareDatetime | None = None,
+) -> DocumentFilters:
+    return DocumentFilters(
+        source_id=source_id,
+        language=language,
+        published_from=published_from,
+        published_to=published_to,
+    )
+
+
 Documents = Annotated[DocumentService, Depends(get_document_service)]
+Filters = Annotated[DocumentFilters, Depends(get_document_filters)]
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -23,8 +40,8 @@ async def create_document(data: DocumentCreate, documents: Documents) -> Documen
 
 
 @router.get("")
-async def list_documents(documents: Documents) -> list[DocumentRead]:
-    return [DocumentRead.model_validate(document) for document in await documents.list_all()]
+async def list_documents(filters: Filters, documents: Documents) -> list[DocumentRead]:
+    return [DocumentRead.model_validate(document) for document in await documents.list_all(filters)]
 
 
 @router.get("/{document_id}")

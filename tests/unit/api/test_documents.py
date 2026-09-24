@@ -1,5 +1,6 @@
 import uuid
 
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -50,3 +51,21 @@ def test_document_routes_are_in_openapi(app: FastAPI) -> None:
     assert set(paths["/documents"]) == {"get", "post"}
     assert set(paths["/documents/{document_id}"]) == {"get", "delete"}
     assert paths["/documents"]["post"]["tags"] == ["Documents"]
+
+
+@pytest.mark.parametrize(
+    ("params", "field"),
+    [
+        ({"source_id": "not-a-uuid"}, "source_id"),
+        ({"published_from": "2026-03-01T10:00:00"}, "published_from"),
+        ({"published_to": "soon"}, "published_to"),
+    ],
+)
+def test_invalid_filters_are_rejected(params: dict[str, str], field: str) -> None:
+    app = create_app(Settings(database_url=FAKE_DATABASE_URL))
+
+    with TestClient(app) as client:
+        response = client.get("/documents", params=params)
+
+    assert response.status_code == 422
+    assert response.json()["detail"][0]["loc"] == ["query", field]

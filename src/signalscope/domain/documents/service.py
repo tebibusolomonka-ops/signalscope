@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from signalscope.core.errors import ConflictError, NotFoundError
 from signalscope.db.errors import is_unique_violation
 from signalscope.domain.documents.model import Document
-from signalscope.domain.documents.repository import DocumentRepository
+from signalscope.domain.documents.repository import DocumentFilters, DocumentRepository
 from signalscope.domain.documents.schemas import DocumentCreate
 from signalscope.domain.sources.repository import SourceRepository
 
@@ -46,8 +46,8 @@ class DocumentService:
             raise NotFoundError("Document was not found.")
         return document
 
-    async def list_all(self) -> list[Document]:
-        return await self.documents.list_all()
+    async def list_all(self, filters: DocumentFilters) -> list[Document]:
+        return await self.documents.list_all(filters)
 
     async def delete(self, document_id: uuid.UUID) -> None:
         try:
