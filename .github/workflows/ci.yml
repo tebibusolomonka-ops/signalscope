@@ -10,6 +10,26 @@ permissions:
 jobs:
   checks:
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17
+        # Throwaway database for tests. These values are not secrets.
+        env:
+          POSTGRES_DB: signalscope_test
+          POSTGRES_USER: signalscope
+          POSTGRES_PASSWORD: signalscope
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U signalscope -d signalscope_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      SIGNALSCOPE_TEST_DATABASE_URL: postgresql+asyncpg://signalscope:signalscope@localhost:5432/signalscope_test
+
     steps:
       - uses: actions/checkout@v7
 
