@@ -10,6 +10,7 @@ from signalscope.api.app import create_app
 from signalscope.api.lifespan import lifespan
 from signalscope.core.settings import Settings
 from signalscope.domain.documents.model import Document
+from signalscope.domain.ingestion.model import IngestionRun
 
 pytestmark = pytest.mark.anyio
 
@@ -106,17 +107,23 @@ async def test_unknown_source_returns_404(client: httpx.AsyncClient, method: str
     assert response.json() == {"error": {"code": "not_found", "message": "Source was not found."}}
 
 
-async def test_source_with_documents_cannot_be_deleted(
-    client: httpx.AsyncClient, session_factory: async_sessionmaker[AsyncSession]
+@pytest.mark.parametrize("dependent", [Document, IngestionRun])
+async def test_source_in_use_cannot_be_deleted(
+    client: httpx.AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+    dependent: type[Document | IngestionRun],
 ) -> None:
     source = await create_source(client, RSS_SOURCE)
     async with session_factory() as session:
-        session.add(Document(source_id=uuid.UUID(source["id"]), title="An article"))
+        session.add(dependent(source_id=uuid.UUID(source["id"])))
         await session.commit()
 
     response = await client.delete(f"/sources/{source['id']}")
 
     assert response.status_code == 409
     assert response.json() == {
-        "error": {"code": "conflict", "message": "Source has documents and cannot be deleted."},
+        "error": {
+            "code": "conflict",
+            "message": "Source has documents or ingestion runs and cannot be deleted.",
+        },
     }

@@ -50,9 +50,26 @@ async def test_upgrade_from_empty_database(
     await run_alembic(command.downgrade, migration_config, "base")
     await run_alembic(command.upgrade, migration_config, "head")
 
-    assert {"sources", "documents"} <= await table_names(database_engine)
+    assert await table_names(database_engine) == {
+        "alembic_version",
+        "sources",
+        "documents",
+        "ingestion_runs",
+    }
     head = ScriptDirectory.from_config(migration_config).get_current_head()
     assert await current_revision(database_engine) == head
+
+
+async def test_downgrade_one_revision_removes_only_the_newest_table(
+    migration_config: Config, database_engine: AsyncEngine
+) -> None:
+    head = ScriptDirectory.from_config(migration_config).get_revision("head")
+    assert head is not None
+
+    await run_alembic(command.downgrade, migration_config, "-1")
+
+    assert await table_names(database_engine) == {"alembic_version", "sources", "documents"}
+    assert await current_revision(database_engine) == head.down_revision
 
 
 async def test_downgrade_removes_all_tables(
@@ -64,11 +81,10 @@ async def test_downgrade_removes_all_tables(
     assert await current_revision(database_engine) is None
 
 
-async def test_documents_reference_sources(database_engine: AsyncEngine) -> None:
+@pytest.mark.parametrize("table", ["documents", "ingestion_runs"])
+async def test_table_references_sources(database_engine: AsyncEngine, table: str) -> None:
     async with database_engine.connect() as connection:
-        foreign_keys = await connection.run_sync(
-            lambda sync: inspect(sync).get_foreign_keys("documents")
-        )
+        foreign_keys = await connection.run_sync(lambda sync: inspect(sync).get_foreign_keys(table))
 
     [foreign_key] = foreign_keys
     assert foreign_key["constrained_columns"] == ["source_id"]

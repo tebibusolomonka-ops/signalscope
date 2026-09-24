@@ -46,8 +46,10 @@ class SourceService:
             await self.session.commit()
         except IntegrityError as error:
             await self.session.rollback()
-            # The documents foreign key is the only rule a delete can break.
-            raise ConflictError("Source has documents and cannot be deleted.") from error
+            # A delete can only break the foreign keys from documents and ingestion runs.
+            raise ConflictError(
+                "Source has documents or ingestion runs and cannot be deleted."
+            ) from error
         except Exception:
             await self.session.rollback()
             raise
