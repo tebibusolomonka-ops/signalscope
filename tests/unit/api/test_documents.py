@@ -29,7 +29,7 @@ def test_invalid_document_id_is_rejected() -> None:
         response = client.get("/documents/not-a-uuid")
 
     assert response.status_code == 422
-    assert response.json()["detail"][0]["loc"] == ["path", "document_id"]
+    assert response.json()["error"]["details"][0]["loc"] == ["path", "document_id"]
 
 
 def test_invalid_document_body_is_rejected() -> None:
@@ -42,7 +42,7 @@ def test_invalid_document_body_is_rejected() -> None:
         )
 
     assert response.status_code == 422
-    assert response.json()["detail"][0]["loc"] == ["body", "published_at"]
+    assert response.json()["error"]["details"][0]["loc"] == ["body", "published_at"]
 
 
 def test_document_routes_are_in_openapi(app: FastAPI) -> None:
@@ -68,7 +68,7 @@ def test_invalid_filters_are_rejected(params: dict[str, str], field: str) -> Non
         response = client.get("/documents", params=params)
 
     assert response.status_code == 422
-    assert response.json()["detail"][0]["loc"] == ["query", field]
+    assert response.json()["error"]["details"][0]["loc"] == ["query", field]
 
 
 @pytest.mark.parametrize("params", [{"limit": 0}, {"limit": 101}, {"offset": -1}])

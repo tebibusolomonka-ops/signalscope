@@ -27,7 +27,7 @@ def test_invalid_source_id_is_rejected() -> None:
         response = client.get("/sources/not-a-uuid")
 
     assert response.status_code == 422
-    assert response.json()["detail"][0]["loc"] == ["path", "source_id"]
+    assert response.json()["error"]["details"][0]["loc"] == ["path", "source_id"]
 
 
 def test_invalid_source_body_is_rejected() -> None:
@@ -37,7 +37,7 @@ def test_invalid_source_body_is_rejected() -> None:
         response = client.post("/sources", json={"type": "podcast", "name": "Example"})
 
     assert response.status_code == 422
-    assert response.json()["detail"][0]["loc"] == ["body", "type"]
+    assert response.json()["error"]["details"][0]["loc"] == ["body", "type"]
 
 
 @pytest.mark.parametrize("params", [{"limit": 0}, {"limit": 101}, {"offset": -1}])
