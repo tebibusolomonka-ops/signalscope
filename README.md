@@ -24,10 +24,11 @@ pip install -e ".[dev]"
 Settings come from `SIGNALSCOPE_*` environment variables. See
 [docs/configuration.md](docs/configuration.md).
 
-Run the API locally:
+Run the API locally. SignalScope logs each request itself, so the Uvicorn
+access log is turned off:
 
 ```bash
-uvicorn signalscope.api.app:create_app --factory --reload
+uvicorn signalscope.api.app:create_app --factory --reload --no-access-log
 ```
 
 Apply database migrations. This needs `SIGNALSCOPE_DATABASE_URL`:
