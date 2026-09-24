@@ -46,8 +46,12 @@ class DocumentService:
             raise NotFoundError("Document was not found.")
         return document
 
-    async def list_all(self, filters: DocumentFilters) -> list[Document]:
-        return await self.documents.list_all(filters)
+    async def list_page(
+        self, filters: DocumentFilters, limit: int, offset: int
+    ) -> tuple[list[Document], int]:
+        """Return one page of matching documents and the total number that match."""
+        items = await self.documents.list_page(filters, limit, offset)
+        return items, await self.documents.count(filters)
 
     async def delete(self, document_id: uuid.UUID) -> None:
         try:

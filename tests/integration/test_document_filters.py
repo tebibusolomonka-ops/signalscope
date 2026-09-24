@@ -38,7 +38,7 @@ async def titles(
     session_factory: async_sessionmaker[AsyncSession], filters: DocumentFilters
 ) -> set[str | None]:
     async with session_factory() as session:
-        documents = await DocumentRepository(session).list_all(filters)
+        documents = await DocumentRepository(session).list_page(filters, limit=100, offset=0)
     return {document.title for document in documents}
 
 
@@ -115,3 +115,15 @@ async def test_no_matches(
         await titles(session_factory, DocumentFilters(source_id=sources["b"].id, language="de"))
         == set()
     )
+
+
+async def test_count_uses_the_same_filters(
+    session_factory: async_sessionmaker[AsyncSession], sources: dict[str, Source]
+) -> None:
+    async with session_factory() as session:
+        repository = DocumentRepository(session)
+
+        assert await repository.count(DocumentFilters()) == 4
+        assert await repository.count(DocumentFilters(language="en")) == 3
+        assert await repository.count(DocumentFilters(source_id=sources["b"].id)) == 1
+        assert await repository.count(DocumentFilters(published_from=MARCH_2)) == 2

@@ -76,7 +76,7 @@ async def test_add_does_not_commit(
         assert await DocumentRepository(session).get(document.id) is None
 
 
-async def test_list_all_returns_documents_in_creation_order(
+async def test_list_page_returns_documents_in_creation_order(
     session_factory: async_sessionmaker[AsyncSession], source: Source
 ) -> None:
     await add_document(session_factory, source, "First")
@@ -84,12 +84,14 @@ async def test_list_all_returns_documents_in_creation_order(
     await add_document(session_factory, source, "Third")
 
     async with session_factory() as session:
-        documents = await DocumentRepository(session).list_all(DocumentFilters())
+        documents = await DocumentRepository(session).list_page(
+            DocumentFilters(), limit=10, offset=0
+        )
 
     assert [document.title for document in documents] == ["First", "Second", "Third"]
 
 
-async def test_list_all_breaks_ties_by_id(
+async def test_list_page_breaks_ties_by_id(
     session_factory: async_sessionmaker[AsyncSession], source: Source
 ) -> None:
     # Rows added in one transaction share created_at, so the ID decides the order.
@@ -100,7 +102,9 @@ async def test_list_all_breaks_ties_by_id(
         await session.commit()
 
     async with session_factory() as session:
-        documents = await DocumentRepository(session).list_all(DocumentFilters())
+        documents = await DocumentRepository(session).list_page(
+            DocumentFilters(), limit=10, offset=0
+        )
 
     assert len({document.created_at for document in documents}) == 1
     assert [document.id for document in documents] == sorted(document.id for document in documents)
@@ -125,3 +129,29 @@ async def test_delete_returns_false_for_unknown_id(
 ) -> None:
     async with session_factory() as session:
         assert await DocumentRepository(session).delete(uuid.uuid4()) is False
+
+
+async def test_list_page_applies_limit_and_offset(
+    session_factory: async_sessionmaker[AsyncSession], source: Source
+) -> None:
+    for title in ["A", "B", "C", "D", "E"]:
+        await add_document(session_factory, source, title)
+
+    async with session_factory() as session:
+        repository = DocumentRepository(session)
+        middle = await repository.list_page(DocumentFilters(), limit=2, offset=1)
+        past_the_end = await repository.list_page(DocumentFilters(), limit=2, offset=5)
+
+    assert [document.title for document in middle] == ["B", "C"]
+    assert past_the_end == []
+
+
+async def test_count(session_factory: async_sessionmaker[AsyncSession], source: Source) -> None:
+    async with session_factory() as session:
+        assert await DocumentRepository(session).count(DocumentFilters()) == 0
+
+    await add_document(session_factory, source, "First")
+    await add_document(session_factory, source, "Second")
+
+    async with session_factory() as session:
+        assert await DocumentRepository(session).count(DocumentFilters()) == 2

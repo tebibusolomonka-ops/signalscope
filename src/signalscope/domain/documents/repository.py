@@ -2,7 +2,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import ColumnElement, delete, select
+from sqlalchemy import ColumnElement, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from signalscope.domain.documents.model import Document
@@ -36,11 +36,21 @@ class DocumentRepository:
     async def get(self, document_id: uuid.UUID) -> Document | None:
         return await self.session.get(Document, document_id)
 
-    async def list_all(self, filters: DocumentFilters) -> list[Document]:
+    async def list_page(self, filters: DocumentFilters, limit: int, offset: int) -> list[Document]:
         result = await self.session.scalars(
-            select(Document).where(*_conditions(filters)).order_by(Document.created_at, Document.id)
+            select(Document)
+            .where(*_conditions(filters))
+            .order_by(Document.created_at, Document.id)
+            .limit(limit)
+            .offset(offset)
         )
         return list(result.all())
+
+    async def count(self, filters: DocumentFilters) -> int:
+        result = await self.session.execute(
+            select(func.count()).select_from(Document).where(*_conditions(filters))
+        )
+        return result.scalar_one()
 
     async def delete(self, document_id: uuid.UUID) -> bool:
         """Delete a document. Returns False when there was no document with that ID."""

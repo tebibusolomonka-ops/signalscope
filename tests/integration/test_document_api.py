@@ -63,8 +63,13 @@ async def test_create_document(client: httpx.AsyncClient, source_id: str) -> Non
     assert document["published_at"] == "2026-03-01T10:30:00Z"
 
 
-async def test_list_documents(client: httpx.AsyncClient, source_id: str) -> None:
-    assert (await client.get("/documents")).json() == []
+async def test_list_documents_uses_default_page(client: httpx.AsyncClient, source_id: str) -> None:
+    assert (await client.get("/documents")).json() == {
+        "items": [],
+        "total": 0,
+        "limit": 50,
+        "offset": 0,
+    }
 
     first = await create_document(client, {"source_id": source_id, "title": "First"})
     second = await create_document(client, {"source_id": source_id, "title": "Second"})
@@ -72,7 +77,22 @@ async def test_list_documents(client: httpx.AsyncClient, source_id: str) -> None
     response = await client.get("/documents")
 
     assert response.status_code == 200
-    assert response.json() == [first, second]
+    assert response.json() == {"items": [first, second], "total": 2, "limit": 50, "offset": 0}
+
+
+async def test_list_documents_with_limit_and_offset(
+    client: httpx.AsyncClient, source_id: str
+) -> None:
+    documents = [
+        await create_document(client, {"source_id": source_id, "title": f"Article {number}"})
+        for number in range(5)
+    ]
+
+    page = (await client.get("/documents", params={"limit": 2, "offset": 2})).json()
+    past_the_end = (await client.get("/documents", params={"offset": 10})).json()
+
+    assert page == {"items": documents[2:4], "total": 5, "limit": 2, "offset": 2}
+    assert past_the_end == {"items": [], "total": 5, "limit": 50, "offset": 10}
 
 
 async def test_get_document(client: httpx.AsyncClient, source_id: str) -> None:
@@ -155,10 +175,28 @@ async def test_list_documents_with_filters(client: httpx.AsyncClient, source_id:
     )
 
     assert response.status_code == 200
-    assert [document["title"] for document in response.json()] == ["Late"]
+    body = response.json()
+    assert [document["title"] for document in body["items"]] == ["Late"]
+    assert body["total"] == 1
+
+
+async def test_total_counts_filtered_documents_across_pages(
+    client: httpx.AsyncClient, source_id: str
+) -> None:
+    for number in range(3):
+        await create_document(
+            client, {"source_id": source_id, "title": f"English {number}", "language": "en"}
+        )
+    await create_document(client, {"source_id": source_id, "title": "German", "language": "de"})
+
+    response = await client.get("/documents", params={"language": "en", "limit": 2, "offset": 1})
+
+    body = response.json()
+    assert [document["title"] for document in body["items"]] == ["English 1", "English 2"]
+    assert body["total"] == 3
 
 
 async def test_list_documents_for_unknown_source_is_empty(client: httpx.AsyncClient) -> None:
     response = await client.get("/documents", params={"source_id": str(uuid.uuid4())})
 
-    assert response.json() == []
+    assert response.json() == {"items": [], "total": 0, "limit": 50, "offset": 0}

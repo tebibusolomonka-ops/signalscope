@@ -59,7 +59,8 @@ async def test_duplicate_external_id_raises_conflict_and_rolls_back(
         with pytest.raises(ConflictError, match="Document already exists for this source."):
             await service.create(DocumentCreate(source_id=source.id, external_id="guid-1"))
 
-        assert len(await service.list_all(DocumentFilters())) == 1
+        _, total = await service.list_page(DocumentFilters(), limit=10, offset=0)
+        assert total == 1
 
 
 async def test_same_external_id_is_allowed_for_different_sources(
@@ -72,7 +73,8 @@ async def test_same_external_id_is_allowed_for_different_sources(
         await service.create(DocumentCreate(source_id=source.id, external_id="guid-1"))
         await service.create(DocumentCreate(source_id=other_source.id, external_id="guid-1"))
 
-        assert len(await service.list_all(DocumentFilters())) == 2
+        _, total = await service.list_page(DocumentFilters(), limit=10, offset=0)
+        assert total == 2
 
 
 async def test_documents_without_external_id_do_not_conflict(
@@ -83,7 +85,8 @@ async def test_documents_without_external_id_do_not_conflict(
         await service.create(DocumentCreate(source_id=source.id, title="One"))
         await service.create(DocumentCreate(source_id=source.id, title="Two"))
 
-        assert len(await service.list_all(DocumentFilters())) == 2
+        _, total = await service.list_page(DocumentFilters(), limit=10, offset=0)
+        assert total == 2
 
 
 async def test_get_unknown_document_raises_not_found(
@@ -94,7 +97,7 @@ async def test_get_unknown_document_raises_not_found(
             await DocumentService(session).get(uuid.uuid4())
 
 
-async def test_list_all_returns_documents_in_creation_order(
+async def test_list_page_returns_documents_in_creation_order(
     session_factory: async_sessionmaker[AsyncSession], source: Source
 ) -> None:
     async with session_factory() as session:
@@ -102,7 +105,7 @@ async def test_list_all_returns_documents_in_creation_order(
         await service.create(DocumentCreate(source_id=source.id, title="First"))
         await service.create(DocumentCreate(source_id=source.id, title="Second"))
 
-        documents = await service.list_all(DocumentFilters())
+        documents, _ = await service.list_page(DocumentFilters(), limit=10, offset=0)
 
     assert [document.title for document in documents] == ["First", "Second"]
 

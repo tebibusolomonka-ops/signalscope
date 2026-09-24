@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, status
 from pydantic import AwareDatetime
 
 from signalscope.api.dependencies import DatabaseSession
+from signalscope.api.pagination import Page, Pagination
 from signalscope.domain.documents.repository import DocumentFilters
 from signalscope.domain.documents.schemas import DocumentCreate, DocumentRead
 from signalscope.domain.documents.service import DocumentService
@@ -40,8 +41,16 @@ async def create_document(data: DocumentCreate, documents: Documents) -> Documen
 
 
 @router.get("")
-async def list_documents(filters: Filters, documents: Documents) -> list[DocumentRead]:
-    return [DocumentRead.model_validate(document) for document in await documents.list_all(filters)]
+async def list_documents(
+    filters: Filters, page: Pagination, documents: Documents
+) -> Page[DocumentRead]:
+    items, total = await documents.list_page(filters, page.limit, page.offset)
+    return Page[DocumentRead](
+        items=[DocumentRead.model_validate(document) for document in items],
+        total=total,
+        limit=page.limit,
+        offset=page.offset,
+    )
 
 
 @router.get("/{document_id}")
