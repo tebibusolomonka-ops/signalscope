@@ -1,0 +1,99 @@
+import uuid
+from collections.abc import AsyncIterator
+from typing import Any
+
+import httpx
+import pytest
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
+
+from signalscope.api.app import create_app
+from signalscope.api.lifespan import lifespan
+from signalscope.core.settings import Settings
+from signalscope.domain.documents.model import Document
+
+pytestmark = pytest.mark.anyio
+
+RSS_SOURCE = {"type": "rss", "name": "Example feed", "url": "https://example.com/rss"}
+
+
+@pytest.fixture
+async def client(
+    database_engine: AsyncEngine, migrated_database: Settings
+) -> AsyncIterator[httpx.AsyncClient]:
+    app = create_app(migrated_database)
+    async with lifespan(app):
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            yield client
+
+
+async def create_source(client: httpx.AsyncClient, data: dict[str, Any]) -> dict[str, Any]:
+    response = await client.post("/sources", json=data)
+    assert response.status_code == 201
+    body: dict[str, Any] = response.json()
+    return body
+
+
+async def test_create_source(client: httpx.AsyncClient) -> None:
+    source = await create_source(client, RSS_SOURCE)
+
+    assert uuid.UUID(source["id"])
+    assert source["type"] == "rss"
+    assert source["name"] == "Example feed"
+    assert source["url"] == "https://example.com/rss"
+    assert source["created_at"] == source["updated_at"]
+
+
+async def test_list_sources(client: httpx.AsyncClient) -> None:
+    assert (await client.get("/sources")).json() == []
+
+    first = await create_source(client, {"type": "upload", "name": "Uploads"})
+    second = await create_source(client, RSS_SOURCE)
+
+    response = await client.get("/sources")
+
+    assert response.status_code == 200
+    assert response.json() == [first, second]
+
+
+async def test_get_source(client: httpx.AsyncClient) -> None:
+    source = await create_source(client, RSS_SOURCE)
+
+    response = await client.get(f"/sources/{source['id']}")
+
+    assert response.status_code == 200
+    assert response.json() == source
+
+
+async def test_delete_source(client: httpx.AsyncClient) -> None:
+    source = await create_source(client, RSS_SOURCE)
+
+    response = await client.delete(f"/sources/{source['id']}")
+
+    assert response.status_code == 204
+    assert response.content == b""
+    assert (await client.get(f"/sources/{source['id']}")).status_code == 404
+
+
+@pytest.mark.parametrize("method", ["GET", "DELETE"])
+async def test_unknown_source_returns_404(client: httpx.AsyncClient, method: str) -> None:
+    response = await client.request(method, f"/sources/{uuid.uuid4()}")
+
+    assert response.status_code == 404
+    assert response.json() == {"error": {"code": "not_found", "message": "Source was not found."}}
+
+
+async def test_source_with_documents_cannot_be_deleted(
+    client: httpx.AsyncClient, session_factory: async_sessionmaker[AsyncSession]
+) -> None:
+    source = await create_source(client, RSS_SOURCE)
+    async with session_factory() as session:
+        session.add(Document(source_id=uuid.UUID(source["id"]), title="An article"))
+        await session.commit()
+
+    response = await client.delete(f"/sources/{source['id']}")
+
+    assert response.status_code == 409
+    assert response.json() == {
+        "error": {"code": "conflict", "message": "Source has documents and cannot be deleted."},
+    }
