@@ -5,9 +5,14 @@ from typing import Any
 from sqlalchemy import DateTime, func
 from sqlalchemy.orm import Mapped, mapped_column
 
+# Mixin columns would otherwise come after the model's own columns. This keeps
+# id first and the timestamps last in every table.
+FIRST = -100
+LAST = 100
+
 
 class UUIDPrimaryKeyMixin:
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4, sort_order=FIRST)
 
 
 class TimestampMixin:
@@ -21,7 +26,9 @@ class TimestampMixin:
     # cannot load them later on attribute access.
     __mapper_args__: dict[str, Any] = {"eager_defaults": True}
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), sort_order=LAST
+    )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), sort_order=LAST
     )

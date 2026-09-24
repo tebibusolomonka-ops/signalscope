@@ -5,8 +5,8 @@ from sqlalchemy.engine import Connection
 
 from signalscope.core.logging import configure_logging
 from signalscope.core.settings import Settings, load_settings
-from signalscope.db.base import Base
 from signalscope.db.engine import create_database_engine
+from signalscope.db.models import Base
 
 target_metadata = Base.metadata
 
