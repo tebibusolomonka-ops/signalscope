@@ -37,5 +37,16 @@ Do not add future features, services or dependencies early.
 - Use the Git identity that is already configured. Do not change `user.name`
   or `user.email`.
 - Do not push unless asked.
-- Before each commit, read the diff and run the tests and checks. Commit only
-  when they pass.
+- Before each commit, read the diff and run the checks below. Commit only when
+  they pass.
+
+## Checks
+
+Install with `pip install -e ".[dev]"`, then run:
+
+```bash
+pytest
+ruff check .
+ruff format --check .
+mypy src
+```

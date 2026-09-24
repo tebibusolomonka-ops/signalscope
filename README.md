@@ -8,3 +8,24 @@ video, and turn it into structured information that can be searched and analyzed
 
 Early development. Only the project foundation exists so far. There are no
 user-facing features yet.
+
+## Development
+
+SignalScope needs Python 3.12 or newer.
+
+Set up a virtual environment and install the package with the dev tools:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+pip install -e ".[dev]"
+```
+
+Run the checks:
+
+```bash
+pytest
+ruff check .
+ruff format --check .
+mypy src
+```
