@@ -1,10 +1,11 @@
 import os
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 
 TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
 FALSE_VALUES = frozenset({"0", "false", "no", "off"})
+DATABASE_URL_PREFIX = "postgresql+asyncpg://"
 
 
 class SettingsError(ValueError):
@@ -31,10 +32,14 @@ class Settings:
     environment: Environment = Environment.DEVELOPMENT
     debug: bool = False
     log_level: LogLevel = LogLevel.INFO
+    # Left out of repr because the URL can contain a password.
+    database_url: str | None = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
         if not self.app_name.strip():
             raise SettingsError("app_name must not be empty")
+        if self.database_url is not None and not self.database_url.startswith(DATABASE_URL_PREFIX):
+            raise SettingsError(f"Database URL must start with {DATABASE_URL_PREFIX}")
 
 
 def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
@@ -50,6 +55,7 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
         environment=_read_enum(env, "SIGNALSCOPE_ENVIRONMENT", Environment, defaults.environment),
         debug=_read_bool(env, "SIGNALSCOPE_DEBUG", defaults.debug),
         log_level=_read_enum(env, "SIGNALSCOPE_LOG_LEVEL", LogLevel, defaults.log_level),
+        database_url=_read(env, "SIGNALSCOPE_DATABASE_URL"),
     )
 
 

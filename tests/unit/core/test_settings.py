@@ -10,6 +10,8 @@ from signalscope.core.settings import (
     load_settings,
 )
 
+DATABASE_URL = "postgresql+asyncpg://signalscope:signalscope@localhost:5432/signalscope"
+
 
 def test_defaults() -> None:
     settings = Settings()
@@ -18,6 +20,7 @@ def test_defaults() -> None:
     assert settings.environment is Environment.DEVELOPMENT
     assert settings.debug is False
     assert settings.log_level is LogLevel.INFO
+    assert settings.database_url is None
 
 
 def test_custom_values() -> None:
@@ -58,6 +61,7 @@ def test_load_settings_reads_all_values() -> None:
             "SIGNALSCOPE_ENVIRONMENT": "production",
             "SIGNALSCOPE_DEBUG": "true",
             "SIGNALSCOPE_LOG_LEVEL": "DEBUG",
+            "SIGNALSCOPE_DATABASE_URL": DATABASE_URL,
         }
     )
 
@@ -66,6 +70,7 @@ def test_load_settings_reads_all_values() -> None:
         environment=Environment.PRODUCTION,
         debug=True,
         log_level=LogLevel.DEBUG,
+        database_url=DATABASE_URL,
     )
 
 
@@ -82,6 +87,7 @@ def test_load_settings_ignores_empty_values() -> None:
             "SIGNALSCOPE_ENVIRONMENT": "",
             "SIGNALSCOPE_DEBUG": "",
             "SIGNALSCOPE_LOG_LEVEL": "",
+            "SIGNALSCOPE_DATABASE_URL": "",
         }
     )
 
@@ -130,3 +136,25 @@ def test_invalid_environment_is_rejected() -> None:
 def test_invalid_log_level_is_rejected() -> None:
     with pytest.raises(SettingsError, match="SIGNALSCOPE_LOG_LEVEL must be one of"):
         load_settings({"SIGNALSCOPE_LOG_LEVEL": "VERBOSE"})
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "sqlite:///signalscope.db",
+        "postgresql://signalscope:fake-password@localhost:5432/signalscope",
+        "postgresql+psycopg://signalscope:fake-password@localhost:5432/signalscope",
+        "mysql://signalscope:fake-password@localhost:3306/signalscope",
+    ],
+)
+def test_database_url_must_use_asyncpg(url: str) -> None:
+    with pytest.raises(SettingsError, match="Database URL must start with") as error:
+        load_settings({"SIGNALSCOPE_DATABASE_URL": url})
+
+    assert "fake-password" not in str(error.value)
+
+
+def test_database_url_is_not_shown_in_repr() -> None:
+    settings = Settings(database_url=DATABASE_URL)
+
+    assert DATABASE_URL not in repr(settings)
