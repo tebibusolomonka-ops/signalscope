@@ -31,6 +31,17 @@ access log is turned off:
 uvicorn signalscope.api.app:create_app --factory --reload --no-access-log
 ```
 
+Start the local PostgreSQL database and point SignalScope at it. The user,
+password and database name in `compose.yaml` are all `signalscope`. They are
+for local development only, so do not use them anywhere else.
+
+```bash
+docker compose up -d postgres
+export SIGNALSCOPE_DATABASE_URL=postgresql+asyncpg://signalscope:signalscope@localhost:5432/signalscope
+```
+
+Stop it with `docker compose down`. Add `-v` to delete the data as well.
+
 Apply database migrations. This needs `SIGNALSCOPE_DATABASE_URL`:
 
 ```bash

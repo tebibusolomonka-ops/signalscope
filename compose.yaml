@@ -1,0 +1,22 @@
+# Local development only. These credentials are local values, not production secrets.
+name: signalscope
+
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: signalscope
+      POSTGRES_USER: signalscope
+      POSTGRES_PASSWORD: signalscope
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U signalscope -d signalscope"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres-data:
