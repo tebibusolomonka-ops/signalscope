@@ -31,6 +31,17 @@ class IngestionRunRepository:
     async def get(self, run_id: uuid.UUID) -> IngestionRun | None:
         return await self.session.get(IngestionRun, run_id)
 
+    async def get_for_update(self, run_id: uuid.UUID) -> IngestionRun | None:
+        """Load a run and lock its row until the transaction ends."""
+        result = await self.session.scalars(
+            select(IngestionRun)
+            .where(IngestionRun.id == run_id)
+            .with_for_update()
+            # Reload a run the session already holds, so callers see the locked row.
+            .execution_options(populate_existing=True)
+        )
+        return result.one_or_none()
+
     async def list_page(
         self, filters: IngestionRunFilters, limit: int, offset: int
     ) -> list[IngestionRun]:
