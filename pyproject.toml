@@ -41,4 +41,4 @@ strict = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = ["--strict-markers", "--import-mode=importlib"]
+addopts = ["--strict-markers", "--import-mode=importlib", "-rs"]

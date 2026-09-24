@@ -63,6 +63,16 @@ ruff format --check .
 mypy src
 ```
 
+Database tests run only when `SIGNALSCOPE_TEST_DATABASE_URL` is set. Otherwise
+they are skipped. The tests delete data, so the database name must end with
+`_test`. With the local Compose database:
+
+```bash
+docker compose exec postgres createdb -U signalscope signalscope_test
+export SIGNALSCOPE_TEST_DATABASE_URL=postgresql+asyncpg://signalscope:signalscope@localhost:5432/signalscope_test
+pytest
+```
+
 ## Docker
 
 Build and run the API image:

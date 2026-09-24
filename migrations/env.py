@@ -38,8 +38,12 @@ async def run_migrations_online(settings: Settings) -> None:
         await engine.dispose()
 
 
-settings = load_settings()
-configure_logging(settings)
+# Tests pass their own settings to run against the test database. They also
+# keep their own logging setup.
+settings: Settings | None = context.config.attributes.get("settings")
+if settings is None:
+    settings = load_settings()
+    configure_logging(settings)
 
 if context.is_offline_mode():
     run_migrations_offline()

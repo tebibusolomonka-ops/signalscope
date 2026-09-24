@@ -50,3 +50,8 @@ ruff check .
 ruff format --check .
 mypy src
 ```
+
+Unit tests must not need PostgreSQL or any other running service. Database
+tests live in `tests/integration` and skip unless `SIGNALSCOPE_TEST_DATABASE_URL`
+is set. Its database name must end with `_test`. Never point it at a real
+database.
