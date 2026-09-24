@@ -36,8 +36,9 @@ class SourceService:
             raise NotFoundError("Source was not found.")
         return source
 
-    async def list_all(self) -> list[Source]:
-        return await self.repository.list_all()
+    async def list_page(self, limit: int, offset: int) -> tuple[list[Source], int]:
+        """Return one page of sources and the total number of sources."""
+        return await self.repository.list_page(limit, offset), await self.repository.count()
 
     async def delete(self, source_id: uuid.UUID) -> None:
         try:

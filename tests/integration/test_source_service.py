@@ -37,7 +37,7 @@ async def test_failed_create_rolls_back(session_factory: async_sessionmaker[Asyn
         with pytest.raises(DBAPIError):
             await service.create(too_long)
 
-        assert await service.list_all() == []
+        assert await service.list_page(limit=10, offset=0) == ([], 0)
 
 
 async def test_get_unknown_source_raises_not_found(
@@ -48,17 +48,18 @@ async def test_get_unknown_source_raises_not_found(
             await SourceService(session).get(uuid.uuid4())
 
 
-async def test_list_all_returns_created_sources(
+async def test_list_page_returns_page_and_total(
     session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
     async with session_factory() as session:
         service = SourceService(session)
-        await service.create(rss_source("First"))
-        await service.create(rss_source("Second"))
+        for name in ["First", "Second", "Third"]:
+            await service.create(rss_source(name))
 
-        sources = await service.list_all()
+        sources, total = await service.list_page(limit=2, offset=1)
 
-    assert [source.name for source in sources] == ["First", "Second"]
+    assert [source.name for source in sources] == ["Second", "Third"]
+    assert total == 3
 
 
 async def test_delete_removes_source(session_factory: async_sessionmaker[AsyncSession]) -> None:

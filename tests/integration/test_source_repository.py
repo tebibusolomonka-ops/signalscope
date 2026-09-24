@@ -61,7 +61,7 @@ async def test_add_does_not_commit(session_factory: async_sessionmaker[AsyncSess
         assert await SourceRepository(session).get(source.id) is None
 
 
-async def test_list_all_returns_sources_in_creation_order(
+async def test_list_page_returns_sources_in_creation_order(
     session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
     await add_source(session_factory, "First")
@@ -69,9 +69,35 @@ async def test_list_all_returns_sources_in_creation_order(
     await add_source(session_factory, "Third")
 
     async with session_factory() as session:
-        sources = await SourceRepository(session).list_all()
+        sources = await SourceRepository(session).list_page(limit=10, offset=0)
 
     assert [source.name for source in sources] == ["First", "Second", "Third"]
+
+
+async def test_list_page_applies_limit_and_offset(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    for name in ["A", "B", "C", "D", "E"]:
+        await add_source(session_factory, name)
+
+    async with session_factory() as session:
+        repository = SourceRepository(session)
+        middle = await repository.list_page(limit=2, offset=1)
+        past_the_end = await repository.list_page(limit=2, offset=5)
+
+    assert [source.name for source in middle] == ["B", "C"]
+    assert past_the_end == []
+
+
+async def test_count(session_factory: async_sessionmaker[AsyncSession]) -> None:
+    async with session_factory() as session:
+        assert await SourceRepository(session).count() == 0
+
+    await add_source(session_factory, "First")
+    await add_source(session_factory, "Second")
+
+    async with session_factory() as session:
+        assert await SourceRepository(session).count() == 2
 
 
 async def test_delete_removes_source(session_factory: async_sessionmaker[AsyncSession]) -> None:

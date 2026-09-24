@@ -1,3 +1,4 @@
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -37,6 +38,16 @@ def test_invalid_source_body_is_rejected() -> None:
 
     assert response.status_code == 422
     assert response.json()["detail"][0]["loc"] == ["body", "type"]
+
+
+@pytest.mark.parametrize("params", [{"limit": 0}, {"limit": 101}, {"offset": -1}])
+def test_invalid_page_params_are_rejected(params: dict[str, int]) -> None:
+    app = create_app(Settings(database_url=FAKE_DATABASE_URL))
+
+    with TestClient(app) as client:
+        response = client.get("/sources", params=params)
+
+    assert response.status_code == 422
 
 
 def test_source_routes_are_in_openapi(app: FastAPI) -> None:

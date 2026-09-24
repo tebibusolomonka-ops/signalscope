@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from signalscope.domain.sources.model import Source
@@ -24,9 +24,15 @@ class SourceRepository:
     async def get(self, source_id: uuid.UUID) -> Source | None:
         return await self.session.get(Source, source_id)
 
-    async def list_all(self) -> list[Source]:
-        result = await self.session.scalars(select(Source).order_by(Source.created_at, Source.id))
+    async def list_page(self, limit: int, offset: int) -> list[Source]:
+        result = await self.session.scalars(
+            select(Source).order_by(Source.created_at, Source.id).limit(limit).offset(offset)
+        )
         return list(result.all())
+
+    async def count(self) -> int:
+        result = await self.session.execute(select(func.count()).select_from(Source))
+        return result.scalar_one()
 
     async def delete(self, source_id: uuid.UUID) -> bool:
         """Delete a source. Returns False when there was no source with that ID."""

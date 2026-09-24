@@ -4,6 +4,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, status
 
 from signalscope.api.dependencies import DatabaseSession
+from signalscope.api.pagination import Page, Pagination
 from signalscope.domain.sources.schemas import SourceCreate, SourceRead
 from signalscope.domain.sources.service import SourceService
 
@@ -23,8 +24,14 @@ async def create_source(data: SourceCreate, sources: Sources) -> SourceRead:
 
 
 @router.get("")
-async def list_sources(sources: Sources) -> list[SourceRead]:
-    return [SourceRead.model_validate(source) for source in await sources.list_all()]
+async def list_sources(page: Pagination, sources: Sources) -> Page[SourceRead]:
+    items, total = await sources.list_page(page.limit, page.offset)
+    return Page[SourceRead](
+        items=[SourceRead.model_validate(source) for source in items],
+        total=total,
+        limit=page.limit,
+        offset=page.offset,
+    )
 
 
 @router.get("/{source_id}")

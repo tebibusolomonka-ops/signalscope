@@ -44,16 +44,39 @@ async def test_create_source(client: httpx.AsyncClient) -> None:
     assert source["created_at"] == source["updated_at"]
 
 
-async def test_list_sources(client: httpx.AsyncClient) -> None:
-    assert (await client.get("/sources")).json() == []
-
+async def test_list_sources_uses_default_page(client: httpx.AsyncClient) -> None:
     first = await create_source(client, {"type": "upload", "name": "Uploads"})
     second = await create_source(client, RSS_SOURCE)
 
     response = await client.get("/sources")
 
     assert response.status_code == 200
-    assert response.json() == [first, second]
+    assert response.json() == {"items": [first, second], "total": 2, "limit": 50, "offset": 0}
+
+
+async def test_list_sources_with_limit_and_offset(client: httpx.AsyncClient) -> None:
+    sources = [
+        await create_source(client, {"type": "upload", "name": f"Uploads {number}"})
+        for number in range(5)
+    ]
+
+    response = await client.get("/sources", params={"limit": 2, "offset": 2})
+
+    assert response.json() == {"items": sources[2:4], "total": 5, "limit": 2, "offset": 2}
+
+
+async def test_list_sources_past_the_end_is_empty(client: httpx.AsyncClient) -> None:
+    await create_source(client, RSS_SOURCE)
+
+    response = await client.get("/sources", params={"offset": 10})
+
+    assert response.json() == {"items": [], "total": 1, "limit": 50, "offset": 10}
+
+
+async def test_list_sources_when_there_are_none(client: httpx.AsyncClient) -> None:
+    response = await client.get("/sources")
+
+    assert response.json() == {"items": [], "total": 0, "limit": 50, "offset": 0}
 
 
 async def test_get_source(client: httpx.AsyncClient) -> None:
