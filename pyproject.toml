@@ -8,7 +8,10 @@ version = "0.1.0"
 description = "Media intelligence and research platform."
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn>=0.32",
+]
 
 [project.optional-dependencies]
 dev = [

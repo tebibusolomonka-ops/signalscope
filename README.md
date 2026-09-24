@@ -24,6 +24,12 @@ pip install -e ".[dev]"
 Settings come from `SIGNALSCOPE_*` environment variables. See
 [docs/configuration.md](docs/configuration.md).
 
+Run the API locally:
+
+```bash
+uvicorn signalscope.api.app:create_app --factory --reload
+```
+
 Run the checks:
 
 ```bash
