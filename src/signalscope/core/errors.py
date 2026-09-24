@@ -16,3 +16,7 @@ class NotFoundError(SignalScopeError):
 
 class ConflictError(SignalScopeError):
     default_message = "Resource conflicts with existing data."
+
+
+class ServiceUnavailableError(SignalScopeError):
+    default_message = "Service is not available."
