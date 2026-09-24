@@ -30,6 +30,18 @@ Run the API locally:
 uvicorn signalscope.api.app:create_app --factory --reload
 ```
 
+Apply database migrations. This needs `SIGNALSCOPE_DATABASE_URL`:
+
+```bash
+alembic upgrade head
+```
+
+Create a new migration:
+
+```bash
+alembic revision -m "Describe the change"
+```
+
 Run the checks:
 
 ```bash
