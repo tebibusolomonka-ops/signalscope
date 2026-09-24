@@ -1,10 +1,13 @@
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, StringConstraints
+from pydantic import AfterValidator, AwareDatetime, BaseModel, ConfigDict, StringConstraints
 
 from signalscope.domain.documents.model import EXTERNAL_ID_MAX_LENGTH, LANGUAGE_MAX_LENGTH
+
+# Converted to UTC, so responses look the same before and after a database round trip.
+UtcDatetime = Annotated[AwareDatetime, AfterValidator(lambda value: value.astimezone(UTC))]
 
 ExternalId = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=EXTERNAL_ID_MAX_LENGTH)
@@ -25,7 +28,7 @@ class DocumentCreate(BaseModel):
     # Content is stored exactly as sent.
     content: str | None = None
     language: Language | None = None
-    published_at: AwareDatetime | None = None
+    published_at: UtcDatetime | None = None
 
 
 class DocumentRead(BaseModel):

@@ -29,6 +29,7 @@ def test_valid_document() -> None:
     assert document.content == "  Text with spaces kept.  "
     assert document.language == "pt-BR"
     assert document.published_at == datetime(2026, 3, 1, 10, 30, tzinfo=UTC)
+    assert document.published_at.utcoffset() == timedelta(0)
 
 
 def test_only_source_id_is_required() -> None:
