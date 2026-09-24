@@ -8,6 +8,9 @@ from signalscope.db.base import Base
 from signalscope.db.mixins import TimestampMixin, UUIDPrimaryKeyMixin
 from signalscope.domain.sources.model import Source
 
+EXTERNAL_ID_MAX_LENGTH = 500
+LANGUAGE_MAX_LENGTH = 35
+
 
 class Document(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """One content item collected from a source, such as an article or a PDF."""
@@ -20,11 +23,11 @@ class Document(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     # Restrict, so deleting a source never removes its documents by accident.
     source_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("sources.id", ondelete="RESTRICT"))
     # The ID the source uses for this item, such as a feed GUID.
-    external_id: Mapped[str | None] = mapped_column(String(500))
+    external_id: Mapped[str | None] = mapped_column(String(EXTERNAL_ID_MAX_LENGTH))
     title: Mapped[str | None] = mapped_column(Text)
     content: Mapped[str | None] = mapped_column(Text)
     # BCP 47 language tag, such as "en" or "pt-BR".
-    language: Mapped[str | None] = mapped_column(String(35))
+    language: Mapped[str | None] = mapped_column(String(LANGUAGE_MAX_LENGTH))
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     # Async sessions cannot lazy load, so the source has to be loaded on purpose.
