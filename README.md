@@ -21,6 +21,9 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
 ```
 
+Settings come from `SIGNALSCOPE_*` environment variables. See
+[docs/configuration.md](docs/configuration.md).
+
 Run the checks:
 
 ```bash
