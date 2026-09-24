@@ -5,9 +5,10 @@ from sqlalchemy.engine import Connection
 
 from signalscope.core.logging import configure_logging
 from signalscope.core.settings import Settings, load_settings
+from signalscope.db.base import Base
 from signalscope.db.engine import create_database_engine
 
-target_metadata = None
+target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:
