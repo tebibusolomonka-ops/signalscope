@@ -4,6 +4,7 @@ Alembic and the database test setup import Base from here.
 """
 
 from signalscope.db.base import Base
+from signalscope.domain.documents.model import Document
 from signalscope.domain.sources.model import Source
 
-__all__ = ["Base", "Source"]
+__all__ = ["Base", "Document", "Source"]
