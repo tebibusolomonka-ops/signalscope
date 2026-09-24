@@ -1,6 +1,5 @@
 import logging
 import re
-from collections.abc import Iterator
 
 import pytest
 
@@ -10,16 +9,6 @@ from signalscope.core.settings import LogLevel, Settings
 LINE_PATTERN = re.compile(
     r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z INFO     signalscope\.test: hello$"
 )
-
-
-@pytest.fixture(autouse=True)
-def restore_root_logger() -> Iterator[None]:
-    root = logging.getLogger()
-    handlers = root.handlers[:]
-    level = root.level
-    yield
-    root.handlers[:] = handlers
-    root.setLevel(level)
 
 
 def test_formatter_output() -> None:
