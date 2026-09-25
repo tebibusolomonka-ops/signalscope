@@ -65,6 +65,16 @@ class IngestionRunRepository:
             )
         )
 
+    async def add_attempt(self, run_id: uuid.UUID) -> int:
+        """Add one to a run's attempt count in the database and return the new count."""
+        result = await self.session.execute(
+            update(IngestionRun)
+            .where(IngestionRun.id == run_id)
+            .values(attempt_count=IngestionRun.attempt_count + 1)
+            .returning(IngestionRun.attempt_count)
+        )
+        return result.scalar_one()
+
     async def list_page(
         self, filters: IngestionRunFilters, limit: int, offset: int
     ) -> list[IngestionRun]:

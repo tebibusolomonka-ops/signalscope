@@ -86,6 +86,10 @@ It prints the run ID, the status and how many items were seen, created and
 skipped as duplicates. The exit code is 0 only when the run completed. Upload
 and API sources cannot be ingested from the command line.
 
+Timeouts, connection errors and HTTP 429, 502, 503 and 504 responses are tried
+again. A run makes at most 3 attempts and waits 5, then 10 seconds in between.
+Documents saved by an earlier attempt are kept and skipped as duplicates.
+
 ## Docker
 
 Build and run the API image:

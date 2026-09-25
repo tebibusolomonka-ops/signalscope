@@ -139,6 +139,23 @@ async def test_counters_start_at_zero(
     assert saved.attempt_count == 0
 
 
+async def test_add_attempt_returns_the_new_count(
+    session_factory: async_sessionmaker[AsyncSession], source: Source
+) -> None:
+    run = await add_run(session_factory, source)
+
+    async with session_factory() as session:
+        repository = IngestionRunRepository(session)
+        assert await repository.add_attempt(run.id) == 1
+        assert await repository.add_attempt(run.id) == 2
+        await session.commit()
+
+    async with session_factory() as session:
+        saved = await IngestionRunRepository(session).get(run.id)
+    assert saved is not None
+    assert saved.attempt_count == 2
+
+
 async def test_database_sets_attempt_count_to_zero(
     session_factory: async_sessionmaker[AsyncSession], source: Source
 ) -> None:

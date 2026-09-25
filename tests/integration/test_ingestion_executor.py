@@ -7,11 +7,12 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from signalscope.core.errors import NotFoundError
 from signalscope.domain.documents.model import Document
 from signalscope.domain.documents.repository import DocumentFilters, DocumentRepository
-from signalscope.domain.ingestion.adapter import IngestedItem
-from signalscope.domain.ingestion.errors import IngestionError
+from signalscope.domain.ingestion.adapter import IngestedItem, IngestionAdapter
+from signalscope.domain.ingestion.errors import FetchError, IngestionError
 from signalscope.domain.ingestion.executor import UNEXPECTED_ERROR_MESSAGE, IngestionExecutor
 from signalscope.domain.ingestion.model import IngestionRun, IngestionStatus
 from signalscope.domain.ingestion.registry import AdapterRegistry
+from signalscope.domain.ingestion.retry import RetryPolicy
 from signalscope.domain.ingestion.service import IngestionRunService, InvalidStatusChangeError
 from signalscope.domain.ingestion.writer import DocumentWriter
 from signalscope.domain.sources.model import Source, SourceType
@@ -33,7 +34,9 @@ class ListAdapter:
             raise self.error
 
 
-def registry_for(adapter: ListAdapter, source_type: SourceType = SourceType.RSS) -> AdapterRegistry:
+def registry_for(
+    adapter: IngestionAdapter, source_type: SourceType = SourceType.RSS
+) -> AdapterRegistry:
     registry = AdapterRegistry()
     registry.register(source_type, adapter)
     return registry
@@ -93,6 +96,7 @@ async def test_run_without_items_completes(
     assert run.finished_at is not None
     assert run.finished_at >= run.started_at
     assert run.error_message is None
+    assert run.attempt_count == 1
 
 
 async def test_one_item_creates_one_document(
@@ -196,6 +200,8 @@ async def test_unsupported_source_type_fails_the_run(
     assert run.error_message == "No ingestion adapter is available for upload sources."
     assert run.started_at is not None
     assert run.finished_at is not None
+    # Nothing was fetched, so there was no attempt.
+    assert run.attempt_count == 0
 
 
 async def test_run_that_is_not_pending_is_not_executed(
@@ -212,6 +218,7 @@ async def test_run_that_is_not_pending_is_not_executed(
         again = await IngestionRunService(session).get(run.id)
     assert again.status is IngestionStatus.COMPLETED
     assert counters(again) == (1, 1, 0)
+    assert again.attempt_count == 1
 
 
 async def test_unknown_run_is_not_found(session_factory: async_sessionmaker[AsyncSession]) -> None:
@@ -259,3 +266,182 @@ async def test_adapter_is_closed_before_the_run_is_marked_failed(
 
     assert run.status is IngestionStatus.FAILED
     assert events == ["adapter closed", "run failed"]
+
+
+class RetryAdapter:
+    """Uses the next adapter in the list for each attempt."""
+
+    def __init__(self, *attempts: ListAdapter) -> None:
+        self.attempts = list(attempts)
+        self.calls = 0
+
+    def fetch(self, source: Source) -> AsyncGenerator[IngestedItem]:
+        adapter = self.attempts[self.calls]
+        self.calls += 1
+        return adapter.fetch(source)
+
+
+def timeout() -> FetchError:
+    return FetchError("Request timed out.", network_error=True)
+
+
+def server_busy() -> FetchError:
+    return FetchError("Request failed with status 503.", status_code=503)
+
+
+QUICK_RETRIES = RetryPolicy(max_attempts=3, base_delay_seconds=1, max_delay_seconds=10)
+
+
+async def execute_with_retries(
+    session_factory: async_sessionmaker[AsyncSession],
+    adapter: RetryAdapter,
+    policy: RetryPolicy = QUICK_RETRIES,
+) -> tuple[IngestionRun, Source, list[float]]:
+    delays: list[float] = []
+
+    async def sleep(seconds: float) -> None:
+        delays.append(seconds)
+
+    source = await create_source(session_factory)
+    run_id = await create_run(session_factory, source)
+    executor = IngestionExecutor(session_factory, registry_for(adapter), policy, sleep)
+    return await executor.execute(run_id), source, delays
+
+
+async def test_success_on_the_first_attempt_does_not_wait(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    adapter = RetryAdapter(ListAdapter([item(1)]))
+
+    run, _, delays = await execute_with_retries(session_factory, adapter)
+
+    assert run.status is IngestionStatus.COMPLETED
+    assert run.attempt_count == 1
+    assert adapter.calls == 1
+    assert delays == []
+
+
+async def test_temporary_failure_is_tried_again(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    adapter = RetryAdapter(ListAdapter([], server_busy()), ListAdapter([item(1)]))
+
+    run, source, delays = await execute_with_retries(session_factory, adapter)
+
+    assert run.status is IngestionStatus.COMPLETED
+    assert run.error_message is None
+    assert run.attempt_count == 2
+    assert delays == [1]
+    assert counters(run) == (1, 1, 0)
+    assert len(await documents_of(session_factory, source)) == 1
+
+
+async def test_several_retries_wait_longer_each_time(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    adapter = RetryAdapter(
+        ListAdapter([], timeout()),
+        ListAdapter([], server_busy()),
+        ListAdapter([], timeout()),
+        ListAdapter([item(1)]),
+    )
+    policy = RetryPolicy(max_attempts=4, base_delay_seconds=1, max_delay_seconds=10)
+
+    run, _, delays = await execute_with_retries(session_factory, adapter, policy)
+
+    assert run.status is IngestionStatus.COMPLETED
+    assert run.attempt_count == 4
+    assert delays == [1, 2, 4]
+
+
+async def test_run_fails_when_attempts_run_out(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    adapter = RetryAdapter(
+        ListAdapter([], timeout()), ListAdapter([], timeout()), ListAdapter([], timeout())
+    )
+    policy = RetryPolicy(max_attempts=3, base_delay_seconds=2, max_delay_seconds=3)
+
+    run, _, delays = await execute_with_retries(session_factory, adapter, policy)
+
+    assert run.status is IngestionStatus.FAILED
+    assert run.error_message == "Request timed out."
+    assert run.attempt_count == 3
+    assert adapter.calls == 3
+    assert delays == [2, 3]
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        FetchError("Request failed with status 404.", status_code=404),
+        IngestionError("Response is not an RSS or Atom feed."),
+        RuntimeError("something unexpected"),
+    ],
+)
+async def test_other_failures_are_not_tried_again(
+    session_factory: async_sessionmaker[AsyncSession], error: Exception
+) -> None:
+    adapter = RetryAdapter(ListAdapter([], error), ListAdapter([item(1)]))
+
+    run, _, delays = await execute_with_retries(session_factory, adapter)
+
+    assert run.status is IngestionStatus.FAILED
+    assert run.attempt_count == 1
+    assert adapter.calls == 1
+    assert delays == []
+
+
+async def test_run_stays_running_between_attempts(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    source = await create_source(session_factory)
+    run_id = await create_run(session_factory, source)
+    seen: list[tuple[IngestionStatus, int]] = []
+
+    async def sleep(seconds: float) -> None:
+        async with session_factory() as session:
+            run = await IngestionRunService(session).get(run_id)
+            seen.append((run.status, run.attempt_count))
+
+    adapter = RetryAdapter(ListAdapter([], timeout()), ListAdapter([], timeout()), ListAdapter([]))
+    executor = IngestionExecutor(session_factory, registry_for(adapter), QUICK_RETRIES, sleep)
+
+    run = await executor.execute(run_id)
+
+    assert seen == [(IngestionStatus.RUNNING, 1), (IngestionStatus.RUNNING, 2)]
+    assert run.status is IngestionStatus.COMPLETED
+
+
+async def test_documents_from_failed_attempts_are_kept(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    adapter = RetryAdapter(
+        ListAdapter([item(1), item(2)], timeout()),
+        ListAdapter([item(3)], IngestionError("Feed went away.")),
+    )
+
+    run, source, _ = await execute_with_retries(session_factory, adapter)
+
+    assert run.status is IngestionStatus.FAILED
+    assert run.error_message == "Feed went away."
+    assert run.attempt_count == 2
+    assert counters(run) == (3, 3, 0)
+    assert len(await documents_of(session_factory, source)) == 3
+
+
+async def test_retry_skips_documents_saved_by_an_earlier_attempt(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    adapter = RetryAdapter(
+        ListAdapter([item(1), item(2)], timeout()),
+        ListAdapter([item(1), item(2), item(3)]),
+    )
+
+    run, source, _ = await execute_with_retries(session_factory, adapter)
+
+    assert run.status is IngestionStatus.COMPLETED
+    assert run.attempt_count == 2
+    # Counters add up across attempts. They are never reset.
+    assert counters(run) == (5, 3, 2)
+    assert len(await documents_of(session_factory, source)) == 3
