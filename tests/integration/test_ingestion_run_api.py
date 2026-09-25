@@ -45,6 +45,7 @@ async def test_create_ingestion_run(client: httpx.AsyncClient, source_id: str) -
         0,
         0,
     )
+    assert run["attempt_count"] == 0
 
 
 async def test_create_ingestion_run_for_unknown_source(client: httpx.AsyncClient) -> None:

@@ -10,7 +10,7 @@ from signalscope.db.mixins import TimestampMixin, UUIDPrimaryKeyMixin
 from signalscope.db.types import string_enum
 
 ERROR_MESSAGE_MAX_LENGTH = 1000
-COUNTERS = ("items_seen", "documents_created", "duplicates_skipped")
+COUNTERS = ("items_seen", "documents_created", "duplicates_skipped", "attempt_count")
 
 
 class IngestionStatus(StrEnum):
@@ -44,3 +44,5 @@ class IngestionRun(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     items_seen: Mapped[int] = mapped_column(default=0, server_default=text("0"))
     documents_created: Mapped[int] = mapped_column(default=0, server_default=text("0"))
     duplicates_skipped: Mapped[int] = mapped_column(default=0, server_default=text("0"))
+    # How many times the run was executed. A new pending run has 0.
+    attempt_count: Mapped[int] = mapped_column(default=0, server_default=text("0"))

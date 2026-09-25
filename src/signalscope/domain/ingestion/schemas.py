@@ -25,5 +25,6 @@ class IngestionRunRead(BaseModel):
     items_seen: int
     documents_created: int
     duplicates_skipped: int
+    attempt_count: int
     created_at: datetime
     updated_at: datetime

@@ -59,7 +59,7 @@ def test_new_runs_are_pending() -> None:
 def test_counters_start_at_zero_and_cannot_go_negative() -> None:
     sql = table_sql()
 
-    for counter in ["items_seen", "documents_created", "duplicates_skipped"]:
+    for counter in ["items_seen", "documents_created", "duplicates_skipped", "attempt_count"]:
         assert f"{counter} INTEGER DEFAULT 0 NOT NULL" in sql
         assert f"CONSTRAINT ck_ingestion_runs_{counter}_not_negative CHECK ({counter} >= 0)" in sql
         assert IngestionRun.__table__.c[counter].default.arg == 0  # type: ignore[union-attr]

@@ -1,6 +1,7 @@
 import uuid
 
 import pytest
+from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -135,9 +136,28 @@ async def test_counters_start_at_zero(
 
     assert saved is not None
     assert (saved.items_seen, saved.documents_created, saved.duplicates_skipped) == (0, 0, 0)
+    assert saved.attempt_count == 0
 
 
-@pytest.mark.parametrize("counter", ["items_seen", "documents_created", "duplicates_skipped"])
+async def test_database_sets_attempt_count_to_zero(
+    session_factory: async_sessionmaker[AsyncSession], source: Source
+) -> None:
+    # Plain SQL skips the model default, so this checks the column default.
+    async with session_factory() as session:
+        attempt_count = await session.scalar(
+            text(
+                "INSERT INTO ingestion_runs (id, source_id, status) "
+                "VALUES (:id, :source_id, 'pending') RETURNING attempt_count"
+            ),
+            {"id": uuid.uuid4(), "source_id": source.id},
+        )
+
+    assert attempt_count == 0
+
+
+@pytest.mark.parametrize(
+    "counter", ["items_seen", "documents_created", "duplicates_skipped", "attempt_count"]
+)
 async def test_counters_cannot_be_negative(
     session_factory: async_sessionmaker[AsyncSession], source: Source, counter: str
 ) -> None:

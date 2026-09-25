@@ -17,6 +17,7 @@ def test_read_schema_includes_counters() -> None:
         items_seen=12,
         documents_created=10,
         duplicates_skipped=2,
+        attempt_count=3,
         created_at=now,
         updated_at=now,
     )
@@ -24,3 +25,4 @@ def test_read_schema_includes_counters() -> None:
     read = IngestionRunRead.model_validate(run)
 
     assert (read.items_seen, read.documents_created, read.duplicates_skipped) == (12, 10, 2)
+    assert read.attempt_count == 3
