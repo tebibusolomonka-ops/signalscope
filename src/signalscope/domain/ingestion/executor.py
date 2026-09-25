@@ -1,5 +1,6 @@
 import logging
 import uuid
+from contextlib import aclosing
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -43,8 +44,10 @@ class IngestionExecutor:
             # Choosing the adapter after the run started lets an unsupported
             # source type end as a normal failed run.
             adapter = self.registry.get(source.type)
-            async for item in adapter.fetch(source):
-                await self._save(run_id, source, item)
+            # aclosing lets the adapter clean up right away when saving an item fails.
+            async with aclosing(adapter.fetch(source)) as items:
+                async for item in items:
+                    await self._save(run_id, source, item)
         except Exception as error:
             logger.exception("Ingestion run %s failed", run_id)
             async with self.session_factory() as session:

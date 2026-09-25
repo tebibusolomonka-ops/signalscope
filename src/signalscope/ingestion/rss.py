@@ -1,6 +1,6 @@
 import logging
 from calendar import timegm
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncGenerator, Iterator
 from datetime import UTC, datetime
 from typing import Any
 
@@ -21,7 +21,7 @@ class RssIngestionAdapter:
     def __init__(self, fetcher: HttpFetcher) -> None:
         self.fetcher = fetcher
 
-    async def fetch(self, source: Source) -> AsyncIterator[IngestedItem]:
+    async def fetch(self, source: Source) -> AsyncGenerator[IngestedItem]:
         if source.type is not SourceType.RSS:
             raise IngestionError(f"The RSS adapter cannot read {source.type} sources.")
         if not source.url:

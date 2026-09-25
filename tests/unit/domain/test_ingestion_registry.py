@@ -1,4 +1,4 @@
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 
 import pytest
 
@@ -9,8 +9,9 @@ from signalscope.domain.sources.model import Source, SourceType
 
 
 class EmptyAdapter:
-    async def fetch(self, source: Source) -> AsyncIterator[IngestedItem]:
-        for item in []:
+    async def fetch(self, source: Source) -> AsyncGenerator[IngestedItem]:
+        items: list[IngestedItem] = []
+        for item in items:
             yield item
 
 

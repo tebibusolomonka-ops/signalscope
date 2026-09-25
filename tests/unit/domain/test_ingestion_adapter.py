@@ -1,5 +1,5 @@
 import dataclasses
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
 
 import pytest
@@ -17,7 +17,7 @@ class ListAdapter:
         self.items = items
         self.produced = 0
 
-    async def fetch(self, source: Source) -> AsyncIterator[IngestedItem]:
+    async def fetch(self, source: Source) -> AsyncGenerator[IngestedItem]:
         for item in self.items:
             self.produced += 1
             yield item

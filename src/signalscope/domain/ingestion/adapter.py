@@ -1,4 +1,4 @@
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
@@ -37,11 +37,11 @@ class IngestionAdapter(Protocol):
     An async generator is enough to implement it:
 
         class FeedAdapter:
-            async def fetch(self, source: Source) -> AsyncIterator[IngestedItem]:
+            async def fetch(self, source: Source) -> AsyncGenerator[IngestedItem]:
                 yield IngestedItem(title="...")
     """
 
-    def fetch(self, source: Source) -> AsyncIterator[IngestedItem]:
+    def fetch(self, source: Source) -> AsyncGenerator[IngestedItem]:
         """Yield the items the source has now.
 
         Items come one at a time, so a large feed never has to fit in memory

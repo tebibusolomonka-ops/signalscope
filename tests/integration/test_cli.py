@@ -1,7 +1,7 @@
 import io
 import re
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
@@ -22,7 +22,7 @@ class ListAdapter:
         self.items = items
         self.error = error
 
-    async def fetch(self, source: Source) -> AsyncIterator[IngestedItem]:
+    async def fetch(self, source: Source) -> AsyncGenerator[IngestedItem]:
         for item in self.items:
             yield item
         if self.error is not None:

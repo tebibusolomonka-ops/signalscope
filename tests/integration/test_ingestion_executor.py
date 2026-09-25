@@ -1,5 +1,5 @@
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -26,7 +26,7 @@ class ListAdapter:
         self.items = items
         self.error = error
 
-    async def fetch(self, source: Source) -> AsyncIterator[IngestedItem]:
+    async def fetch(self, source: Source) -> AsyncGenerator[IngestedItem]:
         for item in self.items:
             yield item
         if self.error is not None:
@@ -217,3 +217,45 @@ async def test_run_that_is_not_pending_is_not_executed(
 async def test_unknown_run_is_not_found(session_factory: async_sessionmaker[AsyncSession]) -> None:
     with pytest.raises(NotFoundError, match="Ingestion run was not found."):
         await IngestionExecutor(session_factory, AdapterRegistry()).execute(uuid.uuid4())
+
+
+class ClosingAdapter:
+    """Yields many items and records when its stream is closed."""
+
+    def __init__(self, events: list[str]) -> None:
+        self.events = events
+
+    async def fetch(self, source: Source) -> AsyncGenerator[IngestedItem]:
+        try:
+            for number in range(10):
+                yield item(number)
+        finally:
+            self.events.append("adapter closed")
+
+
+async def test_adapter_is_closed_before_the_run_is_marked_failed(
+    session_factory: async_sessionmaker[AsyncSession], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    events: list[str] = []
+    mark_failed = IngestionRunService.mark_failed
+
+    async def broken_write(self: DocumentWriter, source_id: uuid.UUID, item: IngestedItem) -> None:
+        raise RuntimeError("database trouble")
+
+    async def recording_mark_failed(
+        self: IngestionRunService, run_id: uuid.UUID, error_message: str
+    ) -> IngestionRun:
+        events.append("run failed")
+        return await mark_failed(self, run_id, error_message)
+
+    monkeypatch.setattr(DocumentWriter, "write", broken_write)
+    monkeypatch.setattr(IngestionRunService, "mark_failed", recording_mark_failed)
+    source = await create_source(session_factory)
+    run_id = await create_run(session_factory, source)
+    registry = AdapterRegistry()
+    registry.register(SourceType.RSS, ClosingAdapter(events))
+
+    run = await IngestionExecutor(session_factory, registry).execute(run_id)
+
+    assert run.status is IngestionStatus.FAILED
+    assert events == ["adapter closed", "run failed"]
