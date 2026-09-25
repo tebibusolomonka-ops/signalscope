@@ -60,6 +60,29 @@ class DocumentRepository:
         )
         return result.scalar_one_or_none() is not None
 
+    async def find_by_external_id(self, source_id: uuid.UUID, external_id: str) -> Document | None:
+        return await self._first_of_source(source_id, Document.external_id == external_id)
+
+    async def find_by_url(self, source_id: uuid.UUID, url: str) -> Document | None:
+        return await self._first_of_source(source_id, Document.url == url)
+
+    async def find_by_content_hash(
+        self, source_id: uuid.UUID, content_hash: str
+    ) -> Document | None:
+        return await self._first_of_source(source_id, Document.content_hash == content_hash)
+
+    async def _first_of_source(
+        self, source_id: uuid.UUID, condition: ColumnElement[bool]
+    ) -> Document | None:
+        # URLs are not unique, so take the oldest match.
+        result = await self.session.scalars(
+            select(Document)
+            .where(Document.source_id == source_id, condition)
+            .order_by(Document.created_at, Document.id)
+            .limit(1)
+        )
+        return result.first()
+
 
 def _conditions(filters: DocumentFilters) -> list[ColumnElement[bool]]:
     # Rows without published_at never match a date limit, because NULL comparisons are false.
