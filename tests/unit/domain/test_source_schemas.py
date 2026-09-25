@@ -6,7 +6,7 @@ import pytest
 from pydantic import ValidationError
 
 from signalscope.domain.sources.model import Source, SourceType
-from signalscope.domain.sources.schemas import SourceCreate, SourceRead
+from signalscope.domain.sources.schemas import SourceCreate, SourceRead, SourceScheduleUpdate
 
 
 def test_valid_source() -> None:
@@ -121,3 +121,33 @@ def test_read_schema_includes_the_schedule() -> None:
         60,
         now,
     )
+
+
+def test_schedule_update() -> None:
+    schedule = SourceScheduleUpdate.model_validate(
+        {"interval_minutes": 60, "start_at": "2026-06-01T08:30:00+02:00"}
+    )
+
+    assert schedule.interval_minutes == 60
+    assert schedule.start_at is not None
+    assert schedule.start_at.utcoffset() is not None
+
+
+def test_schedule_start_is_optional() -> None:
+    assert SourceScheduleUpdate.model_validate({"interval_minutes": 1}).start_at is None
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        {},
+        {"interval_minutes": 0},
+        {"interval_minutes": -60},
+        {"interval_minutes": 10081},
+        {"interval_minutes": 60, "start_at": "2026-06-01T08:30:00"},
+        {"interval_minutes": 60, "next_ingestion_at": "2026-06-01T08:30:00Z"},
+    ],
+)
+def test_invalid_schedule_update_is_rejected(data: dict[str, Any]) -> None:
+    with pytest.raises(ValidationError):
+        SourceScheduleUpdate.model_validate(data)

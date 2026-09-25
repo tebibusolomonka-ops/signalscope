@@ -1,4 +1,5 @@
 import uuid
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -122,4 +123,81 @@ async def test_source_in_use_cannot_be_deleted(
             "code": "conflict",
             "message": "Source has documents or ingestion runs and cannot be deleted.",
         },
+    }
+
+
+async def test_schedule_source(client: httpx.AsyncClient) -> None:
+    source = await create_source(client, RSS_SOURCE)
+    before = datetime.now(UTC)
+
+    response = await client.put(f"/sources/{source['id']}/schedule", json={"interval_minutes": 60})
+
+    assert response.status_code == 200
+    scheduled = response.json()
+    assert scheduled["ingestion_enabled"] is True
+    assert scheduled["ingestion_interval_minutes"] == 60
+    next_at = datetime.fromisoformat(scheduled["next_ingestion_at"])
+    assert before <= next_at <= datetime.now(UTC)
+    assert (await client.get(f"/sources/{source['id']}")).json() == scheduled
+
+
+async def test_schedule_source_with_a_start_time(client: httpx.AsyncClient) -> None:
+    source = await create_source(client, RSS_SOURCE)
+
+    response = await client.put(
+        f"/sources/{source['id']}/schedule",
+        json={"interval_minutes": 30, "start_at": "2026-06-01T08:30:00+02:00"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["next_ingestion_at"] == "2026-06-01T06:30:00Z"
+    assert (await client.get(f"/sources/{source['id']}")).json() == response.json()
+
+
+async def test_unschedule_source_keeps_the_interval(client: httpx.AsyncClient) -> None:
+    source = await create_source(client, RSS_SOURCE)
+    await client.put(f"/sources/{source['id']}/schedule", json={"interval_minutes": 45})
+
+    response = await client.delete(f"/sources/{source['id']}/schedule")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert (
+        body["ingestion_enabled"],
+        body["ingestion_interval_minutes"],
+        body["next_ingestion_at"],
+    ) == (False, 45, None)
+    assert (await client.get(f"/sources/{source['id']}")).json() == body
+
+
+@pytest.mark.parametrize(("method", "body"), [("PUT", {"interval_minutes": 60}), ("DELETE", None)])
+async def test_schedule_of_unknown_source_returns_404(
+    client: httpx.AsyncClient, method: str, body: dict[str, int] | None
+) -> None:
+    response = await client.request(method, f"/sources/{uuid.uuid4()}/schedule", json=body)
+
+    assert response.status_code == 404
+    assert response.json() == {"error": {"code": "not_found", "message": "Source was not found."}}
+
+
+async def test_schedule_with_invalid_interval_returns_422(client: httpx.AsyncClient) -> None:
+    source = await create_source(client, RSS_SOURCE)
+
+    response = await client.put(f"/sources/{source['id']}/schedule", json={"interval_minutes": 0})
+
+    assert response.status_code == 422
+    assert (await client.get(f"/sources/{source['id']}")).json() == source
+
+
+async def test_upload_source_cannot_be_scheduled(client: httpx.AsyncClient) -> None:
+    source = await create_source(client, {"type": "upload", "name": "Uploads"})
+
+    response = await client.put(f"/sources/{source['id']}/schedule", json={"interval_minutes": 60})
+
+    assert response.status_code == 409
+    assert response.json() == {
+        "error": {
+            "code": "conflict",
+            "message": "upload sources cannot be ingested on a schedule.",
+        }
     }

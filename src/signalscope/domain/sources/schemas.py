@@ -2,9 +2,13 @@ import uuid
 from datetime import datetime
 from typing import Self
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
 
-from signalscope.domain.sources.model import SOURCE_NAME_MAX_LENGTH, SourceType
+from signalscope.domain.sources.model import (
+    MAX_INGESTION_INTERVAL_MINUTES,
+    SOURCE_NAME_MAX_LENGTH,
+    SourceType,
+)
 
 URL_MAX_LENGTH = 2048
 TYPES_THAT_NEED_URL = frozenset({SourceType.WEB, SourceType.RSS})
@@ -23,6 +27,14 @@ class SourceCreate(BaseModel):
         if self.url is None and self.type in TYPES_THAT_NEED_URL:
             raise ValueError(f"url is required for {self.type} sources")
         return self
+
+
+class SourceScheduleUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    interval_minutes: int = Field(ge=1, le=MAX_INGESTION_INTERVAL_MINUTES)
+    # Without a start time, the first ingestion is due right away.
+    start_at: AwareDatetime | None = None
 
 
 class SourceRead(BaseModel):
