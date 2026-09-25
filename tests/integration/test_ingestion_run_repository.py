@@ -1,6 +1,7 @@
 import uuid
 
 import pytest
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from signalscope.domain.ingestion.model import IngestionRun, IngestionStatus
@@ -122,3 +123,29 @@ async def test_filters_and_count(
             assert await repository.count(filters) == expected, filters
             assert all(filters.source_id in (None, run.source_id) for run in runs)
             assert all(filters.status in (None, run.status) for run in runs)
+
+
+async def test_counters_start_at_zero(
+    session_factory: async_sessionmaker[AsyncSession], source: Source
+) -> None:
+    run = await add_run(session_factory, source)
+
+    async with session_factory() as session:
+        saved = await IngestionRunRepository(session).get(run.id)
+
+    assert saved is not None
+    assert (saved.items_seen, saved.documents_created, saved.duplicates_skipped) == (0, 0, 0)
+
+
+@pytest.mark.parametrize("counter", ["items_seen", "documents_created", "duplicates_skipped"])
+async def test_counters_cannot_be_negative(
+    session_factory: async_sessionmaker[AsyncSession], source: Source, counter: str
+) -> None:
+    run = await add_run(session_factory, source)
+
+    async with session_factory() as session:
+        saved = await IngestionRunRepository(session).get(run.id)
+        assert saved is not None
+        setattr(saved, counter, -1)
+        with pytest.raises(IntegrityError):
+            await session.flush()

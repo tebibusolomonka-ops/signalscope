@@ -40,6 +40,11 @@ async def test_create_ingestion_run(client: httpx.AsyncClient, source_id: str) -
     assert run["started_at"] is None
     assert run["finished_at"] is None
     assert run["error_message"] is None
+    assert (run["items_seen"], run["documents_created"], run["duplicates_skipped"]) == (
+        0,
+        0,
+        0,
+    )
 
 
 async def test_create_ingestion_run_for_unknown_source(client: httpx.AsyncClient) -> None:

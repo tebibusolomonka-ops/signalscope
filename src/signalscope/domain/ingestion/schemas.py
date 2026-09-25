@@ -22,5 +22,8 @@ class IngestionRunRead(BaseModel):
     started_at: datetime | None
     finished_at: datetime | None
     error_message: str | None
+    items_seen: int
+    documents_created: int
+    duplicates_skipped: int
     created_at: datetime
     updated_at: datetime
