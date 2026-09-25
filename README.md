@@ -134,6 +134,17 @@ name does not tell. The command stores the file and queues it for processing,
 then prints the document, asset and processing job IDs. It does not parse the
 file itself.
 
+Parse one queued file:
+
+```bash
+signalscope run-processing-worker --once
+```
+
+It saves the text on the document and prints the job ID, its status and the
+document ID, or `No document processing job available.` The exit code is 0
+when the job completed or there was no job, and 1 when processing failed. Run
+it again, or from a timer, to work through the queue.
+
 ## Docker
 
 Build and run the API image:

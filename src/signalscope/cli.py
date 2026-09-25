@@ -23,12 +23,16 @@ from signalscope.domain.ingestion.scheduler import IngestionScheduler
 from signalscope.domain.ingestion.service import IngestionRunService
 from signalscope.domain.ingestion.worker import IngestionWorker
 from signalscope.domain.processing.file_import import FileImportService
+from signalscope.domain.processing.model import ProcessingJobStatus
+from signalscope.domain.processing.processor import DocumentProcessor
+from signalscope.domain.processing.worker import DocumentProcessingWorker
 from signalscope.domain.sources.model import SourceType
 from signalscope.domain.sources.repository import SourceRepository
 from signalscope.ingestion.http import HttpFetcher
 from signalscope.ingestion.rss import RssIngestionAdapter
 from signalscope.ingestion.web import WebIngestionAdapter
 from signalscope.parsing.docx_document import DOCX_CONTENT_TYPE
+from signalscope.parsing.registry import create_default_parser_registry
 from signalscope.storage.local import LocalBlobStore
 
 DEFAULT_SCHEDULE_LIMIT = 100
@@ -56,7 +60,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(schedule_ingestion(args.limit, settings))
     if args.command == "import-file":
         return asyncio.run(import_file(args.source_id, args.path, settings, args.content_type))
-    return asyncio.run(run_worker(settings))
+    if args.command == "run-worker":
+        return asyncio.run(run_worker(settings))
+    return asyncio.run(run_processing_worker(settings))
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -88,6 +94,11 @@ def build_parser() -> argparse.ArgumentParser:
     worker = commands.add_parser("run-worker", help="run a queued ingestion job")
     # Only one mode exists for now. The flag keeps the command clear if a loop is added.
     worker.add_argument(
+        "--once", action="store_true", required=True, help="run at most one job, then exit"
+    )
+
+    processing = commands.add_parser("run-processing-worker", help="parse a queued imported file")
+    processing.add_argument(
         "--once", action="store_true", required=True, help="run at most one job, then exit"
     )
     return parser
@@ -175,6 +186,40 @@ async def run_worker(
     if result.job.last_error:
         print(f"Error: {result.job.last_error}", file=out)
     return 0 if result.job.status is IngestionJobStatus.COMPLETED else 1
+
+
+async def run_processing_worker(
+    settings: Settings,
+    out: TextIO | None = None,
+    err: TextIO | None = None,
+) -> int:
+    """Parse one queued file and print the result. Returns the exit code.
+
+    Having no job to run is not an error.
+    """
+    out = sys.stdout if out is None else out
+    err = sys.stderr if err is None else err
+    if settings.database_url is None:
+        print(NO_DATABASE_ERROR, file=err)
+        return 1
+    if settings.blob_dir is None:
+        print(NO_BLOB_DIR_ERROR, file=err)
+        return 1
+
+    blobs = LocalBlobStore(settings.blob_dir)
+    async with _database(settings) as session_factory:
+        processor = DocumentProcessor(session_factory, blobs, create_default_parser_registry())
+        result = await DocumentProcessingWorker(session_factory, processor).run_once()
+
+    if result.job is None:
+        print("No document processing job available.", file=out)
+        return 0
+    print(f"Job: {result.job.id}", file=out)
+    print(f"Status: {result.job.status}", file=out)
+    print(f"Document: {result.job.document_id}", file=out)
+    if result.job.last_error:
+        print(f"Error: {result.job.last_error}", file=out)
+    return 0 if result.job.status is ProcessingJobStatus.COMPLETED else 1
 
 
 async def import_file(
