@@ -120,6 +120,20 @@ job, and 1 when the job failed. Both commands do one pass and exit, so run them
 from cron or a systemd timer. Several workers can run at the same time without
 taking the same job.
 
+### Importing files
+
+Plain text, JSON, HTML, PDF and DOCX files can be imported into an upload
+source. This needs `SIGNALSCOPE_DATABASE_URL` and `SIGNALSCOPE_BLOB_DIR`:
+
+```bash
+signalscope import-file <source-id> ./report.pdf
+```
+
+The content type is guessed from the file name. Pass `--content-type` when the
+name does not tell. The command stores the file and queues it for processing,
+then prints the document, asset and processing job IDs. It does not parse the
+file itself.
+
 ## Docker
 
 Build and run the API image:
