@@ -20,3 +20,7 @@ class ConflictError(SignalScopeError):
 
 class ServiceUnavailableError(SignalScopeError):
     default_message = "Service is not available."
+
+
+class InvalidInputError(SignalScopeError):
+    default_message = "Input is not valid."
