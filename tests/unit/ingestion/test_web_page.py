@@ -98,3 +98,18 @@ def test_published_time(meta: str, expected: datetime | None) -> None:
 @pytest.mark.parametrize("html", ['<html lang="">', '<html lang="  ">', "<html>"])
 def test_missing_language(html: str) -> None:
     assert parse_web_page(html, PAGE_URL).language is None
+
+
+@pytest.mark.parametrize(
+    ("html", "text"),
+    [
+        ("<title>Only a title</title>", ""),
+        ("<title>Title</title><p>Body text</p>", "Body text"),
+        ("<head><title>Title</title><meta charset='utf-8'></head><p>Body text</p>", "Body text"),
+    ],
+)
+def test_title_is_not_part_of_the_text(html: str, text: str) -> None:
+    page = parse_web_page(html, PAGE_URL)
+
+    assert page.text == text
+    assert page.title is not None

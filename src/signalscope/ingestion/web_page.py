@@ -31,9 +31,18 @@ def parse_web_page(html: str | bytes, url: str) -> WebPage:
         language=_language(soup),
         canonical_url=_canonical_url(soup, url),
         published_at=_published_at(soup),
-        # Last, because reading the text removes scripts and styles from the tree.
-        text=element_text(soup.body or soup),
+        # Last, because reading the text removes parts of the tree.
+        text=_text(soup),
     )
+
+
+def _text(soup: BeautifulSoup) -> str:
+    if soup.body is not None:
+        return element_text(soup.body)
+    # Without a body tag the whole document is read, minus the head.
+    for tag in soup.find_all(["head", "title"]):
+        tag.decompose()
+    return element_text(soup)
 
 
 def _title(soup: BeautifulSoup) -> str | None:
