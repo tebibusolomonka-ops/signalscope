@@ -73,6 +73,19 @@ export SIGNALSCOPE_TEST_DATABASE_URL=postgresql+asyncpg://signalscope:signalscop
 pytest
 ```
 
+## Command line
+
+Fetch new content for one RSS or web source. This needs
+`SIGNALSCOPE_DATABASE_URL` and makes real network requests:
+
+```bash
+signalscope ingest-source <source-id>
+```
+
+It prints the run ID, the status and how many items were seen, created and
+skipped as duplicates. The exit code is 0 only when the run completed. Upload
+and API sources cannot be ingested from the command line.
+
 ## Docker
 
 Build and run the API image:
