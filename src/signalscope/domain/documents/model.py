@@ -9,6 +9,7 @@ from signalscope.db.mixins import TimestampMixin, UUIDPrimaryKeyMixin
 from signalscope.domain.sources.model import Source
 
 EXTERNAL_ID_MAX_LENGTH = 500
+CONTENT_HASH_LENGTH = 64
 URL_MAX_LENGTH = 2048
 LANGUAGE_MAX_LENGTH = 35
 
@@ -23,6 +24,8 @@ class Document(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         UniqueConstraint("source_id", "external_id"),
         # Duplicate checks during ingestion look documents up by source and URL.
         Index("ix_documents_source_id_url", "source_id", "url"),
+        # The same content should not be stored twice for one source.
+        UniqueConstraint("source_id", "content_hash"),
     )
 
     # Restrict, so deleting a source never removes its documents by accident.
@@ -36,6 +39,8 @@ class Document(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     # BCP 47 language tag, such as "en" or "pt-BR".
     language: Mapped[str | None] = mapped_column(String(LANGUAGE_MAX_LENGTH))
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Internal. Ingestion sets it to spot repeated content, see content_fingerprint.
+    content_hash: Mapped[str | None] = mapped_column(String(CONTENT_HASH_LENGTH))
 
     # Async sessions cannot lazy load, so the source has to be loaded on purpose.
     source: Mapped[Source] = relationship(lazy="raise")

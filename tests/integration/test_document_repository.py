@@ -2,6 +2,7 @@ import uuid
 from datetime import UTC, datetime
 
 import pytest
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from signalscope.domain.documents.model import Document
@@ -155,3 +156,26 @@ async def test_count(session_factory: async_sessionmaker[AsyncSession], source: 
 
     async with session_factory() as session:
         assert await DocumentRepository(session).count(DocumentFilters()) == 2
+
+
+async def test_content_hash_is_unique_per_source(
+    session_factory: async_sessionmaker[AsyncSession], source: Source
+) -> None:
+    other_source = Source(type=SourceType.UPLOAD, name="Uploads")
+    async with session_factory() as session:
+        session.add(other_source)
+        await session.flush()
+        session.add_all(
+            [
+                Document(source_id=source.id, content_hash="a" * 64),
+                Document(source_id=other_source.id, content_hash="a" * 64),
+                Document(source_id=source.id, content_hash=None),
+                Document(source_id=source.id, content_hash=None),
+            ]
+        )
+        await session.commit()
+
+    async with session_factory() as session:
+        session.add(Document(source_id=source.id, content_hash="a" * 64))
+        with pytest.raises(IntegrityError):
+            await session.flush()

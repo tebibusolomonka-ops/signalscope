@@ -120,3 +120,9 @@ def test_language_is_normalized(language: str, expected: str) -> None:
     document = DocumentCreate.model_validate({"source_id": str(SOURCE_ID), "language": language})
 
     assert document.language == expected
+
+
+def test_content_hash_is_internal() -> None:
+    with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+        DocumentCreate.model_validate({"source_id": str(SOURCE_ID), "content_hash": "a" * 64})
+    assert "content_hash" not in DocumentRead.model_fields

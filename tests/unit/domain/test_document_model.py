@@ -44,3 +44,10 @@ def test_url_is_optional_and_indexed_with_source() -> None:
     assert str(CreateIndex(index).compile(dialect=postgresql.dialect())) == (
         "CREATE INDEX ix_documents_source_id_url ON documents (source_id, url)"
     )
+
+
+def test_content_hash_is_unique_per_source() -> None:
+    sql = table_sql()
+
+    assert "content_hash VARCHAR(64)," in sql
+    assert "CONSTRAINT uq_documents_source_id_content_hash UNIQUE (source_id, content_hash)" in sql
