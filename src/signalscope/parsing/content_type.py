@@ -17,3 +17,8 @@ def content_charset(content_type: str) -> str | None:
         return codecs.lookup(charset).name
     except LookupError:
         return None
+
+
+def media_type(content_type: str) -> str:
+    """Return a media type without parameters, so "Text/HTML; charset=utf-8" becomes "text/html"."""
+    return content_type.split(";", 1)[0].strip().lower()

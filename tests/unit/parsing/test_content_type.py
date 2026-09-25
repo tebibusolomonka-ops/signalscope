@@ -1,6 +1,6 @@
 import pytest
 
-from signalscope.parsing.content_type import content_charset
+from signalscope.parsing.content_type import content_charset, media_type
 
 
 @pytest.mark.parametrize(
@@ -17,3 +17,17 @@ from signalscope.parsing.content_type import content_charset
 )
 def test_content_charset(content_type: str, charset: str | None) -> None:
     assert content_charset(content_type) == charset
+
+
+@pytest.mark.parametrize(
+    ("content_type", "expected"),
+    [
+        ("text/plain", "text/plain"),
+        ("Text/HTML; charset=utf-8", "text/html"),
+        ("  application/pdf  ", "application/pdf"),
+        ("application/json;charset=utf-8;foo=bar", "application/json"),
+        ("", ""),
+    ],
+)
+def test_media_type(content_type: str, expected: str) -> None:
+    assert media_type(content_type) == expected
