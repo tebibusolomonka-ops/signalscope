@@ -9,6 +9,8 @@ from signalscope.core.errors import ConflictError, NotFoundError
 from signalscope.db.errors import is_unique_violation
 from signalscope.domain.documents.asset import DocumentAsset
 from signalscope.domain.documents.asset_repository import DocumentAssetRepository
+from signalscope.domain.documents.chunk_repository import DocumentChunkRepository
+from signalscope.domain.documents.chunking import TextChunk, chunk_text
 from signalscope.domain.documents.extraction import DocumentExtraction
 from signalscope.domain.documents.extraction_repository import DocumentExtractionRepository
 from signalscope.domain.documents.fingerprint import content_fingerprint
@@ -28,8 +30,10 @@ class ProcessingResult:
 class DocumentProcessor:
     """Parses the raw file of a document and saves the text on the document.
 
-    Reading the file and parsing it happen outside any database transaction.
-    The result is saved afterwards in one short transaction.
+    Reading the file, parsing it and splitting the text into chunks happen
+    outside any database transaction. The content, the extraction record and
+    the chunks are then saved together in one short transaction, so they
+    always describe the same parse.
     """
 
     def __init__(
@@ -57,7 +61,8 @@ class DocumentProcessor:
             filename=asset.filename,
             source_url=document.url,
         )
-        return await self._save(asset, type(parser).__name__, parsed)
+        chunks = await asyncio.to_thread(chunk_text, parsed.text)
+        return await self._save(asset, type(parser).__name__, parsed, chunks)
 
     async def _load(self, asset_id: uuid.UUID) -> tuple[DocumentAsset, Document]:
         async with self.session_factory() as session:
@@ -70,7 +75,11 @@ class DocumentProcessor:
             return asset, document
 
     async def _save(
-        self, asset: DocumentAsset, parser_name: str, parsed: ParsedDocument
+        self,
+        asset: DocumentAsset,
+        parser_name: str,
+        parsed: ParsedDocument,
+        chunks: list[TextChunk],
     ) -> ProcessingResult:
         async with self.session_factory() as session:
             try:
@@ -79,6 +88,8 @@ class DocumentProcessor:
                     raise NotFoundError("Document was not found.")
                 _apply(document, parsed)
                 extraction = await self._save_extraction(session, asset, parser_name, parsed)
+                # The chunk offsets point into the content saved above.
+                await DocumentChunkRepository(session).replace_for_document(document.id, chunks)
                 # Flush now, so a duplicate content hash shows up as a clear error.
                 await session.flush()
                 await session.commit()
