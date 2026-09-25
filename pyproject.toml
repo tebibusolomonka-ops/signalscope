@@ -53,4 +53,6 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Lets tests import helpers such as tests/sample_files.py.
+pythonpath = ["tests"]
 addopts = ["--strict-markers", "--import-mode=importlib", "-rs"]
