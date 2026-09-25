@@ -1,3 +1,7 @@
+# The size of the error columns in the database.
+ERROR_MESSAGE_MAX_LENGTH = 1000
+
+
 class SignalScopeError(Exception):
     """Base class for errors that SignalScope raises on purpose.
 
@@ -24,3 +28,11 @@ class ServiceUnavailableError(SignalScopeError):
 
 class InvalidInputError(SignalScopeError):
     default_message = "Input is not valid."
+
+
+def short_error_message(message: str) -> str:
+    """Fit an error message for people into the error columns."""
+    message = message.strip() or "Something went wrong."
+    if len(message) <= ERROR_MESSAGE_MAX_LENGTH:
+        return message
+    return message[: ERROR_MESSAGE_MAX_LENGTH - 3] + "..."

@@ -5,20 +5,12 @@ from enum import StrEnum
 from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, String, text
 from sqlalchemy.orm import Mapped, mapped_column
 
+from signalscope.core.errors import ERROR_MESSAGE_MAX_LENGTH
 from signalscope.db.base import Base
 from signalscope.db.mixins import TimestampMixin, UUIDPrimaryKeyMixin
 from signalscope.db.types import string_enum
 
-ERROR_MESSAGE_MAX_LENGTH = 1000
 COUNTERS = ("items_seen", "documents_created", "duplicates_skipped", "attempt_count")
-
-
-def short_error_message(message: str) -> str:
-    """Fit an error message into the error columns."""
-    message = message.strip() or "Ingestion failed."
-    if len(message) <= ERROR_MESSAGE_MAX_LENGTH:
-        return message
-    return message[: ERROR_MESSAGE_MAX_LENGTH - 3] + "..."
 
 
 class IngestionStatus(StrEnum):

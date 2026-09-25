@@ -3,12 +3,8 @@ from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from signalscope.core.errors import ConflictError, NotFoundError
-from signalscope.domain.ingestion.model import (
-    IngestionRun,
-    IngestionStatus,
-    short_error_message,
-)
+from signalscope.core.errors import ConflictError, NotFoundError, short_error_message
+from signalscope.domain.ingestion.model import IngestionRun, IngestionStatus
 from signalscope.domain.ingestion.repository import IngestionRunFilters, IngestionRunRepository
 from signalscope.domain.sources.repository import SourceRepository
 

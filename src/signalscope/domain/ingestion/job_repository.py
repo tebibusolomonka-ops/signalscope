@@ -4,12 +4,8 @@ from datetime import datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from signalscope.core.errors import ConflictError, NotFoundError
-from signalscope.domain.ingestion.model import (
-    IngestionJob,
-    IngestionJobStatus,
-    short_error_message,
-)
+from signalscope.core.errors import ConflictError, NotFoundError, short_error_message
+from signalscope.domain.ingestion.model import IngestionJob, IngestionJobStatus
 
 
 class InvalidJobStatusChangeError(ConflictError):
