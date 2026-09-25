@@ -50,10 +50,9 @@ def test_page_without_metadata() -> None:
 
 
 def test_broken_html_is_still_read() -> None:
-    page = parse_web_page("<html><title>Broken<body><p>One<p>Two</div></span>", PAGE_URL)
+    page = parse_web_page("<html><body><p>One<p>Two</div></span><li>Three", PAGE_URL)
 
-    assert "One" in page.text
-    assert "Two" in page.text
+    assert page.text.splitlines() == ["One", "Two", "Three"]
 
 
 def test_encoding_comes_from_the_page() -> None:
