@@ -1,0 +1,100 @@
+import uuid
+from datetime import datetime
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from signalscope.core.errors import ConflictError, NotFoundError, short_error_message
+from signalscope.domain.processing.model import DocumentProcessingJob, ProcessingJobStatus
+
+
+class InvalidProcessingJobStatusChangeError(ConflictError):
+    default_message = "Document processing job cannot change to that status."
+
+
+class DocumentProcessingJobRepository:
+    """Database access for document processing jobs.
+
+    It never commits. The caller decides when the transaction ends.
+    """
+
+    def __init__(self, session: AsyncSession) -> None:
+        self.session = session
+
+    async def add(self, job: DocumentProcessingJob) -> DocumentProcessingJob:
+        self.session.add(job)
+        # Flush so the database fills in the defaults and reports errors now.
+        await self.session.flush()
+        return job
+
+    async def get(self, job_id: uuid.UUID) -> DocumentProcessingJob | None:
+        return await self.session.get(DocumentProcessingJob, job_id)
+
+    async def claim_next(self, now: datetime) -> DocumentProcessingJob | None:
+        """Claim the pending job that has been available longest.
+
+        Returns None when no job is available. Rows locked by another
+        transaction are skipped, so two workers never claim the same job. The
+        caller should commit soon, because the row stays locked until then.
+        """
+        result = await self.session.scalars(
+            select(DocumentProcessingJob)
+            .where(
+                DocumentProcessingJob.status == ProcessingJobStatus.PENDING,
+                DocumentProcessingJob.available_at <= now,
+            )
+            .order_by(
+                DocumentProcessingJob.available_at,
+                DocumentProcessingJob.created_at,
+                DocumentProcessingJob.id,
+            )
+            .limit(1)
+            .with_for_update(skip_locked=True)
+            .execution_options(populate_existing=True)
+        )
+        job = result.one_or_none()
+        if job is None:
+            return None
+        job.status = ProcessingJobStatus.RUNNING
+        job.claimed_at = now
+        # The row is locked, so no other transaction can change the count meanwhile.
+        job.attempt_count += 1
+        await self.session.flush()
+        return job
+
+    async def mark_completed(self, job_id: uuid.UUID, now: datetime) -> DocumentProcessingJob:
+        return await self._finish(job_id, ProcessingJobStatus.COMPLETED, now)
+
+    async def mark_failed(
+        self, job_id: uuid.UUID, now: datetime, error: str
+    ) -> DocumentProcessingJob:
+        """Mark a job as failed with a short message for people, not a traceback."""
+        return await self._finish(
+            job_id, ProcessingJobStatus.FAILED, now, last_error=short_error_message(error)
+        )
+
+    async def _finish(
+        self,
+        job_id: uuid.UUID,
+        status: ProcessingJobStatus,
+        now: datetime,
+        last_error: str | None = None,
+    ) -> DocumentProcessingJob:
+        result = await self.session.scalars(
+            select(DocumentProcessingJob)
+            .where(DocumentProcessingJob.id == job_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        job = result.one_or_none()
+        if job is None:
+            raise NotFoundError("Document processing job was not found.")
+        if job.status is not ProcessingJobStatus.RUNNING:
+            raise InvalidProcessingJobStatusChangeError(
+                f"Document processing job is {job.status} and cannot become {status}."
+            )
+        job.status = status
+        job.finished_at = now
+        job.last_error = last_error
+        await self.session.flush()
+        return job
