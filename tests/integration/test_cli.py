@@ -2,11 +2,12 @@ import io
 import re
 import uuid
 from collections.abc import AsyncGenerator
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
-from signalscope.cli import ingest_source
+from signalscope.cli import ingest_source, run_worker, schedule_ingestion
 from signalscope.core.settings import Settings
 from signalscope.domain.ingestion.adapter import IngestedItem
 from signalscope.domain.ingestion.errors import IngestionError
@@ -116,3 +117,80 @@ async def test_failed_run_exits_with_an_error(
         "Duplicates: 0",
         "Error: Feed went away.",
     ]
+
+
+async def create_due_source(session_factory: async_sessionmaker[AsyncSession]) -> Source:
+    async with session_factory() as session:
+        source = Source(
+            type=SourceType.RSS,
+            name="Example",
+            url="https://news.example/rss",
+            ingestion_enabled=True,
+            ingestion_interval_minutes=60,
+            next_ingestion_at=datetime.now(UTC) - timedelta(minutes=5),
+        )
+        session.add(source)
+        await session.commit()
+    return source
+
+
+async def run_schedule_cli(settings: Settings) -> tuple[int, str, str]:
+    out, err = io.StringIO(), io.StringIO()
+    code = await schedule_ingestion(10, settings, out=out, err=err)
+    return code, out.getvalue(), err.getvalue()
+
+
+async def run_worker_cli(settings: Settings, registry: AdapterRegistry) -> tuple[int, str, str]:
+    out, err = io.StringIO(), io.StringIO()
+    code = await run_worker(settings, registry, out=out, err=err)
+    return code, out.getvalue(), err.getvalue()
+
+
+async def test_schedule_without_due_sources(settings: Settings) -> None:
+    assert await run_schedule_cli(settings) == (0, "Sources due: 0\nJobs created: 0\n", "")
+
+
+async def test_schedule_prints_the_jobs_created(
+    settings: Settings, session_factory: async_sessionmaker[AsyncSession]
+) -> None:
+    await create_due_source(session_factory)
+    await create_due_source(session_factory)
+
+    assert await run_schedule_cli(settings) == (0, "Sources due: 2\nJobs created: 2\n", "")
+    assert await run_schedule_cli(settings) == (0, "Sources due: 0\nJobs created: 0\n", "")
+
+
+async def test_worker_without_jobs(settings: Settings) -> None:
+    result = await run_worker_cli(settings, rss_registry(ListAdapter([])))
+
+    assert result == (0, "No ingestion job available.\n", "")
+
+
+async def test_worker_runs_a_queued_job(
+    settings: Settings, session_factory: async_sessionmaker[AsyncSession]
+) -> None:
+    await create_due_source(session_factory)
+    await run_schedule_cli(settings)
+    adapter = ListAdapter([IngestedItem(external_id="guid-1", title="One")])
+
+    code, out, err = await run_worker_cli(settings, rss_registry(adapter))
+
+    assert code == 0
+    assert err == ""
+    assert re.fullmatch(r"Job: [0-9a-f-]{36}\nStatus: completed\n", out)
+    assert (await run_worker_cli(settings, rss_registry(adapter)))[1] == (
+        "No ingestion job available.\n"
+    )
+
+
+async def test_worker_reports_a_failed_job(
+    settings: Settings, session_factory: async_sessionmaker[AsyncSession]
+) -> None:
+    await create_due_source(session_factory)
+    await run_schedule_cli(settings)
+    adapter = ListAdapter([], error=IngestionError("Feed went away."))
+
+    code, out, _ = await run_worker_cli(settings, rss_registry(adapter))
+
+    assert code == 1
+    assert out.splitlines()[1:] == ["Status: failed", "Error: Feed went away."]

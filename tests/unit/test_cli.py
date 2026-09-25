@@ -2,7 +2,7 @@ import uuid
 
 import pytest
 
-from signalscope.cli import build_registry, main
+from signalscope.cli import build_parser, build_registry, main
 from signalscope.domain.ingestion.registry import UnsupportedSourceTypeError
 from signalscope.domain.sources.model import SourceType
 from signalscope.ingestion.http import HttpFetcher
@@ -56,3 +56,50 @@ async def test_default_registry_has_the_fetching_adapters() -> None:
         for source_type in [SourceType.UPLOAD, SourceType.API]:
             with pytest.raises(UnsupportedSourceTypeError):
                 registry.get(source_type)
+
+
+def test_schedule_limit_has_a_default() -> None:
+    args = build_parser().parse_args(["schedule-ingestion"])
+
+    assert args.command == "schedule-ingestion"
+    assert args.limit == 100
+
+
+def test_schedule_limit_can_be_set() -> None:
+    assert build_parser().parse_args(["schedule-ingestion", "--limit", "4"]).limit == 4
+
+
+@pytest.mark.parametrize(
+    ("value", "message"),
+    [("0", "must be at least 1: 0"), ("-3", "must be at least 1: -3"), ("many", "whole number")],
+)
+def test_bad_schedule_limit_is_rejected(
+    value: str, message: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    with pytest.raises(SystemExit) as exit_info:
+        main(["schedule-ingestion", "--limit", value])
+
+    assert exit_info.value.code == 2
+    assert message in capsys.readouterr().err
+
+
+def test_worker_needs_once(capsys: pytest.CaptureFixture[str]) -> None:
+    assert build_parser().parse_args(["run-worker", "--once"]).once is True
+
+    with pytest.raises(SystemExit) as exit_info:
+        main(["run-worker"])
+
+    assert exit_info.value.code == 2
+    assert "the following arguments are required: --once" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("argv", [["schedule-ingestion"], ["run-worker", "--once"]])
+def test_queue_commands_need_a_database(
+    argv: list[str], monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.delenv("SIGNALSCOPE_DATABASE_URL", raising=False)
+
+    assert main(argv) == 1
+    output = capsys.readouterr()
+    assert output.out == ""
+    assert output.err == "Error: Database URL is not configured. Set SIGNALSCOPE_DATABASE_URL.\n"

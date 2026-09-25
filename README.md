@@ -90,6 +90,36 @@ Timeouts, connection errors and HTTP 429, 502, 503 and 504 responses are tried
 again. A run makes at most 3 attempts and waits 5, then 10 seconds in between.
 Documents saved by an earlier attempt are kept and skipped as duplicates.
 
+### Scheduled ingestion
+
+Turn on scheduled ingestion for a web or RSS source through the API, for
+example every 60 minutes starting now:
+
+```bash
+curl -X PUT http://localhost:8000/sources/<source-id>/schedule \
+  -H "Content-Type: application/json" -d '{"interval_minutes": 60}'
+```
+
+`DELETE /sources/<source-id>/schedule` turns it off again. Jobs are queued in
+PostgreSQL. Queue a job for every source that is due:
+
+```bash
+signalscope schedule-ingestion --limit 100
+```
+
+It prints how many sources were due and how many jobs it created, for example
+`Jobs created: 4`. Then run one queued job:
+
+```bash
+signalscope run-worker --once
+```
+
+It prints `No ingestion job available.` when there is nothing to do, or the job
+ID and its status. The exit code is 0 when the job completed or there was no
+job, and 1 when the job failed. Both commands do one pass and exit, so run them
+from cron or a systemd timer. Several workers can run at the same time without
+taking the same job.
+
 ## Docker
 
 Build and run the API image:
