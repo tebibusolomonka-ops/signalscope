@@ -6,8 +6,9 @@ video, and turn it into structured information that can be searched and analyzed
 
 ## Status
 
-Early development. Only the project foundation exists so far. There are no
-user-facing features yet.
+Early development. SignalScope can collect RSS feeds and web pages, import
+plain text, JSON, HTML, PDF and DOCX files, and search the collected text
+through an HTTP API. There is no user interface and no authentication yet.
 
 ## Development
 
@@ -144,6 +145,19 @@ It saves the text on the document and prints the job ID, its status and the
 document ID, or `No document processing job available.` The exit code is 0
 when the job completed or there was no job, and 1 when processing failed. Run
 it again, or from a timer, to work through the queue.
+
+### Search
+
+Processed text is split into chunks that PostgreSQL full text search can find:
+
+```bash
+curl "http://localhost:8000/search?q=climate+policy&limit=10"
+```
+
+Each result has the document, chunk and source IDs, the title, the URL, a
+short plain text excerpt and a rank. All words must match. `"quoted phrases"`,
+`or` and `-word` work as on web search engines. `source_id` limits results to
+one source.
 
 ## Docker
 

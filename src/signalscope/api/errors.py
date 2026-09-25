@@ -7,12 +7,18 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException
 
-from signalscope.core.errors import ConflictError, NotFoundError, ServiceUnavailableError
+from signalscope.core.errors import (
+    ConflictError,
+    InvalidInputError,
+    NotFoundError,
+    ServiceUnavailableError,
+)
 
 
 def add_error_handlers(app: FastAPI) -> None:
     app.add_exception_handler(NotFoundError, handle_not_found)
     app.add_exception_handler(ConflictError, handle_conflict)
+    app.add_exception_handler(InvalidInputError, handle_invalid_input)
     app.add_exception_handler(ServiceUnavailableError, handle_service_unavailable)
     app.add_exception_handler(RequestValidationError, handle_validation_error)
     app.add_exception_handler(HTTPException, handle_http_error)
@@ -24,6 +30,10 @@ async def handle_not_found(request: Request, exc: Exception) -> JSONResponse:
 
 async def handle_conflict(request: Request, exc: Exception) -> JSONResponse:
     return error_response(status.HTTP_409_CONFLICT, "conflict", str(exc))
+
+
+async def handle_invalid_input(request: Request, exc: Exception) -> JSONResponse:
+    return error_response(status.HTTP_422_UNPROCESSABLE_CONTENT, "invalid_input", str(exc))
 
 
 async def handle_service_unavailable(request: Request, exc: Exception) -> JSONResponse:
