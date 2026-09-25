@@ -3,7 +3,8 @@ from collections.abc import AsyncIterator, Callable
 import httpx
 import pytest
 
-from signalscope.ingestion.http import FetchError, HttpFetcher
+from signalscope.domain.ingestion.errors import FetchError
+from signalscope.ingestion.http import HttpFetcher
 
 pytestmark = pytest.mark.anyio
 

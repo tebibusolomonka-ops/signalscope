@@ -5,7 +5,7 @@ from typing import Self
 
 import httpx
 
-from signalscope.domain.ingestion.errors import IngestionError
+from signalscope.domain.ingestion.errors import FetchError
 from signalscope.ingestion.url_safety import Resolver, check_url, resolve_host
 
 USER_AGENT = "SignalScope"
@@ -13,10 +13,6 @@ DEFAULT_TIMEOUT_SECONDS = 15.0
 DEFAULT_MAX_REDIRECTS = 5
 DEFAULT_MAX_BYTES = 5 * 1024 * 1024
 REDIRECT_STATUS_CODES = frozenset({301, 302, 303, 307, 308})
-
-
-class FetchError(IngestionError):
-    default_message = "Could not fetch the URL."
 
 
 @dataclass(frozen=True, slots=True)
@@ -84,7 +80,10 @@ class HttpFetcher:
                         url = str(response.url.join(location))
                         continue
                     if not response.is_success:
-                        raise FetchError(f"Request failed with status {response.status_code}.")
+                        raise FetchError(
+                            f"Request failed with status {response.status_code}.",
+                            status_code=response.status_code,
+                        )
                     body = await self._read_body(response)
                     return FetchResponse(
                         url=str(response.url),
@@ -93,7 +92,11 @@ class HttpFetcher:
                         body=body,
                     )
             except httpx.TimeoutException as error:
-                raise FetchError("Request timed out.") from error
+                raise FetchError("Request timed out.", network_error=True) from error
+            except httpx.TransportError as error:
+                raise FetchError(
+                    f"Request failed ({type(error).__name__}).", network_error=True
+                ) from error
             except httpx.HTTPError as error:
                 raise FetchError(f"Request failed ({type(error).__name__}).") from error
         raise FetchError(f"Too many redirects (more than {self.max_redirects}).")
