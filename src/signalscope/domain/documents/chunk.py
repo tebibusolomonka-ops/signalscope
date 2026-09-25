@@ -1,12 +1,27 @@
 import uuid
+from typing import Any
 
-from sqlalchemy import CheckConstraint, ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import (
+    CheckConstraint,
+    ColumnElement,
+    ForeignKey,
+    Index,
+    String,
+    Text,
+    TextClause,
+    UniqueConstraint,
+    func,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from signalscope.db.base import Base
 from signalscope.db.mixins import TimestampMixin, UUIDPrimaryKeyMixin
 
 TEXT_HASH_LENGTH = 64
+# Full text search uses the "simple" configuration, which lowercases words but
+# does not assume a language.
+TEXT_SEARCH_CONFIG = "simple"
 
 
 class DocumentChunk(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -36,3 +51,19 @@ class DocumentChunk(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     end_char: Mapped[int]
     # Hex SHA-256 of the chunk text.
     text_hash: Mapped[str] = mapped_column(String(TEXT_HASH_LENGTH))
+
+
+def text_search_config() -> TextClause:
+    # A constant, not a bound parameter, so PostgreSQL can match the index.
+    return text(f"'{TEXT_SEARCH_CONFIG}'::regconfig")
+
+
+def chunk_search_vector() -> ColumnElement[Any]:
+    """The words of a chunk, as the full text search index stores them.
+
+    Queries must use this same expression, or PostgreSQL does not use the index.
+    """
+    return func.to_tsvector(text_search_config(), DocumentChunk.text)
+
+
+Index("ix_document_chunks_text_search", chunk_search_vector(), postgresql_using="gin")
