@@ -35,7 +35,15 @@ async def collect(adapter: IngestionAdapter, source: Source, limit: int) -> list
 def test_item_fields_are_optional() -> None:
     item = IngestedItem()
 
-    assert (item.external_id, item.title, item.content, item.language, item.published_at) == (
+    assert (
+        item.external_id,
+        item.url,
+        item.title,
+        item.content,
+        item.language,
+        item.published_at,
+    ) == (
+        None,
         None,
         None,
         None,
@@ -84,3 +92,13 @@ def test_item_language_is_normalized() -> None:
 def test_item_rejects_blank_language() -> None:
     with pytest.raises(ValueError, match="language must not be empty"):
         IngestedItem(language="  ")
+
+
+def test_item_url_is_trimmed() -> None:
+    assert IngestedItem(url=" https://example.com/a ").url == "https://example.com/a"
+    assert IngestedItem().url is None
+
+
+def test_item_rejects_blank_url() -> None:
+    with pytest.raises(ValueError, match="url must not be empty"):
+        IngestedItem(url="   ")

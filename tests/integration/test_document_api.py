@@ -196,3 +196,14 @@ async def test_language_is_stored_in_lowercase_and_found_with_any_case(
 
     assert created["language"] == "en-us"
     assert response.json()["items"] == [created]
+
+
+async def test_document_url_is_saved(client: httpx.AsyncClient, source_id: str) -> None:
+    created = await create_document(
+        client, {"source_id": source_id, "url": " https://example.com/articles/1 "}
+    )
+
+    response = await client.get(f"/documents/{created['id']}")
+
+    assert created["url"] == "https://example.com/articles/1"
+    assert response.json()["url"] == "https://example.com/articles/1"

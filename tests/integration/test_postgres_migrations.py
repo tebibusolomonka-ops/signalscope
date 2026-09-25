@@ -60,16 +60,18 @@ async def test_upgrade_from_empty_database(
     assert await current_revision(database_engine) == head
 
 
-async def test_downgrade_one_revision_removes_only_the_newest_table(
+async def test_every_revision_downgrades_one_step_at_a_time(
     migration_config: Config, database_engine: AsyncEngine
 ) -> None:
-    head = ScriptDirectory.from_config(migration_config).get_revision("head")
-    assert head is not None
+    # walk_revisions starts at the head and goes back to the first revision.
+    for revision in ScriptDirectory.from_config(migration_config).walk_revisions():
+        assert await current_revision(database_engine) == revision.revision
+        await run_alembic(command.downgrade, migration_config, "-1")
 
-    await run_alembic(command.downgrade, migration_config, "-1")
+    assert await current_revision(database_engine) is None
 
-    assert await table_names(database_engine) == {"alembic_version", "sources", "documents"}
-    assert await current_revision(database_engine) == head.down_revision
+    await run_alembic(command.upgrade, migration_config, "head")
+    assert "ingestion_runs" in await table_names(database_engine)
 
 
 async def test_downgrade_removes_all_tables(

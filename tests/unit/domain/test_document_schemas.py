@@ -16,6 +16,7 @@ def test_valid_document() -> None:
         {
             "source_id": str(SOURCE_ID),
             "external_id": " guid-1 ",
+            "url": " https://example.com/a ",
             "title": " An article ",
             "content": "  Text with spaces kept.  ",
             "language": "pt-BR",
@@ -25,6 +26,7 @@ def test_valid_document() -> None:
 
     assert document.source_id == SOURCE_ID
     assert document.external_id == "guid-1"
+    assert document.url == "https://example.com/a"
     assert document.title == "An article"
     assert document.content == "  Text with spaces kept.  "
     assert document.language == "pt-br"
@@ -37,6 +39,7 @@ def test_only_source_id_is_required() -> None:
 
     assert document.model_dump(exclude={"source_id"}) == {
         "external_id": None,
+        "url": None,
         "title": None,
         "content": None,
         "language": None,
@@ -50,6 +53,9 @@ def test_only_source_id_is_required() -> None:
         {"source_id": "not-a-uuid"},
         {"external_id": ""},
         {"external_id": "x" * 501},
+        {"url": ""},
+        {"url": "   "},
+        {"url": "https://example.com/" + "x" * 2048},
         {"title": "   "},
         {"language": "   "},
         {"language": "x" * 36},
@@ -82,6 +88,7 @@ def test_read_schema_from_model() -> None:
         id=uuid.uuid4(),
         source_id=SOURCE_ID,
         external_id="guid-1",
+        url="https://example.com/a",
         title="An article",
         content=None,
         language="en",
@@ -96,6 +103,7 @@ def test_read_schema_from_model() -> None:
         "id": document.id,
         "source_id": SOURCE_ID,
         "external_id": "guid-1",
+        "url": "https://example.com/a",
         "title": "An article",
         "content": None,
         "language": "en",
