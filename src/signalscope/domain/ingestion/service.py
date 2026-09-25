@@ -5,9 +5,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from signalscope.core.errors import ConflictError, NotFoundError
 from signalscope.domain.ingestion.model import (
-    ERROR_MESSAGE_MAX_LENGTH,
     IngestionRun,
     IngestionStatus,
+    short_error_message,
 )
 from signalscope.domain.ingestion.repository import IngestionRunFilters, IngestionRunRepository
 from signalscope.domain.sources.repository import SourceRepository
@@ -68,7 +68,7 @@ class IngestionRunService:
     async def mark_failed(self, run_id: uuid.UUID, error_message: str) -> IngestionRun:
         """Mark a run as failed with a short message for people, not a traceback."""
         return await self._change_status(
-            run_id, IngestionStatus.FAILED, error_message=_short_message(error_message)
+            run_id, IngestionStatus.FAILED, error_message=short_error_message(error_message)
         )
 
     async def _change_status(
@@ -95,10 +95,3 @@ class IngestionRunService:
             await self.session.rollback()
             raise
         return run
-
-
-def _short_message(message: str) -> str:
-    message = message.strip() or "Ingestion failed."
-    if len(message) <= ERROR_MESSAGE_MAX_LENGTH:
-        return message
-    return message[: ERROR_MESSAGE_MAX_LENGTH - 3] + "..."

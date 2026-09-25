@@ -13,6 +13,14 @@ ERROR_MESSAGE_MAX_LENGTH = 1000
 COUNTERS = ("items_seen", "documents_created", "duplicates_skipped", "attempt_count")
 
 
+def short_error_message(message: str) -> str:
+    """Fit an error message into the error columns."""
+    message = message.strip() or "Ingestion failed."
+    if len(message) <= ERROR_MESSAGE_MAX_LENGTH:
+        return message
+    return message[: ERROR_MESSAGE_MAX_LENGTH - 3] + "..."
+
+
 class IngestionStatus(StrEnum):
     PENDING = "pending"
     RUNNING = "running"
