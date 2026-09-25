@@ -19,11 +19,12 @@ class WebPage:
     published_at: datetime | None
 
 
-def parse_web_page(html: str | bytes, url: str) -> WebPage:
+def parse_web_page(html: str | bytes, url: str | None) -> WebPage:
     """Read the parts of an HTML page that ingestion needs.
 
     Parsing never runs scripts or loads anything. With bytes, the encoding
-    comes from the page itself.
+    comes from the page itself. url is where the page came from. Without it,
+    only an absolute canonical URL is kept.
     """
     soup = BeautifulSoup(html, "html.parser")
     return WebPage(
@@ -58,12 +59,12 @@ def _language(soup: BeautifulSoup) -> str | None:
     return normalize_language(value)
 
 
-def _canonical_url(soup: BeautifulSoup, page_url: str) -> str | None:
+def _canonical_url(soup: BeautifulSoup, page_url: str | None) -> str | None:
     link = soup.find("link", rel="canonical")
     href = link.get("href") if isinstance(link, Tag) else None
     if not isinstance(href, str) or not href.strip():
         return None
-    canonical = urljoin(page_url, href.strip())
+    canonical = urljoin(page_url or "", href.strip())
     return canonical if urlsplit(canonical).scheme in ("http", "https") else None
 
 

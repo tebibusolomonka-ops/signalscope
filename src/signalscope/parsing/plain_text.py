@@ -1,7 +1,7 @@
 import codecs
 import re
-from email.message import Message
 
+from signalscope.parsing.content_type import content_charset
 from signalscope.parsing.types import DocumentParsingError, ParsedDocument
 
 # Old Windows text files often use this. Five of its bytes have no meaning, so
@@ -31,7 +31,7 @@ class PlainTextParser:
         filename: str | None = None,
         source_url: str | None = None,
     ) -> ParsedDocument:
-        text, encoding = _decode(data, _declared_charset(content_type))
+        text, encoding = _decode(data, content_charset(content_type))
         text = text.replace("\r\n", "\n").replace("\r", "\n")
         if not text.strip():
             text = ""
@@ -55,20 +55,8 @@ def title_from_filename(filename: str | None) -> str | None:
     return title
 
 
-def _declared_charset(content_type: str) -> str | None:
-    message = Message()
-    message["content-type"] = content_type
-    charset = message.get_content_charset()
-    if charset is None:
-        return None
-    try:
-        return codecs.lookup(charset).name
-    except LookupError:
-        # An unknown charset is ignored, so the usual encodings are tried.
-        return None
-
-
 def _decode(data: bytes, declared_charset: str | None) -> tuple[str, str]:
+    # An unknown charset arrives as None, so the usual encodings are tried.
     # utf-8-sig also removes a byte order mark at the start.
     encodings = ["utf-8-sig", FALLBACK_ENCODING]
     if declared_charset is not None and declared_charset != "utf-8":
