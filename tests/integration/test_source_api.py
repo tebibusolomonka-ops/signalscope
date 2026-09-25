@@ -1,31 +1,16 @@
 import uuid
-from collections.abc import AsyncIterator
 from typing import Any
 
 import httpx
 import pytest
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from signalscope.api.app import create_app
-from signalscope.api.lifespan import lifespan
-from signalscope.core.settings import Settings
 from signalscope.domain.documents.model import Document
 from signalscope.domain.ingestion.model import IngestionRun
 
 pytestmark = pytest.mark.anyio
 
 RSS_SOURCE = {"type": "rss", "name": "Example feed", "url": "https://example.com/rss"}
-
-
-@pytest.fixture
-async def client(
-    database_engine: AsyncEngine, migrated_database: Settings
-) -> AsyncIterator[httpx.AsyncClient]:
-    app = create_app(migrated_database)
-    async with lifespan(app):
-        transport = httpx.ASGITransport(app=app)
-        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-            yield client
 
 
 async def create_source(client: httpx.AsyncClient, data: dict[str, Any]) -> dict[str, Any]:

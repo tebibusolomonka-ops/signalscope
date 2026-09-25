@@ -1,27 +1,10 @@
 import uuid
-from collections.abc import AsyncIterator
 from typing import Any
 
 import httpx
 import pytest
-from sqlalchemy.ext.asyncio import AsyncEngine
-
-from signalscope.api.app import create_app
-from signalscope.api.lifespan import lifespan
-from signalscope.core.settings import Settings
 
 pytestmark = pytest.mark.anyio
-
-
-@pytest.fixture
-async def client(
-    database_engine: AsyncEngine, migrated_database: Settings
-) -> AsyncIterator[httpx.AsyncClient]:
-    app = create_app(migrated_database)
-    async with lifespan(app):
-        transport = httpx.ASGITransport(app=app)
-        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-            yield client
 
 
 @pytest.fixture

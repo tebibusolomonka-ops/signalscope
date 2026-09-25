@@ -2,12 +2,15 @@ import os
 from collections.abc import AsyncIterator
 from pathlib import Path
 
+import httpx
 import pytest
 from alembic import command
 from alembic.config import Config
 from sqlalchemy import make_url
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
+from signalscope.api.app import create_app
+from signalscope.api.lifespan import lifespan
 from signalscope.core.settings import Settings
 from signalscope.db.engine import create_database_engine
 from signalscope.db.models import Base
@@ -60,3 +63,15 @@ async def database_engine(migrated_database: Settings) -> AsyncIterator[AsyncEng
 @pytest.fixture
 def session_factory(database_engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:
     return create_session_factory(database_engine)
+
+
+@pytest.fixture
+async def client(
+    database_engine: AsyncEngine, migrated_database: Settings
+) -> AsyncIterator[httpx.AsyncClient]:
+    """An API client for the app running against the test database."""
+    app = create_app(migrated_database)
+    async with lifespan(app):
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            yield client
