@@ -2,8 +2,8 @@ import uuid
 from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
-from sqlalchemy import text
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import select, text
+from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from signalscope.domain.sources.model import MAX_INGESTION_INTERVAL_MINUTES, Source, SourceType
@@ -220,3 +220,112 @@ async def test_next_ingestion_time_is_stored_with_its_time_zone(
     assert saved is not None
     assert saved.next_ingestion_at == next_time
     assert saved.next_ingestion_at == datetime(2026, 3, 1, 10, 0, tzinfo=UTC)
+
+
+NOW = datetime(2026, 5, 1, 12, 0, tzinfo=UTC)
+
+
+async def add_scheduled_source(
+    session_factory: async_sessionmaker[AsyncSession],
+    name: str,
+    next_ingestion_at: datetime | None,
+    enabled: bool = True,
+    source_id: uuid.UUID | None = None,
+) -> Source:
+    async with session_factory() as session:
+        source = await SourceRepository(session).add(
+            Source(
+                id=source_id or uuid.uuid4(),
+                type=SourceType.RSS,
+                name=name,
+                url="https://example.com/rss",
+                ingestion_enabled=enabled,
+                ingestion_interval_minutes=60,
+                next_ingestion_at=next_ingestion_at,
+            )
+        )
+        await session.commit()
+    return source
+
+
+async def due_names(
+    session_factory: async_sessionmaker[AsyncSession], limit: int = 10
+) -> list[str]:
+    async with session_factory() as session:
+        sources = await SourceRepository(session).list_due_for_ingestion(NOW, limit)
+    return [source.name for source in sources]
+
+
+async def test_due_sources_are_returned(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    await add_scheduled_source(session_factory, "Late", NOW - timedelta(minutes=5))
+    await add_scheduled_source(session_factory, "On time", NOW)
+
+    assert await due_names(session_factory) == ["Late", "On time"]
+
+
+async def test_sources_that_are_not_due_are_ignored(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    await add_scheduled_source(session_factory, "Disabled", NOW - timedelta(hours=1), enabled=False)
+    await add_scheduled_source(session_factory, "No next time", None)
+    await add_scheduled_source(session_factory, "Future", NOW + timedelta(seconds=1))
+    await add_source(session_factory, "Never scheduled")
+
+    assert await due_names(session_factory) == []
+
+
+async def test_source_that_waited_longest_comes_first(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    await add_scheduled_source(session_factory, "Ten minutes", NOW - timedelta(minutes=10))
+    await add_scheduled_source(session_factory, "One day", NOW - timedelta(days=1))
+    await add_scheduled_source(session_factory, "One hour", NOW - timedelta(hours=1))
+
+    assert await due_names(session_factory) == ["One day", "One hour", "Ten minutes"]
+
+
+async def test_sources_due_at_the_same_time_are_ordered_by_id(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    ids = sorted(uuid.uuid4() for _ in range(3))
+    for name, source_id in zip(["Third", "First", "Second"], [ids[2], ids[0], ids[1]], strict=True):
+        await add_scheduled_source(session_factory, name, NOW, source_id=source_id)
+
+    assert await due_names(session_factory) == ["First", "Second", "Third"]
+
+
+async def test_due_sources_are_limited(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    for minutes in range(5):
+        await add_scheduled_source(session_factory, f"{minutes}", NOW - timedelta(minutes=minutes))
+
+    assert await due_names(session_factory, limit=2) == ["4", "3"]
+
+
+async def test_get_for_update_returns_the_source(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    source = await add_source(session_factory, "Example site")
+
+    async with session_factory() as session:
+        repository = SourceRepository(session)
+        assert (await repository.get_for_update(source.id)) is not None
+        assert await repository.get_for_update(uuid.uuid4()) is None
+
+
+async def test_get_for_update_locks_the_row(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    source = await add_source(session_factory, "Example site")
+
+    async with session_factory() as holder, session_factory() as other:
+        await SourceRepository(holder).get_for_update(source.id)
+
+        # NOWAIT fails right away instead of waiting for the lock.
+        with pytest.raises(DBAPIError, match="could not obtain lock"):
+            await other.execute(
+                select(Source).where(Source.id == source.id).with_for_update(nowait=True)
+            )

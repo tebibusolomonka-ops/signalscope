@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,6 +24,30 @@ class SourceRepository:
 
     async def get(self, source_id: uuid.UUID) -> Source | None:
         return await self.session.get(Source, source_id)
+
+    async def get_for_update(self, source_id: uuid.UUID) -> Source | None:
+        """Load a source and lock its row until the transaction ends."""
+        result = await self.session.scalars(
+            select(Source)
+            .where(Source.id == source_id)
+            .with_for_update()
+            # Reload a source the session already holds, so callers see the locked row.
+            .execution_options(populate_existing=True)
+        )
+        return result.one_or_none()
+
+    async def list_due_for_ingestion(self, now: datetime, limit: int) -> list[Source]:
+        """Return enabled sources whose next ingestion time is not after now.
+
+        The source that has waited longest comes first.
+        """
+        result = await self.session.scalars(
+            select(Source)
+            .where(Source.ingestion_enabled.is_(True), Source.next_ingestion_at <= now)
+            .order_by(Source.next_ingestion_at, Source.id)
+            .limit(limit)
+        )
+        return list(result.all())
 
     async def list_page(self, limit: int, offset: int) -> list[Source]:
         result = await self.session.scalars(
