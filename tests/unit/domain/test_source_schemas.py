@@ -56,6 +56,21 @@ def test_client_cannot_set_server_fields(field: str) -> None:
         SourceCreate.model_validate(data)
 
 
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("ingestion_enabled", True),
+        ("ingestion_interval_minutes", 60),
+        ("next_ingestion_at", "2026-01-01T00:00:00Z"),
+    ],
+)
+def test_schedule_is_not_set_on_create(field: str, value: object) -> None:
+    data = {"type": "rss", "name": "Example", "url": "https://example.com/rss", field: value}
+
+    with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+        SourceCreate.model_validate(data)
+
+
 def test_read_schema_from_model() -> None:
     now = datetime.now(UTC)
     source = Source(
@@ -63,6 +78,9 @@ def test_read_schema_from_model() -> None:
         type=SourceType.UPLOAD,
         name="Uploads",
         url=None,
+        ingestion_enabled=False,
+        ingestion_interval_minutes=None,
+        next_ingestion_at=None,
         created_at=now,
         updated_at=now,
     )
@@ -74,6 +92,32 @@ def test_read_schema_from_model() -> None:
         "type": SourceType.UPLOAD,
         "name": "Uploads",
         "url": None,
+        "ingestion_enabled": False,
+        "ingestion_interval_minutes": None,
+        "next_ingestion_at": None,
         "created_at": now,
         "updated_at": now,
     }
+
+
+def test_read_schema_includes_the_schedule() -> None:
+    now = datetime.now(UTC)
+    source = Source(
+        id=uuid.uuid4(),
+        type=SourceType.RSS,
+        name="Example",
+        url="https://example.com/rss",
+        ingestion_enabled=True,
+        ingestion_interval_minutes=60,
+        next_ingestion_at=now,
+        created_at=now,
+        updated_at=now,
+    )
+
+    read = SourceRead.model_validate(source)
+
+    assert (read.ingestion_enabled, read.ingestion_interval_minutes, read.next_ingestion_at) == (
+        True,
+        60,
+        now,
+    )

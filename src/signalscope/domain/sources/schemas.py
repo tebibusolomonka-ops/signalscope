@@ -32,5 +32,8 @@ class SourceRead(BaseModel):
     type: SourceType
     name: str
     url: str | None
+    ingestion_enabled: bool
+    ingestion_interval_minutes: int | None
+    next_ingestion_at: datetime | None
     created_at: datetime
     updated_at: datetime

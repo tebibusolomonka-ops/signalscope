@@ -28,6 +28,17 @@ async def test_create_source(client: httpx.AsyncClient) -> None:
     assert source["name"] == "Example feed"
     assert source["url"] == "https://example.com/rss"
     assert source["created_at"] == source["updated_at"]
+    assert source["ingestion_enabled"] is False
+    assert source["ingestion_interval_minutes"] is None
+    assert source["next_ingestion_at"] is None
+
+
+async def test_schedule_cannot_be_set_on_create(client: httpx.AsyncClient) -> None:
+    response = await client.post(
+        "/sources", json={**RSS_SOURCE, "ingestion_enabled": True, "ingestion_interval_minutes": 5}
+    )
+
+    assert response.status_code == 422
 
 
 async def test_list_sources_uses_default_page(client: httpx.AsyncClient) -> None:

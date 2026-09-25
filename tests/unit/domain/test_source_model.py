@@ -3,7 +3,7 @@ from sqlalchemy.dialects import postgresql
 from sqlalchemy.schema import CreateTable
 
 from signalscope.db.models import Base
-from signalscope.domain.sources.model import Source, SourceType
+from signalscope.domain.sources.model import MAX_INGESTION_INTERVAL_MINUTES, Source, SourceType
 
 DIALECT = postgresql.dialect()
 
@@ -17,6 +17,30 @@ def test_sources_table() -> None:
     assert (
         "CONSTRAINT ck_sources_source_type CHECK (type IN ('web', 'rss', 'upload', 'api'))" in sql
     )
+
+
+def test_scheduling_columns() -> None:
+    sql = str(CreateTable(Source.__table__).compile(dialect=DIALECT))
+
+    assert "ingestion_enabled BOOLEAN DEFAULT false NOT NULL" in sql
+    assert "ingestion_interval_minutes INTEGER," in sql
+    assert "next_ingestion_at TIMESTAMP WITH TIME ZONE," in sql
+    assert (
+        "CONSTRAINT ck_sources_ingestion_interval_minutes_in_range "
+        "CHECK (ingestion_interval_minutes BETWEEN 1 AND 10080)"
+    ) in sql
+    assert (
+        "CONSTRAINT ck_sources_enabled_ingestion_has_interval "
+        "CHECK (NOT ingestion_enabled OR ingestion_interval_minutes IS NOT NULL)"
+    ) in sql
+
+
+def test_ingestion_is_off_by_default() -> None:
+    default = Source.__table__.c.ingestion_enabled.default
+
+    assert default is not None
+    assert default.arg is False  # type: ignore[union-attr]
+    assert MAX_INGESTION_INTERVAL_MINUTES == 7 * 24 * 60
 
 
 def test_source_type_is_stored_as_its_value() -> None:

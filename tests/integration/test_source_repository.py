@@ -1,9 +1,12 @@
 import uuid
+from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
+from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from signalscope.domain.sources.model import Source, SourceType
+from signalscope.domain.sources.model import MAX_INGESTION_INTERVAL_MINUTES, Source, SourceType
 from signalscope.domain.sources.repository import SourceRepository
 
 pytestmark = pytest.mark.anyio
@@ -117,3 +120,103 @@ async def test_delete_returns_false_for_unknown_id(
 ) -> None:
     async with session_factory() as session:
         assert await SourceRepository(session).delete(uuid.uuid4()) is False
+
+
+async def test_new_sources_are_not_scheduled(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    source = await add_source(session_factory, "Example site")
+
+    async with session_factory() as session:
+        saved = await SourceRepository(session).get(source.id)
+
+    assert saved is not None
+    assert saved.ingestion_enabled is False
+    assert saved.ingestion_interval_minutes is None
+    assert saved.next_ingestion_at is None
+
+
+async def test_database_turns_ingestion_off_by_default(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    # Plain SQL skips the model default, so this checks the column default.
+    async with session_factory() as session:
+        enabled = await session.scalar(
+            text(
+                "INSERT INTO sources (id, type, name) VALUES (:id, 'upload', 'Uploads') "
+                "RETURNING ingestion_enabled"
+            ),
+            {"id": uuid.uuid4()},
+        )
+
+    assert enabled is False
+
+
+@pytest.mark.parametrize(
+    ("enabled", "interval"),
+    [
+        (False, 0),
+        (False, -5),
+        (False, MAX_INGESTION_INTERVAL_MINUTES + 1),
+        (True, None),
+    ],
+)
+async def test_invalid_schedule_is_rejected(
+    session_factory: async_sessionmaker[AsyncSession], enabled: bool, interval: int | None
+) -> None:
+    async with session_factory() as session:
+        session.add(
+            Source(
+                type=SourceType.RSS,
+                name="Example feed",
+                url="https://example.com/rss",
+                ingestion_enabled=enabled,
+                ingestion_interval_minutes=interval,
+            )
+        )
+        with pytest.raises(IntegrityError):
+            await session.flush()
+
+
+@pytest.mark.parametrize("interval", [1, MAX_INGESTION_INTERVAL_MINUTES])
+async def test_interval_limits_are_allowed(
+    session_factory: async_sessionmaker[AsyncSession], interval: int
+) -> None:
+    async with session_factory() as session:
+        source = await SourceRepository(session).add(
+            Source(
+                type=SourceType.RSS,
+                name="Example feed",
+                url="https://example.com/rss",
+                ingestion_enabled=True,
+                ingestion_interval_minutes=interval,
+            )
+        )
+        await session.commit()
+
+    assert source.ingestion_interval_minutes == interval
+
+
+async def test_next_ingestion_time_is_stored_with_its_time_zone(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    next_time = datetime(2026, 3, 1, 12, 0, tzinfo=timezone(timedelta(hours=2)))
+    async with session_factory() as session:
+        source = await SourceRepository(session).add(
+            Source(
+                type=SourceType.RSS,
+                name="Example feed",
+                url="https://example.com/rss",
+                ingestion_enabled=True,
+                ingestion_interval_minutes=60,
+                next_ingestion_at=next_time,
+            )
+        )
+        await session.commit()
+
+    async with session_factory() as session:
+        saved = await SourceRepository(session).get(source.id)
+
+    assert saved is not None
+    assert saved.next_ingestion_at == next_time
+    assert saved.next_ingestion_at == datetime(2026, 3, 1, 10, 0, tzinfo=UTC)
