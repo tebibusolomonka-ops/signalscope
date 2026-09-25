@@ -127,3 +127,9 @@ async def test_count_uses_the_same_filters(
         assert await repository.count(DocumentFilters(language="en")) == 3
         assert await repository.count(DocumentFilters(source_id=sources["b"].id)) == 1
         assert await repository.count(DocumentFilters(published_from=MARCH_2)) == 2
+
+
+async def test_language_filter_ignores_case(
+    session_factory: async_sessionmaker[AsyncSession], sources: dict[str, Source]
+) -> None:
+    assert await titles(session_factory, DocumentFilters(language=" EN ")) == {"A1", "A3", "B1"}

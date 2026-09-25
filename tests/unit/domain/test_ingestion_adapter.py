@@ -74,3 +74,13 @@ async def test_caller_can_stop_early() -> None:
 
     assert [item.external_id for item in items] == ["guid-0", "guid-1"]
     assert adapter.produced == 2
+
+
+def test_item_language_is_normalized() -> None:
+    assert IngestedItem(language=" EN-GB ").language == "en-gb"
+    assert IngestedItem(language=None).language is None
+
+
+def test_item_rejects_blank_language() -> None:
+    with pytest.raises(ValueError, match="language must not be empty"):
+        IngestedItem(language="  ")

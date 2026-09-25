@@ -79,3 +79,13 @@ def test_invalid_page_params_are_rejected(params: dict[str, int]) -> None:
         response = client.get("/documents", params=params)
 
     assert response.status_code == 422
+
+
+def test_blank_language_filter_is_rejected() -> None:
+    app = create_app(Settings(database_url=FAKE_DATABASE_URL))
+
+    with TestClient(app) as client:
+        response = client.get("/documents", params={"language": "  "})
+
+    assert response.status_code == 422
+    assert response.json()["error"]["details"][0]["loc"] == ["query", "language"]

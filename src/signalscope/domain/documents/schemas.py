@@ -4,6 +4,7 @@ from typing import Annotated
 
 from pydantic import AfterValidator, AwareDatetime, BaseModel, ConfigDict, StringConstraints
 
+from signalscope.domain.documents.language import normalize_language
 from signalscope.domain.documents.model import EXTERNAL_ID_MAX_LENGTH, LANGUAGE_MAX_LENGTH
 
 # Converted to UTC, so responses look the same before and after a database round trip.
@@ -13,7 +14,7 @@ ExternalId = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=EXTERNAL_ID_MAX_LENGTH)
 ]
 Language = Annotated[
-    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=LANGUAGE_MAX_LENGTH)
+    str, StringConstraints(max_length=LANGUAGE_MAX_LENGTH), AfterValidator(normalize_language)
 ]
 Title = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 

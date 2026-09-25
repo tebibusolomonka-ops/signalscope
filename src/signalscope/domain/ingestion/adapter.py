@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
 
+from signalscope.domain.documents.language import normalize_language
 from signalscope.domain.sources.model import Source
 
 
@@ -17,6 +18,9 @@ class IngestedItem:
     published_at: datetime | None = None
 
     def __post_init__(self) -> None:
+        if self.language is not None:
+            # The dataclass is frozen, so the normalized value is set this way.
+            object.__setattr__(self, "language", normalize_language(self.language))
         if self.published_at is not None and self.published_at.utcoffset() is None:
             raise ValueError("published_at must include a timezone")
 

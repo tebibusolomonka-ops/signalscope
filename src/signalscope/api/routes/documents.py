@@ -7,7 +7,7 @@ from pydantic import AwareDatetime
 from signalscope.api.dependencies import DatabaseSession
 from signalscope.api.pagination import Page, Pagination
 from signalscope.domain.documents.repository import DocumentFilters
-from signalscope.domain.documents.schemas import DocumentCreate, DocumentRead
+from signalscope.domain.documents.schemas import DocumentCreate, DocumentRead, Language
 from signalscope.domain.documents.service import DocumentService
 
 router = APIRouter(prefix="/documents", tags=["Documents"])
@@ -19,7 +19,7 @@ def get_document_service(session: DatabaseSession) -> DocumentService:
 
 def get_document_filters(
     source_id: uuid.UUID | None = None,
-    language: str | None = None,
+    language: Language | None = None,
     published_from: AwareDatetime | None = None,
     published_to: AwareDatetime | None = None,
 ) -> DocumentFilters:

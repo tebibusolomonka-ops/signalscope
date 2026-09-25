@@ -27,7 +27,7 @@ def test_valid_document() -> None:
     assert document.external_id == "guid-1"
     assert document.title == "An article"
     assert document.content == "  Text with spaces kept.  "
-    assert document.language == "pt-BR"
+    assert document.language == "pt-br"
     assert document.published_at == datetime(2026, 3, 1, 10, 30, tzinfo=UTC)
     assert document.published_at.utcoffset() == timedelta(0)
 
@@ -103,3 +103,12 @@ def test_read_schema_from_model() -> None:
         "created_at": now,
         "updated_at": now,
     }
+
+
+@pytest.mark.parametrize(
+    ("language", "expected"), [("EN", "en"), ("en-US", "en-us"), (" PT-BR ", "pt-br")]
+)
+def test_language_is_normalized(language: str, expected: str) -> None:
+    document = DocumentCreate.model_validate({"source_id": str(SOURCE_ID), "language": language})
+
+    assert document.language == expected

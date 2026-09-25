@@ -5,6 +5,7 @@ from datetime import datetime
 from sqlalchemy import ColumnElement, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from signalscope.domain.documents.language import normalize_language
 from signalscope.domain.documents.model import Document
 
 
@@ -66,7 +67,7 @@ def _conditions(filters: DocumentFilters) -> list[ColumnElement[bool]]:
     if filters.source_id is not None:
         conditions.append(Document.source_id == filters.source_id)
     if filters.language is not None:
-        conditions.append(Document.language == filters.language)
+        conditions.append(Document.language == normalize_language(filters.language))
     if filters.published_from is not None:
         conditions.append(Document.published_at >= filters.published_from)
     if filters.published_to is not None:

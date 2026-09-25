@@ -183,3 +183,16 @@ async def test_list_documents_for_unknown_source_is_empty(client: httpx.AsyncCli
     response = await client.get("/documents", params={"source_id": str(uuid.uuid4())})
 
     assert response.json() == {"items": [], "total": 0, "limit": 50, "offset": 0}
+
+
+async def test_language_is_stored_in_lowercase_and_found_with_any_case(
+    client: httpx.AsyncClient, source_id: str
+) -> None:
+    created = await create_document(
+        client, {"source_id": source_id, "title": "Mixed case", "language": "EN-us"}
+    )
+
+    response = await client.get("/documents", params={"language": "en-US"})
+
+    assert created["language"] == "en-us"
+    assert response.json()["items"] == [created]
