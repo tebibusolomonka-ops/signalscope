@@ -2,6 +2,7 @@ import os
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
+from pathlib import Path
 
 from signalscope.core.errors import SignalScopeError
 
@@ -36,6 +37,8 @@ class Settings:
     log_level: LogLevel = LogLevel.INFO
     # Left out of repr because the URL can contain a password.
     database_url: str | None = field(default=None, repr=False)
+    # Folder for raw file bytes, such as imported PDFs.
+    blob_dir: Path | None = None
 
     def __post_init__(self) -> None:
         if not self.app_name.strip():
@@ -58,12 +61,18 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
         debug=_read_bool(env, "SIGNALSCOPE_DEBUG", defaults.debug),
         log_level=_read_enum(env, "SIGNALSCOPE_LOG_LEVEL", LogLevel, defaults.log_level),
         database_url=_read(env, "SIGNALSCOPE_DATABASE_URL"),
+        blob_dir=_read_path(env, "SIGNALSCOPE_BLOB_DIR"),
     )
 
 
 def _read(env: Mapping[str, str], name: str) -> str | None:
     value = env.get(name, "").strip()
     return value or None
+
+
+def _read_path(env: Mapping[str, str], name: str) -> Path | None:
+    value = _read(env, name)
+    return None if value is None else Path(value)
 
 
 def _read_str(env: Mapping[str, str], name: str, default: str) -> str:

@@ -11,8 +11,10 @@ empty, keeps its default value. An invalid value raises `SettingsError`.
 | `SIGNALSCOPE_DEBUG` | `false` | `true`, `false`, `1`, `0`, `yes`, `no`, `on`, `off` |
 | `SIGNALSCOPE_LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL` |
 | `SIGNALSCOPE_DATABASE_URL` | Not set | A URL that starts with `postgresql+asyncpg://` |
+| `SIGNALSCOPE_BLOB_DIR` | Not set | A folder path |
 
-Values are not case-sensitive, except for the app name and the database URL.
+Values are not case-sensitive, except for the app name, the database URL and
+the blob folder.
 Leading and trailing spaces are ignored.
 
 `.env` files are not loaded. Set the variables in your shell or process
@@ -30,3 +32,12 @@ Example for a local database:
 ```text
 postgresql+asyncpg://signalscope:signalscope@localhost:5432/signalscope
 ```
+
+## File storage
+
+Raw files, such as imported PDFs, are stored as files under
+`SIGNALSCOPE_BLOB_DIR`. The database only keeps their metadata. The folder is
+created when the first file is written.
+
+The setting is optional, and the API starts without it. Commands that store
+or read files fail with a clear error when it is not set.

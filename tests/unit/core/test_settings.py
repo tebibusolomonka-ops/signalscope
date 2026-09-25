@@ -1,4 +1,5 @@
 import dataclasses
+from pathlib import Path
 
 import pytest
 
@@ -21,6 +22,7 @@ def test_defaults() -> None:
     assert settings.debug is False
     assert settings.log_level is LogLevel.INFO
     assert settings.database_url is None
+    assert settings.blob_dir is None
 
 
 def test_custom_values() -> None:
@@ -62,6 +64,7 @@ def test_load_settings_reads_all_values() -> None:
             "SIGNALSCOPE_DEBUG": "true",
             "SIGNALSCOPE_LOG_LEVEL": "DEBUG",
             "SIGNALSCOPE_DATABASE_URL": DATABASE_URL,
+            "SIGNALSCOPE_BLOB_DIR": " /var/lib/signalscope/blobs ",
         }
     )
 
@@ -71,6 +74,7 @@ def test_load_settings_reads_all_values() -> None:
         debug=True,
         log_level=LogLevel.DEBUG,
         database_url=DATABASE_URL,
+        blob_dir=Path("/var/lib/signalscope/blobs"),
     )
 
 
@@ -88,6 +92,7 @@ def test_load_settings_ignores_empty_values() -> None:
             "SIGNALSCOPE_DEBUG": "",
             "SIGNALSCOPE_LOG_LEVEL": "",
             "SIGNALSCOPE_DATABASE_URL": "",
+            "SIGNALSCOPE_BLOB_DIR": "  ",
         }
     )
 
