@@ -10,8 +10,12 @@ pytestmark = pytest.mark.anyio
 Handler = Callable[[httpx.Request], httpx.Response]
 
 
+async def public_address(host: str) -> list[str]:
+    return ["93.184.215.14"]
+
+
 def fetcher(handler: Handler, **options: int) -> HttpFetcher:
-    return HttpFetcher(transport=httpx.MockTransport(handler), **options)
+    return HttpFetcher(transport=httpx.MockTransport(handler), resolve=public_address, **options)
 
 
 async def test_successful_fetch() -> None:

@@ -6,6 +6,7 @@ from typing import Self
 import httpx
 
 from signalscope.domain.ingestion.errors import IngestionError
+from signalscope.ingestion.url_safety import Resolver, check_url, resolve_host
 
 USER_AGENT = "SignalScope"
 DEFAULT_TIMEOUT_SECONDS = 15.0
@@ -34,8 +35,8 @@ class FetchResponse:
 class HttpFetcher:
     """GET requests for ingestion with a timeout, a redirect limit and a size limit.
 
-    Redirects are followed here instead of by httpx, so each hop can be checked
-    before it is requested.
+    Every URL, including each redirect target, must pass check_url before it is
+    requested. That is why redirects are followed here instead of by httpx.
     """
 
     def __init__(
@@ -45,9 +46,11 @@ class HttpFetcher:
         max_redirects: int = DEFAULT_MAX_REDIRECTS,
         max_bytes: int = DEFAULT_MAX_BYTES,
         transport: httpx.AsyncBaseTransport | None = None,
+        resolve: Resolver = resolve_host,
     ) -> None:
         self.max_redirects = max_redirects
         self.max_bytes = max_bytes
+        self._resolve = resolve
         self._client = httpx.AsyncClient(
             timeout=timeout,
             follow_redirects=False,
@@ -71,6 +74,7 @@ class HttpFetcher:
 
     async def get(self, url: str) -> FetchResponse:
         for _ in range(self.max_redirects + 1):
+            await check_url(url, self._resolve)
             try:
                 async with self._client.stream("GET", url) as response:
                     if response.status_code in REDIRECT_STATUS_CODES:
