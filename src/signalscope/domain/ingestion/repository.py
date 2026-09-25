@@ -1,7 +1,7 @@
 import uuid
 from dataclasses import dataclass
 
-from sqlalchemy import ColumnElement, func, select
+from sqlalchemy import ColumnElement, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from signalscope.domain.ingestion.model import IngestionRun, IngestionStatus
@@ -41,6 +41,29 @@ class IngestionRunRepository:
             .execution_options(populate_existing=True)
         )
         return result.one_or_none()
+
+    async def add_counts(
+        self,
+        run_id: uuid.UUID,
+        *,
+        items_seen: int = 0,
+        documents_created: int = 0,
+        duplicates_skipped: int = 0,
+    ) -> None:
+        """Add to a run's counters in the database.
+
+        The addition happens in one UPDATE, so updates at the same time do not
+        overwrite each other.
+        """
+        await self.session.execute(
+            update(IngestionRun)
+            .where(IngestionRun.id == run_id)
+            .values(
+                items_seen=IngestionRun.items_seen + items_seen,
+                documents_created=IngestionRun.documents_created + documents_created,
+                duplicates_skipped=IngestionRun.duplicates_skipped + duplicates_skipped,
+            )
+        )
 
     async def list_page(
         self, filters: IngestionRunFilters, limit: int, offset: int
