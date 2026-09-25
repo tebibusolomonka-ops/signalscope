@@ -4,7 +4,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from signalscope.core.errors import ConflictError, NotFoundError
-from signalscope.db.errors import is_unique_violation
+from signalscope.db.errors import is_foreign_key_violation, is_unique_violation
 from signalscope.domain.documents.model import Document
 from signalscope.domain.documents.repository import DocumentFilters, DocumentRepository
 from signalscope.domain.documents.schemas import DocumentCreate
@@ -57,6 +57,12 @@ class DocumentService:
         try:
             deleted = await self.documents.delete(document_id)
             await self.session.commit()
+        except IntegrityError as error:
+            await self.session.rollback()
+            if is_foreign_key_violation(error):
+                # Deleting the stored file is not supported yet, so the document stays.
+                raise ConflictError("Document has a stored file and cannot be deleted.") from error
+            raise
         except Exception:
             await self.session.rollback()
             raise

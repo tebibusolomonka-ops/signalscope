@@ -56,6 +56,7 @@ async def test_upgrade_from_empty_database(
         "documents",
         "ingestion_runs",
         "ingestion_jobs",
+        "document_assets",
     }
     head = ScriptDirectory.from_config(migration_config).get_current_head()
     assert await current_revision(database_engine) == head
