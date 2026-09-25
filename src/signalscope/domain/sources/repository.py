@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import ColumnElement, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from signalscope.domain.sources.model import Source
@@ -36,6 +36,21 @@ class SourceRepository:
         )
         return result.one_or_none()
 
+    async def get_due_for_update(self, source_id: uuid.UUID, now: datetime) -> Source | None:
+        """Lock a source if it is still due for ingestion, or return None.
+
+        When another transaction holds the lock, this waits for it. PostgreSQL
+        then checks the row again, so a source that the other transaction
+        already moved forward is no longer due.
+        """
+        result = await self.session.scalars(
+            select(Source)
+            .where(Source.id == source_id, *_due(now))
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        return result.one_or_none()
+
     async def list_due_for_ingestion(self, now: datetime, limit: int) -> list[Source]:
         """Return enabled sources whose next ingestion time is not after now.
 
@@ -43,7 +58,7 @@ class SourceRepository:
         """
         result = await self.session.scalars(
             select(Source)
-            .where(Source.ingestion_enabled.is_(True), Source.next_ingestion_at <= now)
+            .where(*_due(now))
             .order_by(Source.next_ingestion_at, Source.id)
             .limit(limit)
         )
@@ -65,3 +80,7 @@ class SourceRepository:
             delete(Source).where(Source.id == source_id).returning(Source.id)
         )
         return result.scalar_one_or_none() is not None
+
+
+def _due(now: datetime) -> list[ColumnElement[bool]]:
+    return [Source.ingestion_enabled.is_(True), Source.next_ingestion_at <= now]
