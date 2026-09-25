@@ -14,6 +14,15 @@ URL_MAX_LENGTH = 2048
 LANGUAGE_MAX_LENGTH = 35
 
 
+def url_fits(url: str) -> bool:
+    """Whether a URL is small enough to store.
+
+    The limit counts UTF-8 bytes, not characters, because an entry in the
+    (source_id, url) index cannot be much larger than 2.7 KB.
+    """
+    return len(url.encode()) <= URL_MAX_LENGTH
+
+
 class Document(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """One content item collected from a source, such as an article or a PDF."""
 

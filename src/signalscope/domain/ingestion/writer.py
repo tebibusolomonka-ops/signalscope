@@ -8,8 +8,8 @@ from signalscope.domain.documents.fingerprint import content_fingerprint
 from signalscope.domain.documents.model import (
     EXTERNAL_ID_MAX_LENGTH,
     LANGUAGE_MAX_LENGTH,
-    URL_MAX_LENGTH,
     Document,
+    url_fits,
 )
 from signalscope.domain.documents.repository import DocumentRepository
 from signalscope.domain.ingestion.adapter import IngestedItem
@@ -41,7 +41,7 @@ class DocumentWriter:
 
     async def write(self, source_id: uuid.UUID, item: IngestedItem) -> WriteResult:
         external_id = _fit(item.external_id, EXTERNAL_ID_MAX_LENGTH)
-        url = _fit(item.url, URL_MAX_LENGTH)
+        url = item.url if item.url is not None and url_fits(item.url) else None
         title = _text(item.title)
         content = item.content if _text(item.content) else None
         content_hash = content_fingerprint(title=title, content=content, url=url)

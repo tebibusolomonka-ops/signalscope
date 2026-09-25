@@ -9,6 +9,7 @@ from signalscope.domain.documents.model import (
     EXTERNAL_ID_MAX_LENGTH,
     LANGUAGE_MAX_LENGTH,
     URL_MAX_LENGTH,
+    url_fits,
 )
 
 # Converted to UTC, so responses look the same before and after a database round trip.
@@ -20,8 +21,16 @@ ExternalId = Annotated[
 Language = Annotated[
     str, StringConstraints(max_length=LANGUAGE_MAX_LENGTH), AfterValidator(normalize_language)
 ]
+
+
+def _check_url_size(url: str) -> str:
+    if not url_fits(url):
+        raise ValueError(f"url must be at most {URL_MAX_LENGTH} bytes")
+    return url
+
+
 Url = Annotated[
-    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=URL_MAX_LENGTH)
+    str, StringConstraints(strip_whitespace=True, min_length=1), AfterValidator(_check_url_size)
 ]
 Title = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 

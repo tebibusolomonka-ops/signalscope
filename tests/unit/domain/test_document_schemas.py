@@ -126,3 +126,14 @@ def test_content_hash_is_internal() -> None:
     with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
         DocumentCreate.model_validate({"source_id": str(SOURCE_ID), "content_hash": "a" * 64})
     assert "content_hash" not in DocumentRead.model_fields
+
+
+def test_url_limit_counts_bytes() -> None:
+    # "é" takes two bytes, so this URL is under 2048 characters but over 2048 bytes.
+    too_big = "https://news.example/" + "é" * 1100
+    at_limit = "https://news.example/" + "x" * (2048 - len("https://news.example/"))
+
+    with pytest.raises(ValidationError, match="url must be at most 2048 bytes"):
+        DocumentCreate.model_validate({"source_id": str(SOURCE_ID), "url": too_big})
+    document = DocumentCreate.model_validate({"source_id": str(SOURCE_ID), "url": at_limit})
+    assert document.url == at_limit

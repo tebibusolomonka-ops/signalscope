@@ -158,3 +158,40 @@ async def test_blank_title_and_content_are_stored_as_none(
     saved = await load(session_factory, result.document.id)
     assert saved is not None
     assert (saved.title, saved.content, saved.content_hash) == (None, None, None)
+
+
+def mixed_url(characters: int) -> str:
+    # Shuffled three-byte characters, so PostgreSQL cannot shrink the index entry much.
+    return "https://news.example/" + "".join(
+        chr(0x4E00 + (number * 7919) % 20000) for number in range(characters)
+    )
+
+
+async def test_largest_allowed_url_is_stored(
+    session_factory: async_sessionmaker[AsyncSession], source: Source
+) -> None:
+    url = mixed_url(675)
+    assert len(url.encode()) <= 2048
+
+    async with session_factory() as session:
+        result = await DocumentWriter(session).write(source.id, IngestedItem(url=url))
+        await session.commit()
+
+    saved = await load(session_factory, result.document.id)
+    assert saved is not None
+    assert saved.url == url
+
+
+async def test_url_over_the_byte_limit_is_dropped(
+    session_factory: async_sessionmaker[AsyncSession], source: Source
+) -> None:
+    url = mixed_url(700)
+    assert len(url) < 2048 < len(url.encode())
+
+    async with session_factory() as session:
+        result = await DocumentWriter(session).write(source.id, IngestedItem(url=url, title="Big"))
+        await session.commit()
+
+    saved = await load(session_factory, result.document.id)
+    assert saved is not None
+    assert saved.url is None
