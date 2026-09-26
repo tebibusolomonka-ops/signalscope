@@ -5,6 +5,7 @@ Alembic and the database test setup import Base from here.
 
 from signalscope.db.base import Base
 from signalscope.domain.blobs.model import BlobCleanupTask
+from signalscope.domain.claims.model import Claim, ClaimEvidence
 from signalscope.domain.documents.asset import DocumentAsset
 from signalscope.domain.documents.chunk import DocumentChunk
 from signalscope.domain.documents.extraction import DocumentExtraction
@@ -25,6 +26,8 @@ __all__ = [
     "Base",
     "BlobCleanupTask",
     "ChunkEmbedding",
+    "Claim",
+    "ClaimEvidence",
     "Document",
     "DocumentAsset",
     "DocumentChunk",
