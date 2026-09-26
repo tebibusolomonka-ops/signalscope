@@ -1,11 +1,14 @@
 import uuid
 from collections.abc import Sequence
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, literal, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from signalscope.domain.documents.chunk import DocumentChunk
 from signalscope.domain.documents.chunking import TextChunk
+
+# A place in the stable order of all chunks: (document ID, position).
+ChunkKey = tuple[uuid.UUID, int]
 
 
 class DocumentChunkRepository:
@@ -46,3 +49,24 @@ class DocumentChunkRepository:
             for chunk in chunks
         )
         await self.session.flush()
+
+    async def page(
+        self, after: ChunkKey | None, size: int, document_id: uuid.UUID | None = None
+    ) -> list[tuple[uuid.UUID, uuid.UUID, int]]:
+        """Return up to size (chunk ID, document ID, position) rows after the given key.
+
+        Rows come in (document, position) order, so paging with the last key of
+        each page walks through all chunks once without loading them all.
+        """
+        statement = select(DocumentChunk.id, DocumentChunk.document_id, DocumentChunk.position)
+        if document_id is not None:
+            statement = statement.where(DocumentChunk.document_id == document_id)
+        if after is not None:
+            statement = statement.where(
+                tuple_(DocumentChunk.document_id, DocumentChunk.position)
+                > tuple_(literal(after[0]), literal(after[1]))
+            )
+        rows = await self.session.execute(
+            statement.order_by(DocumentChunk.document_id, DocumentChunk.position).limit(size)
+        )
+        return [(chunk_id, document, position) for chunk_id, document, position in rows]
