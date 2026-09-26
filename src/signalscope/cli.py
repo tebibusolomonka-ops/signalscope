@@ -51,6 +51,7 @@ NO_DATABASE_ERROR = "Error: Database URL is not configured. Set SIGNALSCOPE_DATA
 NO_BLOB_DIR_ERROR = "Error: Blob directory is not configured. Set SIGNALSCOPE_BLOB_DIR."
 # Stale jobs put back in the queue before each claim.
 RECOVERY_LIMIT = 10
+LEASE_LOST_MESSAGE = "Lease lost: another worker took the job over."
 
 # Only the types built into Python, so the guess does not depend on the machine.
 MIME_TYPES = mimetypes.MimeTypes()
@@ -272,11 +273,14 @@ async def run_worker(
 
         async def work() -> bool | None:
             await recover_stale_ingestion_jobs(session_factory, utc_now(), RECOVERY_LIMIT)
-            job = (await worker.run_once()).job
-            if job is None:
+            result = await worker.run_once()
+            if result.job is None:
                 return None
-            _print_ingestion_job(job, out)
-            return job.status is IngestionJobStatus.COMPLETED
+            _print_ingestion_job(result.job, out)
+            if result.lease_lost:
+                print(LEASE_LOST_MESSAGE, file=out)
+                return False
+            return result.job.status is IngestionJobStatus.COMPLETED
 
         return await _run_jobs(
             work,
@@ -322,11 +326,14 @@ async def run_processing_worker(
                     utc_now(), RECOVERY_LIMIT
                 )
                 await session.commit()
-            job = (await worker.run_once()).job
-            if job is None:
+            result = await worker.run_once()
+            if result.job is None:
                 return None
-            _print_processing_job(job, out)
-            return job.status is ProcessingJobStatus.COMPLETED
+            _print_processing_job(result.job, out)
+            if result.lease_lost:
+                print(LEASE_LOST_MESSAGE, file=out)
+                return False
+            return result.job.status is ProcessingJobStatus.COMPLETED
 
         return await _run_jobs(
             work,
