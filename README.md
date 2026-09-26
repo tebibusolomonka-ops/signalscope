@@ -182,7 +182,8 @@ curl "http://localhost:8000/search?q=climate+policy&limit=10"
 ```
 
 Each result has the document, chunk and source IDs, the title, the URL, a
-short plain text excerpt and a rank. All words must match. `"quoted phrases"`,
+short plain text excerpt, a rank and the chunk metadata, which says for
+example which PDF page the match came from. All words must match. `"quoted phrases"`,
 `or` and `-word` work as on web search engines. `source_id` limits results to
 one source.
 

@@ -1,4 +1,5 @@
 import uuid
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
@@ -15,6 +16,8 @@ class SearchResultRead(BaseModel):
     url: str | None
     excerpt: str
     rank: float
+    # Where the chunk came from, such as {"page_number": 3}.
+    chunk_metadata: dict[str, Any]
 
 
 class SearchResponse(BaseModel):

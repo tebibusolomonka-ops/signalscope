@@ -1,5 +1,6 @@
 import uuid
 from dataclasses import dataclass
+from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,6 +26,8 @@ class SearchResult:
     url: str | None
     excerpt: str
     rank: float
+    # Where the chunk came from, such as {"page_number": 3}.
+    chunk_metadata: dict[str, Any]
 
 
 class SearchRepository:
@@ -57,6 +60,7 @@ class SearchRepository:
                     text_search_config(), DocumentChunk.text, tsquery, HEADLINE_OPTIONS
                 ),
                 rank,
+                DocumentChunk.chunk_metadata,
             )
             .join(Document, Document.id == DocumentChunk.document_id)
             .where(chunk_search_vector().bool_op("@@")(tsquery))
@@ -76,6 +80,16 @@ class SearchRepository:
                 url=url,
                 excerpt=excerpt,
                 rank=float(row_rank),
+                chunk_metadata=dict(metadata),
             )
-            for chunk_id, document_id, row_source_id, title, url, excerpt, row_rank in rows
+            for (
+                chunk_id,
+                document_id,
+                row_source_id,
+                title,
+                url,
+                excerpt,
+                row_rank,
+                metadata,
+            ) in rows
         ]

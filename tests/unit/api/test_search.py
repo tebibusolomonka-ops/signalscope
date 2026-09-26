@@ -48,6 +48,7 @@ def test_result_schema_has_no_full_text(app: FastAPI) -> None:
         "url",
         "excerpt",
         "rank",
+        "chunk_metadata",
     }
 
 

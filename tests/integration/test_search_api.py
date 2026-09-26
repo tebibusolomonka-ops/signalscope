@@ -24,7 +24,16 @@ from signalscope.storage.local import LocalBlobStore
 
 pytestmark = pytest.mark.anyio
 
-RESULT_FIELDS = {"document_id", "chunk_id", "source_id", "title", "url", "excerpt", "rank"}
+RESULT_FIELDS = {
+    "document_id",
+    "chunk_id",
+    "source_id",
+    "title",
+    "url",
+    "excerpt",
+    "rank",
+    "chunk_metadata",
+}
 
 
 async def create_source(client: httpx.AsyncClient) -> str:
@@ -74,6 +83,7 @@ async def test_matching_results(
     assert item["source_id"] == source_id
     assert (item["title"], item["url"]) == ("Coasts", None)
     assert "Climate policy for coastal cities" in item["excerpt"]
+    assert item["chunk_metadata"] == {}
     assert item["rank"] > 0
     assert uuid.UUID(item["chunk_id"])
 
@@ -189,4 +199,10 @@ async def test_imported_pdf_goes_through_the_whole_pipeline(
     [item] = await search(client, q="offshore turbines")
     assert item["document_id"] == str(imported.document.id)
     assert item["chunk_id"] == str(chunks[1].id)
+    # A reader can tell which page the match came from.
+    assert item["chunk_metadata"] == {
+        "page_number": 2,
+        "section_kind": "page",
+        "section_index": 1,
+    }
     assert "Offshore turbines doubled output" in item["excerpt"]

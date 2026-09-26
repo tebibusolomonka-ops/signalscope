@@ -199,3 +199,33 @@ async def test_unicode_and_punctuation(session_factory: async_sessionmaker[Async
     for query in ["Städte", "STÄDTE!", "städte, klimapolitik"]:
         results = await search(session_factory, query)
         assert [result.document_id for result in results] == [german.id], query
+
+
+async def test_results_carry_the_chunk_metadata(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    source = await create_source(session_factory)
+    document = await add_document(session_factory, source, "Climate policy for cities.")
+    async with session_factory() as session:
+        chunk = (await DocumentChunkRepository(session).list_by_document(document.id))[0]
+        chunk.chunk_metadata = {"page_number": 3, "section_kind": "page", "section_index": 2}
+        await session.commit()
+
+    [result] = await search(session_factory, "climate")
+
+    assert result.chunk_metadata == {
+        "page_number": 3,
+        "section_kind": "page",
+        "section_index": 2,
+    }
+
+
+async def test_results_without_metadata_are_empty(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    source = await create_source(session_factory)
+    await add_document(session_factory, source, "Climate policy for cities.")
+
+    [result] = await search(session_factory, "climate")
+
+    assert result.chunk_metadata == {}
