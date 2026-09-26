@@ -4,6 +4,7 @@ from signalscope.api.errors import add_error_handlers
 from signalscope.api.lifespan import lifespan
 from signalscope.api.middleware import RequestIDMiddleware, RequestLoggingMiddleware
 from signalscope.api.routes import (
+    claims,
     documents,
     embeddings,
     entities,
@@ -44,5 +45,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(embeddings.router)
     app.include_router(entities.router)
     app.include_router(events.router)
+    app.include_router(claims.router)
     app.include_router(research.router)
     return app
