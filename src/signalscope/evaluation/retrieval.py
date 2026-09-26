@@ -9,12 +9,13 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from signalscope.domain.documents.chunking import TextChunk
 from signalscope.domain.search.embedding_model import ChunkEmbedding
-from signalscope.domain.search.hybrid_service import candidate_count, fuse
+from signalscope.domain.search.hybrid_service import HybridSearchResult, candidate_count, fuse
 from signalscope.domain.search.repository import (
     MAX_CANDIDATE_LIMIT,
     PUBLIC_SEARCH_LIMIT,
     SearchRepository,
 )
+from signalscope.domain.search.reranked_service import rerank_candidate_count
 from signalscope.domain.search.vector_repository import VectorSearchRepository
 from signalscope.embeddings.provider import EmbeddingInputRole, EmbeddingProvider, embed
 from signalscope.evaluation.corpus import (
@@ -25,6 +26,7 @@ from signalscope.evaluation.corpus import (
 )
 from signalscope.evaluation.dataset import RetrievalDataset
 from signalscope.evaluation.metrics import MetricsSummary, QueryMetrics, evaluate_query, summarize
+from signalscope.reranking.provider import RerankerProvider, rerank_scores
 
 DEFAULT_KS = (1, 5, 10)
 # Search returns chunks, and several can come from one document. Asking for
@@ -50,7 +52,10 @@ class RetrievalReport:
     ks: tuple[int, ...]
     metrics: MetricsSummary
     queries: tuple[QueryMetrics, ...]
+    # Search time per query.
     latency: LatencySummary
+    # Reranker time per query, for the reranked mode only.
+    reranking_latency: LatencySummary | None = None
 
 
 def check_ks(ks: Sequence[int]) -> tuple[int, ...]:
@@ -90,7 +95,9 @@ class RankedQueries:
         )
         self.seconds.append(seconds)
 
-    def report(self, mode: str) -> RetrievalReport:
+    def report(
+        self, mode: str, reranking_seconds: Sequence[float] | None = None
+    ) -> RetrievalReport:
         return RetrievalReport(
             mode=mode,
             dataset=self.dataset.name,
@@ -98,6 +105,9 @@ class RankedQueries:
             metrics=summarize(self.results, self.ks),
             queries=tuple(self.results),
             latency=summarize_latency(self.seconds),
+            reranking_latency=(
+                None if reranking_seconds is None else summarize_latency(reranking_seconds)
+            ),
         )
 
 
@@ -208,7 +218,6 @@ async def evaluate_hybrid(
     checked = check_ks(ks)
     vectors = await prepare_vectors(provider, dataset)
     ranked = RankedQueries(dataset, checked)
-    candidates = candidate_count(PUBLIC_SEARCH_LIMIT)
     async with evaluation_corpus(session_factory, dataset, vectors.chunks) as (session, corpus):
         await add_embeddings(session, corpus, vectors.chunks, vectors.passages, provider)
         lexical = SearchRepository(session)
@@ -217,21 +226,93 @@ async def evaluate_hybrid(
             zip(dataset.queries, vectors.queries, strict=True)
         ):
             started = timer()
-            lexical_results = await lexical.search(
-                query.text, limit=candidates, source_id=corpus.source_id
+            fused = await _hybrid_candidates(
+                lexical, nearest, query.text, query_vector, provider, corpus, PUBLIC_SEARCH_LIMIT
             )
-            vector_results = await nearest.search(
-                query_vector,
-                provider=provider.provider_name,
-                model=provider.model_name,
-                dimensions=provider.dimensions,
-                limit=candidates,
-                source_id=corpus.source_id,
-            )
-            fused = fuse(lexical_results, vector_results, PUBLIC_SEARCH_LIMIT)
             elapsed = timer() - started
             ranked.add(index, corpus.keys_of([result.document_id for result in fused]), elapsed)
     return ranked.report("hybrid")
+
+
+async def evaluate_reranked(
+    session_factory: async_sessionmaker[AsyncSession],
+    dataset: RetrievalDataset,
+    provider: EmbeddingProvider,
+    reranker: RerankerProvider,
+    ks: Sequence[int] = DEFAULT_KS,
+    timer: Timer = time.perf_counter,
+) -> RetrievalReport:
+    """Score hybrid search reordered by reranker, as the reranked search API does.
+
+    Each query collects the hybrid candidates the API would rerank for the
+    largest k. The transaction is closed before the reranker runs, and its time
+    is reported apart from the search time. A document counts at the place of
+    its best chunk after reranking.
+    """
+    checked = check_ks(ks)
+    vectors = await prepare_vectors(provider, dataset)
+    texts = {
+        (key, chunk.position): chunk.text
+        for key, items in vectors.chunks.items()
+        for chunk in items
+    }
+    search_seconds: list[float] = []
+    # For each query: (document key, chunk text) of every candidate, in hybrid order.
+    candidates: list[list[tuple[str, str]]] = []
+    async with evaluation_corpus(session_factory, dataset, vectors.chunks) as (session, corpus):
+        await add_embeddings(session, corpus, vectors.chunks, vectors.passages, provider)
+        places = {chunk_id: place for place, chunk_id in corpus.chunk_ids.items()}
+        lexical = SearchRepository(session)
+        nearest = VectorSearchRepository(session)
+        for query, query_vector in zip(dataset.queries, vectors.queries, strict=True):
+            started = timer()
+            fused = await _hybrid_candidates(
+                lexical,
+                nearest,
+                query.text,
+                query_vector,
+                provider,
+                corpus,
+                rerank_candidate_count(max(checked)),
+            )
+            search_seconds.append(timer() - started)
+            candidates.append(
+                [(places[result.chunk_id][0], texts[places[result.chunk_id]]) for result in fused]
+            )
+
+    ranked = RankedQueries(dataset, checked)
+    reranking_seconds = []
+    for index, (query, found) in enumerate(zip(dataset.queries, candidates, strict=True)):
+        started = timer()
+        scores = await rerank_scores(reranker, query.text, [text for _, text in found])
+        reranking_seconds.append(timer() - started)
+        # sorted() is stable, so equal scores keep the hybrid order.
+        order = sorted(range(len(found)), key=lambda position: -scores[position])
+        ranked.add(index, [found[position][0] for position in order], search_seconds[index])
+    return ranked.report("reranked", reranking_seconds)
+
+
+async def _hybrid_candidates(
+    lexical: SearchRepository,
+    nearest: VectorSearchRepository,
+    text: str,
+    vector: list[float],
+    provider: EmbeddingProvider,
+    corpus: EvaluationCorpus,
+    limit: int,
+) -> list[HybridSearchResult]:
+    """Run both searches and fuse them, as HybridSearchService does."""
+    candidates = candidate_count(limit)
+    lexical_results = await lexical.search(text, limit=candidates, source_id=corpus.source_id)
+    vector_results = await nearest.search(
+        vector,
+        provider=provider.provider_name,
+        model=provider.model_name,
+        dimensions=provider.dimensions,
+        limit=candidates,
+        source_id=corpus.source_id,
+    )
+    return fuse(lexical_results, vector_results, limit)
 
 
 async def add_embeddings(
