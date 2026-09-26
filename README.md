@@ -55,13 +55,11 @@ Create a new migration:
 alembic revision -m "Describe the change"
 ```
 
-Run the checks:
+Run the checks. This runs pytest, Ruff, the format check and mypy in order,
+stops at the first failure and checks that there is one Alembic head:
 
 ```bash
-pytest
-ruff check .
-ruff format --check .
-mypy src
+python scripts/check.py
 ```
 
 Database tests run only when `SIGNALSCOPE_TEST_DATABASE_URL` is set. Otherwise

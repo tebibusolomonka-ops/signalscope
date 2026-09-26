@@ -42,7 +42,14 @@ Do not add future features, services or dependencies early.
 
 ## Checks
 
-Install with `pip install -e ".[dev]"`, then run:
+Install with `pip install -e ".[dev]"`, then run all checks with:
+
+```bash
+python scripts/check.py
+```
+
+It runs these in order, stops at the first failure and also checks that the
+migrations have one Alembic head:
 
 ```bash
 pytest
