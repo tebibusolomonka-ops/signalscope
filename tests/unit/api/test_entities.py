@@ -75,3 +75,24 @@ def test_bad_entity_id() -> None:
 
 def test_needs_a_database(client: TestClient) -> None:
     assert client.get("/entities").status_code == 503
+
+
+def test_coverage_route_is_in_openapi(app: FastAPI) -> None:
+    get = app.openapi()["paths"]["/entities/coverage"]["get"]
+    schema = app.openapi()["components"]["schemas"]["EntityCoverageRead"]
+
+    assert [parameter["name"] for parameter in get["parameters"]] == ["document_id"]
+    assert set(schema["properties"]) == {
+        "provider",
+        "model",
+        "document_id",
+        "chunk_count",
+        "extracted_count",
+        "pending_count",
+        "failed_count",
+        "coverage",
+    }
+
+
+def test_coverage_needs_a_database(client: TestClient) -> None:
+    assert client.get("/entities/coverage").status_code == 503

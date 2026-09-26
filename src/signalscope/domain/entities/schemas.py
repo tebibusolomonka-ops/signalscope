@@ -35,3 +35,18 @@ class EntityDetailRead(BaseModel):
     mention_count: int
     # At most the first 100 mentions, in document order.
     mentions: list[EntityMentionRead]
+
+
+class EntityCoverageRead(BaseModel):
+    """How many chunks the local entity model has read."""
+
+    provider: str
+    model: str
+    # Set when the numbers are for one document only.
+    document_id: uuid.UUID | None
+    chunk_count: int
+    extracted_count: int
+    pending_count: int
+    failed_count: int
+    # extracted_count / chunk_count, or None when there are no chunks.
+    coverage: float | None
