@@ -77,6 +77,7 @@ async def test_no_confidence_is_allowed() -> None:
         ({"confidence": float("nan")}, "confidence outside 0 to 1"),
         ({"confidence": float("inf")}, "confidence outside 0 to 1"),
         ({"metadata": ["x"]}, "metadata that is not an object"),
+        ({"text": " ", "start_char": 6, "end_char": 7}, "only whitespace"),
     ],
     ids=[
         "negative start",
@@ -91,6 +92,7 @@ async def test_no_confidence_is_allowed() -> None:
         "confidence nan",
         "confidence infinity",
         "metadata not an object",
+        "only whitespace",
     ],
 )
 async def test_invalid_mentions_are_rejected(values: dict[str, Any], message: str) -> None:

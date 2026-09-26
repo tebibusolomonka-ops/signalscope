@@ -4,8 +4,7 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 from signalscope.core.errors import ServiceUnavailableError, SignalScopeError
-from signalscope.domain.entities.mention import SURFACE_TEXT_MAX_LENGTH
-from signalscope.domain.entities.model import ENTITY_TYPE_MAX_LENGTH
+from signalscope.domain.entities.model import ENTITY_NAME_MAX_LENGTH, ENTITY_TYPE_MAX_LENGTH
 
 
 class EntityExtractorUnavailableError(ServiceUnavailableError):
@@ -67,8 +66,11 @@ def _problem(mention: ExtractedEntityMention, text: str) -> str | None:
         return f"returned offsets {start}:{end} outside the text"
     if text[start:end] != mention.text:
         return f"returned text that is not at offsets {start}:{end}"
-    if len(mention.text) > SURFACE_TEXT_MAX_LENGTH:
-        return f"returned a mention longer than {SURFACE_TEXT_MAX_LENGTH} characters"
+    if not mention.text.strip():
+        return "returned a mention that is only whitespace"
+    # The text also names the entity, so it must fit an entity name.
+    if len(mention.text) > ENTITY_NAME_MAX_LENGTH:
+        return f"returned a mention longer than {ENTITY_NAME_MAX_LENGTH} characters"
     if not mention.entity_type.strip() or len(mention.entity_type) > ENTITY_TYPE_MAX_LENGTH:
         return f"returned an entity type that is empty or longer than {ENTITY_TYPE_MAX_LENGTH}"
     confidence = mention.confidence
