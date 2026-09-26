@@ -6,8 +6,11 @@ from pydantic import StringConstraints
 
 from signalscope.api.dependencies import DatabaseSession, EmbeddingProviders
 from signalscope.domain.search.embedding_model import MODEL_MAX_LENGTH, PROVIDER_MAX_LENGTH
+from signalscope.domain.search.hybrid_service import HybridSearchService
 from signalscope.domain.search.repository import MAX_SEARCH_LIMIT
 from signalscope.domain.search.schemas import (
+    HybridSearchResponse,
+    HybridSearchResultRead,
     SearchResponse,
     SearchResultRead,
     SemanticSearchResponse,
@@ -72,4 +75,28 @@ async def semantic_search(
     )
     return SemanticSearchResponse(
         items=[SemanticSearchResultRead.model_validate(result) for result in results]
+    )
+
+
+@router.get("/hybrid")
+async def hybrid_search(
+    q: SearchQuery,
+    provider: ProviderName,
+    model: ModelName,
+    session: DatabaseSession,
+    providers: EmbeddingProviders,
+    limit: SearchLimit = DEFAULT_SEARCH_LIMIT,
+    source_id: uuid.UUID | None = None,
+) -> HybridSearchResponse:
+    """Find chunks with full text search and vector search, fused into one ranking.
+
+    Answers 503 when the provider and model are not configured, or when q
+    could not be embedded. Chunks without embeddings can still be found by
+    full text search.
+    """
+    results = await HybridSearchService(session, providers).search(
+        q, provider=provider, model=model, limit=limit, source_id=source_id
+    )
+    return HybridSearchResponse(
+        items=[HybridSearchResultRead.model_validate(result) for result in results]
     )

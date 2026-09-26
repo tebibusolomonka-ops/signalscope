@@ -41,3 +41,28 @@ class SemanticSearchResultRead(BaseModel):
 
 class SemanticSearchResponse(BaseModel):
     items: list[SemanticSearchResultRead]
+
+
+class HybridSearchResultRead(BaseModel):
+    """One chunk from full text search, vector search or both."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    document_id: uuid.UUID
+    chunk_id: uuid.UUID
+    source_id: uuid.UUID
+    title: str | None
+    url: str | None
+    # Only set when full text search found the chunk.
+    excerpt: str | None
+    chunk_metadata: dict[str, Any]
+    # The 1-based place in the full text results, when the chunk is there.
+    lexical_rank: int | None
+    # 1 minus the cosine distance, when vector search found the chunk.
+    vector_similarity: float | None
+    # The Reciprocal Rank Fusion score. Higher is better.
+    hybrid_score: float
+
+
+class HybridSearchResponse(BaseModel):
+    items: list[HybridSearchResultRead]
