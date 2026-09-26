@@ -97,13 +97,14 @@ async def test_a_document_counts_once(session_factory: async_sessionmaker[AsyncS
         dataset("long", "water", documents=documents),
         FakeEmbeddingProvider(),
         PreferringReranker("Harbour part", "Water only."),
-        ks=[2],
+        # k=10 makes the reranker see 30 candidates, which is every chunk here.
+        ks=[2, 10],
     )
 
-    # The chunks of the long document and the water document all score 1.
-    # Counted one by one, long chunks could fill the top 2. Counted once per
-    # document, both relevant documents make it.
-    assert report.metrics.recall == {2: 1.0}
+    # The first long chunk and the water document score 1, the rest 0. Counted
+    # one by one, long chunks could take both top places. Counted once per
+    # document, both relevant documents make the top 2.
+    assert report.metrics.recall[2] == 1.0
 
 
 async def test_search_and_reranking_times_are_separate(
