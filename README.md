@@ -187,6 +187,33 @@ example which PDF page the match came from. All words must match. `"quoted phras
 `or` and `-word` work as on web search engines. `source_id` limits results to
 one source.
 
+### Semantic and hybrid search
+
+The database uses the pgvector extension, so `compose.yaml` and CI run the
+`pgvector/pgvector:pg17` image. Chunks can have embeddings: vectors that an
+embedding model makes from their text. Each embedding records its provider,
+model and number of dimensions, and searches only compare vectors from the
+same model. Search is exact, with no vector index yet.
+
+Two endpoints use the embeddings:
+
+```bash
+curl "http://localhost:8000/search/semantic?q=flood+risk&provider=<provider>&model=<model>"
+curl "http://localhost:8000/search/hybrid?q=flood+risk&provider=<provider>&model=<model>"
+```
+
+`/search/semantic` embeds the query and returns the closest chunks with a
+`similarity` between -1 and 1. `/search/hybrid` runs full text search and
+vector search and merges both lists with Reciprocal Rank Fusion. Each result
+shows its `lexical_rank`, its `vector_similarity` and the fused
+`hybrid_score`. Chunks without embeddings can still be found by the full text
+part. Both take `limit` and `source_id` like `/search`.
+
+No embedding model is configured yet, so both endpoints answer 503 for now.
+The code for queueing embedding jobs after processing, the embedding worker
+and the search itself is in place and tested with a fake model that only
+counts words. A real embedding model comes in a later step.
+
 ## Docker
 
 Build and run the API image:
