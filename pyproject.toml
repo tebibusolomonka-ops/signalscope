@@ -35,6 +35,10 @@ dev = [
 local-embeddings = [
     "sentence-transformers>=5.1",
 ]
+# Runs the reranking model on this machine. Also brings in PyTorch.
+local-reranking = [
+    "sentence-transformers>=5.1",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/signalscope"]
