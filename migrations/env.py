@@ -5,6 +5,7 @@ from sqlalchemy.engine import Connection
 
 from signalscope.core.logging import configure_logging
 from signalscope.core.settings import Settings, load_settings
+from signalscope.db.autogenerate import include_object
 from signalscope.db.engine import create_database_engine
 from signalscope.db.models import Base
 
@@ -24,7 +25,9 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations(connection: Connection) -> None:
-    context.configure(connection=connection, target_metadata=target_metadata)
+    context.configure(
+        connection=connection, target_metadata=target_metadata, include_object=include_object
+    )
     with context.begin_transaction():
         context.run_migrations()
 

@@ -1,5 +1,5 @@
 from sqlalchemy.dialects import postgresql
-from sqlalchemy.schema import CreateTable
+from sqlalchemy.schema import CreateIndex, CreateTable
 
 from signalscope.db.models import Base
 from signalscope.domain.search.embedding_model import ChunkEmbedding
@@ -46,3 +46,18 @@ def test_embeddings_are_deleted_with_their_chunk() -> None:
 
 def test_embedding_is_in_project_metadata() -> None:
     assert Base.metadata.tables["chunk_embeddings"] is ChunkEmbedding.__table__
+
+
+def test_e5_hnsw_index() -> None:
+    [index] = [
+        index
+        for index in ChunkEmbedding.__table__.indexes
+        if index.name == "ix_chunk_embeddings_e5_small_hnsw"
+    ]
+
+    assert str(CreateIndex(index).compile(dialect=postgresql.dialect())) == (
+        "CREATE INDEX ix_chunk_embeddings_e5_small_hnsw ON chunk_embeddings "
+        "USING hnsw (CAST(embedding AS VECTOR(384)) vector_cosine_ops) "
+        "WHERE provider = 'sentence_transformers' "
+        "AND model = 'intfloat/multilingual-e5-small' AND dimensions = 384"
+    )

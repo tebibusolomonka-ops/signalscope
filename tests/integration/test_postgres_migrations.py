@@ -10,6 +10,7 @@ from anyio import to_thread
 from sqlalchemy import inspect
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from signalscope.db.autogenerate import include_object
 from signalscope.db.models import Base
 
 pytestmark = pytest.mark.anyio
@@ -106,7 +107,10 @@ async def test_table_references_sources(database_engine: AsyncEngine, table: str
 async def test_migrations_match_models(database_engine: AsyncEngine) -> None:
     async with database_engine.connect() as connection:
         differences = await connection.run_sync(
-            lambda sync: compare_metadata(MigrationContext.configure(sync), Base.metadata)
+            lambda sync: compare_metadata(
+                MigrationContext.configure(sync, opts={"include_object": include_object}),
+                Base.metadata,
+            )
         )
 
     assert differences == []
