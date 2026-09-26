@@ -3,7 +3,7 @@ import uuid
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -29,6 +29,8 @@ from signalscope.domain.sources.model import Source, SourceType
 from signalscope.storage.local import LocalBlobStore
 
 pytestmark = pytest.mark.anyio
+
+SessionFactory = async_sessionmaker[AsyncSession]
 
 # Short enough to be quick, long enough that a beat cannot be missed by accident.
 FAST_LEASE = LeasePolicy(timedelta(milliseconds=60))
@@ -63,8 +65,8 @@ def watch_heartbeats(monkeypatch: pytest.MonkeyPatch, worker: type, beats: Beats
     """
     original = worker._heartbeat  # type: ignore[attr-defined]
 
-    async def recording(self: object, job_id: uuid.UUID) -> bool:
-        held = await original(self, job_id)
+    async def recording(self: object, job_id: uuid.UUID, token: uuid.UUID) -> bool:
+        held = await original(self, job_id, token)
         beats.record(held)
         return held
 
@@ -326,3 +328,68 @@ async def test_ingestion_lost_lease_leaves_the_job_alone(
     saved = await reload_ingestion_job(session_factory, job.id)
     assert saved.status is IngestionJobStatus.PENDING
     assert saved.finished_at is None
+
+
+async def take_over(
+    repository_type: type, session_factory: SessionFactory, job_id: uuid.UUID
+) -> Any:
+    """Act as if the worker stalled: recover its job and let another worker claim it."""
+    later = datetime.now(UTC) + timedelta(hours=1)
+    async with session_factory() as session:
+        [recovered] = await repository_type(session).recover_stale(later, 10)
+        await session.commit()
+    assert recovered.id == job_id
+    async with session_factory() as session:
+        claimed = await repository_type(session).claim_next(later)
+        await session.commit()
+    assert claimed is not None and claimed.id == job_id
+    return claimed
+
+
+async def test_ingestion_worker_cannot_finish_a_job_claimed_again(
+    session_factory: SessionFactory,
+) -> None:
+    source = await create_source(session_factory, SourceType.RSS)
+    job = await queue_ingestion_job(session_factory, source)
+    work = BlockingWork()
+    registry = AdapterRegistry()
+    registry.register(SourceType.RSS, BlockingAdapter(work))
+    # The default lease is long, so no heartbeat notices the takeover first.
+    worker = IngestionWorker(session_factory, IngestionExecutor(session_factory, registry))
+
+    task = asyncio.create_task(worker.run_once())
+    await work.wait_until_started()
+    other = await take_over(IngestionJobRepository, session_factory, job.id)
+    work.release.set()
+    result = await asyncio.wait_for(task, TIMEOUT_SECONDS)
+
+    assert result.lease_lost
+    saved = await reload_ingestion_job(session_factory, job.id)
+    assert saved.status is IngestionJobStatus.RUNNING
+    assert saved.lease_token == other.lease_token
+    assert saved.finished_at is None
+
+
+async def test_processing_worker_cannot_finish_a_job_claimed_again(
+    session_factory: SessionFactory, blobs: LocalBlobStore
+) -> None:
+    source = await create_source(session_factory, SourceType.UPLOAD)
+    imported = await import_file(session_factory, blobs, source)
+    work = BlockingWork()
+    # The default lease is long, so no heartbeat notices the takeover first.
+    worker = DocumentProcessingWorker(
+        session_factory, cast(DocumentProcessor, BlockingProcessor(work))
+    )
+
+    task = asyncio.create_task(worker.run_once())
+    await work.wait_until_started()
+    other = await take_over(DocumentProcessingJobRepository, session_factory, imported.job.id)
+    work.release.set()
+    result = await asyncio.wait_for(task, TIMEOUT_SECONDS)
+
+    # The work failed, but the failure belongs to a worker that no longer holds the job.
+    assert result.lease_lost
+    saved = await reload_processing_job(session_factory, imported.job.id)
+    assert saved.status is ProcessingJobStatus.RUNNING
+    assert saved.lease_token == other.lease_token
+    assert saved.last_error is None

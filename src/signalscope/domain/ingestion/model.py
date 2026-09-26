@@ -86,6 +86,9 @@ class IngestionJob(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # A running job whose lease has run out can be put back in the queue.
     lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # A new value for every claim. Only the worker that has it may extend or
+    # finish the job, so a worker whose job was taken over cannot change it.
+    lease_token: Mapped[uuid.UUID | None]
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # How many times a worker claimed the job.
     attempt_count: Mapped[int] = mapped_column(default=0, server_default=text("0"))

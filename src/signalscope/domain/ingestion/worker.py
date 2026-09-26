@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from signalscope.core.leases import DEFAULT_LEASE_POLICY, LeasePolicy
+from signalscope.core.leases import DEFAULT_LEASE_POLICY, JobNotHeldError, LeasePolicy
 from signalscope.domain.ingestion.executor import IngestionExecutor
 from signalscope.domain.ingestion.job_repository import IngestionJobRepository
 from signalscope.domain.ingestion.model import IngestionJob, IngestionRun, IngestionStatus
@@ -56,16 +56,22 @@ class IngestionWorker:
         job = await self._claim()
         if job is None:
             return WorkerResult(job=None)
+        token = job.lease_token
+        # Every claim sets a token.
+        assert token is not None
         async with keep_lease_alive(
-            lambda: self._heartbeat(job.id), self.lease, self.sleep
+            lambda: self._heartbeat(job.id, token), self.lease, self.sleep
         ) as keeper:
             run, error = await self._execute(job)
-        if keeper.lost:
+        try:
+            if keeper.lost:
+                raise JobNotHeldError()
+            if error is not None:
+                return WorkerResult(job=await self._mark_failed(job.id, token, error), run=run)
+            return WorkerResult(job=await self._mark_completed(job.id, token), run=run)
+        except JobNotHeldError:
             logger.warning("Ingestion job %s was taken over by another worker", job.id)
             return WorkerResult(job=job, run=run, lease_lost=True)
-        if error is not None:
-            return WorkerResult(job=await self._mark_failed(job.id, error), run=run)
-        return WorkerResult(job=await self._mark_completed(job.id), run=run)
 
     async def _execute(self, job: IngestionJob) -> tuple[IngestionRun | None, str | None]:
         """Run the job and return its run and the error to store, if any."""
@@ -84,20 +90,24 @@ class IngestionWorker:
             await session.commit()
         return job
 
-    async def _heartbeat(self, job_id: uuid.UUID) -> bool:
+    async def _heartbeat(self, job_id: uuid.UUID, token: uuid.UUID) -> bool:
         async with self.session_factory() as session:
-            held = await IngestionJobRepository(session).heartbeat(job_id, self.clock(), self.lease)
+            held = await IngestionJobRepository(session).heartbeat(
+                job_id, token, self.clock(), self.lease
+            )
             await session.commit()
         return held
 
-    async def _mark_completed(self, job_id: uuid.UUID) -> IngestionJob:
+    async def _mark_completed(self, job_id: uuid.UUID, token: uuid.UUID) -> IngestionJob:
         async with self.session_factory() as session:
-            job = await IngestionJobRepository(session).mark_completed(job_id, self.clock())
+            job = await IngestionJobRepository(session).mark_completed(job_id, token, self.clock())
             await session.commit()
         return job
 
-    async def _mark_failed(self, job_id: uuid.UUID, error: str) -> IngestionJob:
+    async def _mark_failed(self, job_id: uuid.UUID, token: uuid.UUID, error: str) -> IngestionJob:
         async with self.session_factory() as session:
-            job = await IngestionJobRepository(session).mark_failed(job_id, self.clock(), error)
+            job = await IngestionJobRepository(session).mark_failed(
+                job_id, token, self.clock(), error
+            )
             await session.commit()
         return job

@@ -367,4 +367,4 @@ async def test_workers_running_at_the_same_time_share_the_jobs(
 async def test_unknown_job_id_heartbeat(
     session_factory: async_sessionmaker[AsyncSession], provider: FakeEmbeddingProvider
 ) -> None:
-    assert await worker(session_factory, provider)._heartbeat(uuid.uuid4()) is False
+    assert await worker(session_factory, provider)._heartbeat(uuid.uuid4(), uuid.uuid4()) is False

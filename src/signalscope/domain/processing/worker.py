@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from signalscope.core.errors import SignalScopeError
-from signalscope.core.leases import DEFAULT_LEASE_POLICY, LeasePolicy
+from signalscope.core.leases import DEFAULT_LEASE_POLICY, JobNotHeldError, LeasePolicy
 from signalscope.domain.processing.job_repository import DocumentProcessingJobRepository
 from signalscope.domain.processing.model import DocumentProcessingJob
 from signalscope.domain.processing.processor import DocumentProcessor
@@ -56,16 +56,22 @@ class DocumentProcessingWorker:
         job = await self._claim()
         if job is None:
             return ProcessingWorkerResult(job=None)
+        token = job.lease_token
+        # Every claim sets a token.
+        assert token is not None
         async with keep_lease_alive(
-            lambda: self._heartbeat(job.id), self.lease, self.sleep
+            lambda: self._heartbeat(job.id, token), self.lease, self.sleep
         ) as keeper:
             error = await self._process(job)
-        if keeper.lost:
+        try:
+            if keeper.lost:
+                raise JobNotHeldError()
+            if error is not None:
+                return ProcessingWorkerResult(job=await self._mark_failed(job.id, token, error))
+            return ProcessingWorkerResult(job=await self._mark_completed(job.id, token))
+        except JobNotHeldError:
             logger.warning("Document processing job %s was taken over by another worker", job.id)
             return ProcessingWorkerResult(job=job, lease_lost=True)
-        if error is not None:
-            return ProcessingWorkerResult(job=await self._mark_failed(job.id, error))
-        return ProcessingWorkerResult(job=await self._mark_completed(job.id))
 
     async def _process(self, job: DocumentProcessingJob) -> str | None:
         """Parse the file and return the error to store, or None when it worked."""
@@ -88,26 +94,28 @@ class DocumentProcessingWorker:
             await session.commit()
         return job
 
-    async def _heartbeat(self, job_id: uuid.UUID) -> bool:
+    async def _heartbeat(self, job_id: uuid.UUID, token: uuid.UUID) -> bool:
         async with self.session_factory() as session:
             held = await DocumentProcessingJobRepository(session).heartbeat(
-                job_id, self.clock(), self.lease
+                job_id, token, self.clock(), self.lease
             )
             await session.commit()
         return held
 
-    async def _mark_completed(self, job_id: uuid.UUID) -> DocumentProcessingJob:
+    async def _mark_completed(self, job_id: uuid.UUID, token: uuid.UUID) -> DocumentProcessingJob:
         async with self.session_factory() as session:
             job = await DocumentProcessingJobRepository(session).mark_completed(
-                job_id, self.clock()
+                job_id, token, self.clock()
             )
             await session.commit()
         return job
 
-    async def _mark_failed(self, job_id: uuid.UUID, error: str) -> DocumentProcessingJob:
+    async def _mark_failed(
+        self, job_id: uuid.UUID, token: uuid.UUID, error: str
+    ) -> DocumentProcessingJob:
         async with self.session_factory() as session:
             job = await DocumentProcessingJobRepository(session).mark_failed(
-                job_id, self.clock(), error
+                job_id, token, self.clock(), error
             )
             await session.commit()
         return job

@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
+from signalscope.core.errors import ConflictError
+
 DEFAULT_LEASE_DURATION = timedelta(minutes=5)
 
 
@@ -23,3 +25,9 @@ class LeasePolicy:
 
 
 DEFAULT_LEASE_POLICY = LeasePolicy()
+
+
+class JobNotHeldError(ConflictError):
+    """A worker tried to change a job that it no longer holds."""
+
+    default_message = "Job is no longer held by this worker."

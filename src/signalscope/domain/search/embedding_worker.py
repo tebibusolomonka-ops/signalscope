@@ -71,14 +71,17 @@ class EmbeddingWorker:
         if chunk is None:
             # Deleting a chunk deletes its jobs, so this job is gone too.
             return EmbeddingWorkerResult(job=job, lease_lost=True)
+        token = job.lease_token
+        # Every claim sets a token.
+        assert token is not None
         async with keep_lease_alive(
-            lambda: self._heartbeat(job.id), self.lease, self.sleep
+            lambda: self._heartbeat(job.id, token), self.lease, self.sleep
         ) as keeper:
             outcome = await self._embed(job, chunk)
         if keeper.lost:
             logger.warning("Embedding job %s was taken over by another worker", job.id)
             return EmbeddingWorkerResult(job=job, lease_lost=True)
-        finished = await self._finish(job, chunk, outcome)
+        finished = await self._finish(job, token, chunk, outcome)
         if finished is None:
             logger.warning("Embedding job %s was taken over by another worker", job.id)
             return EmbeddingWorkerResult(job=job, lease_lost=True)
@@ -119,14 +122,16 @@ class EmbeddingWorker:
             )
         return embedding is not None and embedding.chunk_text_hash == chunk.text_hash
 
-    async def _heartbeat(self, job_id: uuid.UUID) -> bool:
+    async def _heartbeat(self, job_id: uuid.UUID, token: uuid.UUID) -> bool:
         async with self.session_factory() as session:
-            held = await EmbeddingJobRepository(session).heartbeat(job_id, self.clock(), self.lease)
+            held = await EmbeddingJobRepository(session).heartbeat(
+                job_id, token, self.clock(), self.lease
+            )
             await session.commit()
         return held
 
     async def _finish(
-        self, job: EmbeddingJob, chunk: DocumentChunk, outcome: _Outcome
+        self, job: EmbeddingJob, token: uuid.UUID, chunk: DocumentChunk, outcome: _Outcome
     ) -> EmbeddingJob | None:
         """Save the outcome, or return None when this worker no longer holds the job."""
         async with self.session_factory() as session:
@@ -134,23 +139,23 @@ class EmbeddingWorker:
                 current = await session.get(
                     EmbeddingJob, job.id, with_for_update=True, populate_existing=True
                 )
-                # A job recovered and claimed again by another worker has a higher count.
+                # A job recovered, and maybe claimed again, has another token.
                 if (
                     current is None
                     or current.status is not EmbeddingJobStatus.RUNNING
-                    or current.attempt_count != job.attempt_count
+                    or current.lease_token != token
                 ):
                     await session.rollback()
                     return None
                 jobs = EmbeddingJobRepository(session)
                 if outcome.error is not None:
-                    finished = await jobs.mark_failed(job.id, self.clock(), outcome.error)
+                    finished = await jobs.mark_failed(job.id, token, self.clock(), outcome.error)
                 else:
                     if outcome.vector is not None:
                         await ChunkEmbeddingRepository(session).save(
                             chunk.id, job.provider, job.model, chunk.text_hash, outcome.vector
                         )
-                    finished = await jobs.mark_completed(job.id, self.clock())
+                    finished = await jobs.mark_completed(job.id, token, self.clock())
                 await session.commit()
             except Exception:
                 await session.rollback()

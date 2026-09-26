@@ -63,6 +63,12 @@ async def claim(session_factory: async_sessionmaker[AsyncSession]) -> IngestionJ
     return job
 
 
+async def claim_token(session_factory: async_sessionmaker[AsyncSession]) -> uuid.UUID:
+    job = await claim(session_factory)
+    assert job is not None and job.lease_token is not None
+    return job.lease_token
+
+
 async def reload(
     session_factory: async_sessionmaker[AsyncSession], job_id: uuid.UUID
 ) -> IngestionJob:
@@ -211,11 +217,11 @@ async def test_mark_completed(
     session_factory: async_sessionmaker[AsyncSession], source: Source
 ) -> None:
     job = await add_job(session_factory, source)
-    await claim(session_factory)
+    token = await claim_token(session_factory)
     finished_at = NOW + timedelta(minutes=3)
 
     async with session_factory() as session:
-        await IngestionJobRepository(session).mark_completed(job.id, finished_at)
+        await IngestionJobRepository(session).mark_completed(job.id, token, finished_at)
         await session.commit()
 
     saved = await reload(session_factory, job.id)
@@ -228,10 +234,10 @@ async def test_mark_failed(
     session_factory: async_sessionmaker[AsyncSession], source: Source
 ) -> None:
     job = await add_job(session_factory, source)
-    await claim(session_factory)
+    token = await claim_token(session_factory)
 
     async with session_factory() as session:
-        await IngestionJobRepository(session).mark_failed(job.id, NOW, "  Feed went away.  ")
+        await IngestionJobRepository(session).mark_failed(job.id, token, NOW, "  Feed went away.  ")
         await session.commit()
 
     saved = await reload(session_factory, job.id)
@@ -244,10 +250,10 @@ async def test_long_errors_are_shortened(
     session_factory: async_sessionmaker[AsyncSession], source: Source
 ) -> None:
     job = await add_job(session_factory, source)
-    await claim(session_factory)
+    token = await claim_token(session_factory)
 
     async with session_factory() as session:
-        failed = await IngestionJobRepository(session).mark_failed(job.id, NOW, "x" * 5000)
+        failed = await IngestionJobRepository(session).mark_failed(job.id, token, NOW, "x" * 5000)
         await session.commit()
 
     assert failed.last_error is not None
@@ -258,20 +264,21 @@ async def test_long_errors_are_shortened(
 async def test_only_running_jobs_can_finish(
     session_factory: async_sessionmaker[AsyncSession], source: Source
 ) -> None:
+    token = uuid.uuid4()
     job = await add_job(session_factory, source)
 
     async with session_factory() as session:
         with pytest.raises(InvalidJobStatusChangeError, match="is pending"):
-            await IngestionJobRepository(session).mark_completed(job.id, NOW)
+            await IngestionJobRepository(session).mark_completed(job.id, token, NOW)
 
-    await claim(session_factory)
+    token = await claim_token(session_factory)
     async with session_factory() as session:
-        await IngestionJobRepository(session).mark_completed(job.id, NOW)
+        await IngestionJobRepository(session).mark_completed(job.id, token, NOW)
         await session.commit()
 
     async with session_factory() as session:
         with pytest.raises(InvalidJobStatusChangeError, match="is completed"):
-            await IngestionJobRepository(session).mark_failed(job.id, NOW, "Too late.")
+            await IngestionJobRepository(session).mark_failed(job.id, token, NOW, "Too late.")
 
 
 async def test_finishing_unknown_job_is_not_found(
@@ -279,4 +286,4 @@ async def test_finishing_unknown_job_is_not_found(
 ) -> None:
     async with session_factory() as session:
         with pytest.raises(NotFoundError, match="Ingestion job was not found."):
-            await IngestionJobRepository(session).mark_completed(uuid.uuid4(), NOW)
+            await IngestionJobRepository(session).mark_completed(uuid.uuid4(), uuid.uuid4(), NOW)

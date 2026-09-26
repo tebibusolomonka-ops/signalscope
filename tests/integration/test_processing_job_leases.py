@@ -15,6 +15,8 @@ from signalscope.domain.sources.model import Source, SourceType
 pytestmark = pytest.mark.anyio
 
 NOW = datetime(2026, 5, 1, 12, 0, tzinfo=UTC)
+# The token of jobs that tests put in the table as already claimed.
+HELD_TOKEN = uuid.UUID(int=1)
 
 
 @pytest.fixture
@@ -56,6 +58,7 @@ async def add_job(
                 claimed_at=NOW - timedelta(minutes=10) if held else None,
                 heartbeat_at=NOW - timedelta(minutes=6) if held else None,
                 lease_expires_at=lease_expires_at,
+                lease_token=HELD_TOKEN if held else None,
                 attempt_count=2 if held else 0,
                 last_error=last_error,
             )
@@ -82,6 +85,12 @@ async def claim(
         job = await DocumentProcessingJobRepository(session).claim_next(now, lease)
         await session.commit()
     return job
+
+
+async def claim_token(session_factory: async_sessionmaker[AsyncSession]) -> uuid.UUID:
+    job = await claim(session_factory)
+    assert job is not None and job.lease_token is not None
+    return job.lease_token
 
 
 async def test_new_job_has_no_lease(
@@ -138,14 +147,16 @@ async def test_finishing_ends_the_lease(
     status: ProcessingJobStatus,
 ) -> None:
     job = await add_job(session_factory, source)
-    await claim(session_factory)
+    token = await claim_token(session_factory)
 
     async with session_factory() as session:
         repository = DocumentProcessingJobRepository(session)
         if status is ProcessingJobStatus.COMPLETED:
-            await repository.mark_completed(job.id, NOW + timedelta(minutes=1))
+            await repository.mark_completed(job.id, token, NOW + timedelta(minutes=1))
         else:
-            await repository.mark_failed(job.id, NOW + timedelta(minutes=1), "PDF is encrypted.")
+            await repository.mark_failed(
+                job.id, token, NOW + timedelta(minutes=1), "PDF is encrypted."
+            )
         await session.commit()
 
     saved = await reload(session_factory, job.id)
@@ -283,9 +294,12 @@ async def heartbeat(
     job_id: uuid.UUID,
     now: datetime,
     lease: LeasePolicy = DEFAULT_LEASE_POLICY,
+    token: uuid.UUID = HELD_TOKEN,
 ) -> bool:
     async with session_factory() as session:
-        extended = await DocumentProcessingJobRepository(session).heartbeat(job_id, now, lease)
+        extended = await DocumentProcessingJobRepository(session).heartbeat(
+            job_id, token, now, lease
+        )
         await session.commit()
     return extended
 
@@ -294,10 +308,10 @@ async def test_heartbeat_extends_the_lease(
     session_factory: async_sessionmaker[AsyncSession], source: Source
 ) -> None:
     job = await add_job(session_factory, source)
-    await claim(session_factory)
+    token = await claim_token(session_factory)
     later = NOW + timedelta(minutes=4)
 
-    assert await heartbeat(session_factory, job.id, later)
+    assert await heartbeat(session_factory, job.id, later, token=token)
 
     saved = await reload(session_factory, job.id)
     assert (saved.heartbeat_at, saved.lease_expires_at) == (later, later + timedelta(minutes=5))
@@ -308,9 +322,9 @@ async def test_heartbeat_with_a_custom_lease(
     session_factory: async_sessionmaker[AsyncSession], source: Source
 ) -> None:
     job = await add_job(session_factory, source)
-    await claim(session_factory)
+    token = await claim_token(session_factory)
 
-    await heartbeat(session_factory, job.id, NOW, LeasePolicy(timedelta(minutes=30)))
+    await heartbeat(session_factory, job.id, NOW, LeasePolicy(timedelta(minutes=30)), token=token)
 
     saved = await reload(session_factory, job.id)
     assert saved.lease_expires_at == NOW + timedelta(minutes=30)

@@ -94,6 +94,12 @@ async def claim(
     return job
 
 
+async def claim_token(session_factory: async_sessionmaker[AsyncSession]) -> uuid.UUID:
+    job = await claim(session_factory)
+    assert job is not None and job.lease_token is not None
+    return job.lease_token
+
+
 async def test_claim_without_jobs_returns_none(
     session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
@@ -224,11 +230,11 @@ async def test_heartbeat_extends_the_lease_of_a_running_job(
 ) -> None:
     [chunk_id] = await create_chunk_ids(session_factory, 1)
     job = await add_job(session_factory, chunk_id)
-    await claim(session_factory)
+    token = await claim_token(session_factory)
     later = NOW + timedelta(minutes=2)
 
     async with session_factory() as session:
-        held = await EmbeddingJobRepository(session).heartbeat(job.id, later)
+        held = await EmbeddingJobRepository(session).heartbeat(job.id, token, later)
         await session.commit()
 
     assert held is True
@@ -243,12 +249,16 @@ async def test_heartbeat_extends_the_lease_of_a_running_job(
 async def test_heartbeat_of_a_job_that_is_not_running(
     session_factory: async_sessionmaker[AsyncSession], status: EmbeddingJobStatus
 ) -> None:
+    token = uuid.uuid4()
     [chunk_id] = await create_chunk_ids(session_factory, 1)
     job = await add_job(session_factory, chunk_id, status=status)
 
     async with session_factory() as session:
-        assert await EmbeddingJobRepository(session).heartbeat(job.id, NOW) is False
-        assert await EmbeddingJobRepository(session).heartbeat(uuid.uuid4(), NOW) is False
+        assert await EmbeddingJobRepository(session).heartbeat(job.id, token, NOW) is False
+        assert (
+            await EmbeddingJobRepository(session).heartbeat(uuid.uuid4(), uuid.uuid4(), NOW)
+            is False
+        )
 
 
 async def test_stale_jobs_are_recovered(session_factory: async_sessionmaker[AsyncSession]) -> None:
@@ -288,11 +298,11 @@ async def test_recovery_limit_must_be_positive(
 async def test_mark_completed(session_factory: async_sessionmaker[AsyncSession]) -> None:
     [chunk_id] = await create_chunk_ids(session_factory, 1)
     job = await add_job(session_factory, chunk_id)
-    await claim(session_factory)
+    token = await claim_token(session_factory)
     finished_at = NOW + timedelta(minutes=3)
 
     async with session_factory() as session:
-        await EmbeddingJobRepository(session).mark_completed(job.id, finished_at)
+        await EmbeddingJobRepository(session).mark_completed(job.id, token, finished_at)
         await session.commit()
 
     saved = await reload(session_factory, job.id)
@@ -304,10 +314,12 @@ async def test_mark_completed(session_factory: async_sessionmaker[AsyncSession])
 async def test_mark_failed(session_factory: async_sessionmaker[AsyncSession]) -> None:
     [chunk_id] = await create_chunk_ids(session_factory, 1)
     job = await add_job(session_factory, chunk_id)
-    await claim(session_factory)
+    token = await claim_token(session_factory)
 
     async with session_factory() as session:
-        await EmbeddingJobRepository(session).mark_failed(job.id, NOW, "  Model is not ready.  ")
+        await EmbeddingJobRepository(session).mark_failed(
+            job.id, token, NOW, "  Model is not ready.  "
+        )
         await session.commit()
 
     saved = await reload(session_factory, job.id)
@@ -320,14 +332,15 @@ async def test_mark_failed(session_factory: async_sessionmaker[AsyncSession]) ->
 async def test_only_running_jobs_can_finish(
     session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
+    token = uuid.uuid4()
     [chunk_id] = await create_chunk_ids(session_factory, 1)
     job = await add_job(session_factory, chunk_id)
 
     async with session_factory() as session:
         with pytest.raises(InvalidEmbeddingJobStatusChangeError):
-            await EmbeddingJobRepository(session).mark_completed(job.id, NOW)
+            await EmbeddingJobRepository(session).mark_completed(job.id, token, NOW)
         with pytest.raises(InvalidEmbeddingJobStatusChangeError):
-            await EmbeddingJobRepository(session).mark_failed(job.id, NOW, "Too early.")
+            await EmbeddingJobRepository(session).mark_failed(job.id, token, NOW, "Too early.")
 
 
 async def test_finishing_unknown_job_is_not_found(
@@ -335,7 +348,7 @@ async def test_finishing_unknown_job_is_not_found(
 ) -> None:
     async with session_factory() as session:
         with pytest.raises(NotFoundError):
-            await EmbeddingJobRepository(session).mark_completed(uuid.uuid4(), NOW)
+            await EmbeddingJobRepository(session).mark_completed(uuid.uuid4(), uuid.uuid4(), NOW)
 
 
 async def test_claim_is_not_committed(session_factory: async_sessionmaker[AsyncSession]) -> None:

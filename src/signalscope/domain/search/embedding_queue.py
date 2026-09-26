@@ -154,6 +154,7 @@ class EmbeddingQueue:
                 claimed_at=None,
                 heartbeat_at=None,
                 lease_expires_at=None,
+                lease_token=None,
                 finished_at=None,
                 last_error=None,
             )

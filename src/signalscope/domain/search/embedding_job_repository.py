@@ -5,13 +5,13 @@ from datetime import datetime
 from sqlalchemy import select, tuple_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from signalscope.core.errors import ConflictError, NotFoundError, short_error_message
-from signalscope.core.leases import DEFAULT_LEASE_POLICY, LeasePolicy
+from signalscope.core.errors import NotFoundError, short_error_message
+from signalscope.core.leases import DEFAULT_LEASE_POLICY, JobNotHeldError, LeasePolicy
 from signalscope.domain.search.embedding_job import EmbeddingJob, EmbeddingJobStatus
 from signalscope.embeddings.registry import ModelKey
 
 
-class InvalidEmbeddingJobStatusChangeError(ConflictError):
+class InvalidEmbeddingJobStatusChangeError(JobNotHeldError):
     default_message = "Embedding job cannot change to that status."
 
 
@@ -69,6 +69,7 @@ class EmbeddingJobRepository:
         job.claimed_at = now
         job.heartbeat_at = now
         job.lease_expires_at = lease.expires_at(now)
+        job.lease_token = uuid.uuid4()
         job.finished_at = None
         # The row is locked, so no other transaction can change the count meanwhile.
         job.attempt_count += 1
@@ -76,17 +77,26 @@ class EmbeddingJobRepository:
         return job
 
     async def heartbeat(
-        self, job_id: uuid.UUID, now: datetime, lease: LeasePolicy = DEFAULT_LEASE_POLICY
+        self,
+        job_id: uuid.UUID,
+        lease_token: uuid.UUID,
+        now: datetime,
+        lease: LeasePolicy = DEFAULT_LEASE_POLICY,
     ) -> bool:
         """Extend the lease of a running job.
 
-        Returns False when there is no running job with that ID, for example
-        because it finished or was recovered after its lease ran out. The
-        worker has then lost the job and should stop working on it.
+        Returns False when there is no running job with that ID and lease
+        token, for example because it finished, or was recovered after its
+        lease ran out and maybe claimed again. The worker has then lost the
+        job and should stop working on it.
         """
         result = await self.session.execute(
             update(EmbeddingJob)
-            .where(EmbeddingJob.id == job_id, EmbeddingJob.status == EmbeddingJobStatus.RUNNING)
+            .where(
+                EmbeddingJob.id == job_id,
+                EmbeddingJob.status == EmbeddingJobStatus.RUNNING,
+                EmbeddingJob.lease_token == lease_token,
+            )
             .values(heartbeat_at=now, lease_expires_at=lease.expires_at(now))
             .returning(EmbeddingJob.id)
         )
@@ -120,21 +130,31 @@ class EmbeddingJobRepository:
             job.claimed_at = None
             job.heartbeat_at = None
             job.lease_expires_at = None
+            job.lease_token = None
         await self.session.flush()
         return jobs
 
-    async def mark_completed(self, job_id: uuid.UUID, now: datetime) -> EmbeddingJob:
-        return await self._finish(job_id, EmbeddingJobStatus.COMPLETED, now)
+    async def mark_completed(
+        self, job_id: uuid.UUID, lease_token: uuid.UUID, now: datetime
+    ) -> EmbeddingJob:
+        return await self._finish(job_id, lease_token, EmbeddingJobStatus.COMPLETED, now)
 
-    async def mark_failed(self, job_id: uuid.UUID, now: datetime, error: str) -> EmbeddingJob:
+    async def mark_failed(
+        self, job_id: uuid.UUID, lease_token: uuid.UUID, now: datetime, error: str
+    ) -> EmbeddingJob:
         """Mark a job as failed with a short message for people, not a traceback."""
         return await self._finish(
-            job_id, EmbeddingJobStatus.FAILED, now, last_error=short_error_message(error)
+            job_id,
+            lease_token,
+            EmbeddingJobStatus.FAILED,
+            now,
+            last_error=short_error_message(error),
         )
 
     async def _finish(
         self,
         job_id: uuid.UUID,
+        lease_token: uuid.UUID,
         status: EmbeddingJobStatus,
         now: datetime,
         last_error: str | None = None,
@@ -152,10 +172,13 @@ class EmbeddingJobRepository:
             raise InvalidEmbeddingJobStatusChangeError(
                 f"Embedding job is {job.status} and cannot become {status}."
             )
+        if job.lease_token != lease_token:
+            raise JobNotHeldError()
         job.status = status
         job.finished_at = now
         job.last_error = last_error
         # A finished job is no longer held, so it can never look stale.
         job.lease_expires_at = None
+        job.lease_token = None
         await self.session.flush()
         return job
