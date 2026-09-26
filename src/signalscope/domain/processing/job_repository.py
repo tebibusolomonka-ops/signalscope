@@ -68,6 +68,38 @@ class DocumentProcessingJobRepository:
         await self.session.flush()
         return job
 
+    async def recover_stale(self, now: datetime, limit: int) -> list[DocumentProcessingJob]:
+        """Put running jobs whose lease ran out back in the queue.
+
+        Their worker is taken to be gone. Processing a file again replaces its
+        earlier results, so the jobs simply become pending and available at
+        now. attempt_count and last_error stay as they are. Rows locked by
+        another transaction are skipped, so two recoveries never take the
+        same job.
+        """
+        if limit < 1:
+            raise ValueError("limit must be at least 1")
+        result = await self.session.scalars(
+            select(DocumentProcessingJob)
+            .where(
+                DocumentProcessingJob.status == ProcessingJobStatus.RUNNING,
+                DocumentProcessingJob.lease_expires_at <= now,
+            )
+            .order_by(DocumentProcessingJob.lease_expires_at, DocumentProcessingJob.id)
+            .limit(limit)
+            .with_for_update(skip_locked=True)
+            .execution_options(populate_existing=True)
+        )
+        jobs = list(result.all())
+        for job in jobs:
+            job.status = ProcessingJobStatus.PENDING
+            job.available_at = now
+            job.claimed_at = None
+            job.heartbeat_at = None
+            job.lease_expires_at = None
+        await self.session.flush()
+        return jobs
+
     async def mark_completed(self, job_id: uuid.UUID, now: datetime) -> DocumentProcessingJob:
         return await self._finish(job_id, ProcessingJobStatus.COMPLETED, now)
 
