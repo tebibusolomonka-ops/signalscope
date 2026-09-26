@@ -109,9 +109,9 @@ async def run_embedding_worker(
 ) -> int:
     worker = EmbeddingWorker(session_factory, providers)
     done = 0
-    while (result := await worker.run_once()).job is not None:
-        assert not result.lease_lost
-        done += 1
+    while (result := await worker.run_once()).jobs:
+        assert result.lease_lost == 0
+        done += len(result.jobs)
     return done
 
 

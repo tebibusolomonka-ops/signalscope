@@ -7,7 +7,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from signalscope.core.errors import NotFoundError
-from signalscope.core.leases import LeasePolicy
+from signalscope.core.leases import DEFAULT_LEASE_POLICY, LeasePolicy
 from signalscope.domain.documents.chunk_repository import DocumentChunkRepository
 from signalscope.domain.documents.chunking import TextChunk
 from signalscope.domain.documents.model import Document
@@ -83,13 +83,16 @@ async def reload(
     return job
 
 
-async def claim(
-    session_factory: async_sessionmaker[AsyncSession], models: list[tuple[str, str]] | None = None
+async def claim_one(
+    repository: EmbeddingJobRepository, lease: LeasePolicy = DEFAULT_LEASE_POLICY
 ) -> EmbeddingJob | None:
+    jobs = await repository.claim_batch(NOW, *MODEL, 1, lease)
+    return jobs[0] if jobs else None
+
+
+async def claim(session_factory: async_sessionmaker[AsyncSession]) -> EmbeddingJob | None:
     async with session_factory() as session:
-        job = await EmbeddingJobRepository(session).claim_next(
-            NOW, [MODEL] if models is None else models
-        )
+        job = await claim_one(EmbeddingJobRepository(session))
         await session.commit()
     return job
 
@@ -129,36 +132,10 @@ async def test_claim_with_a_custom_lease(
     job = await add_job(session_factory, chunk_id)
 
     async with session_factory() as session:
-        await EmbeddingJobRepository(session).claim_next(
-            NOW, [MODEL], LeasePolicy(timedelta(seconds=30))
-        )
+        await claim_one(EmbeddingJobRepository(session), LeasePolicy(timedelta(seconds=30)))
         await session.commit()
 
     assert (await reload(session_factory, job.id)).lease_expires_at == NOW + timedelta(seconds=30)
-
-
-async def test_only_jobs_for_the_given_models_are_claimed(
-    session_factory: async_sessionmaker[AsyncSession],
-) -> None:
-    first, second = await create_chunk_ids(session_factory, 2)
-    other = await add_job(session_factory, first, OTHER_MODEL, NOW - timedelta(hours=1))
-    mine = await add_job(session_factory, second, MODEL)
-
-    claimed = await claim(session_factory)
-
-    assert claimed is not None and claimed.id == mine.id
-    assert await claim(session_factory) is None
-    both = await claim(session_factory, [MODEL, OTHER_MODEL])
-    assert both is not None and both.id == other.id
-
-
-async def test_no_models_claims_nothing(
-    session_factory: async_sessionmaker[AsyncSession],
-) -> None:
-    [chunk_id] = await create_chunk_ids(session_factory, 1)
-    await add_job(session_factory, chunk_id)
-
-    assert await claim(session_factory, []) is None
 
 
 async def test_future_and_finished_jobs_are_skipped(
@@ -199,9 +176,9 @@ async def test_locked_job_is_skipped(session_factory: async_sessionmaker[AsyncSe
         session_factory() as three,
     ):
         # Nothing is committed, so every claim still holds its row lock.
-        claimed_by_one = await EmbeddingJobRepository(one).claim_next(NOW, [MODEL])
-        claimed_by_two = await EmbeddingJobRepository(two).claim_next(NOW, [MODEL])
-        claimed_by_three = await EmbeddingJobRepository(three).claim_next(NOW, [MODEL])
+        claimed_by_one = await claim_one(EmbeddingJobRepository(one))
+        claimed_by_two = await claim_one(EmbeddingJobRepository(two))
+        claimed_by_three = await claim_one(EmbeddingJobRepository(three))
 
     assert claimed_by_one is not None
     assert claimed_by_two is not None
@@ -356,6 +333,6 @@ async def test_claim_is_not_committed(session_factory: async_sessionmaker[AsyncS
     job = await add_job(session_factory, chunk_id)
 
     async with session_factory() as session:
-        assert await EmbeddingJobRepository(session).claim_next(NOW, [MODEL]) is not None
+        assert await claim_one(EmbeddingJobRepository(session)) is not None
 
     assert (await reload(session_factory, job.id)).status is EmbeddingJobStatus.PENDING

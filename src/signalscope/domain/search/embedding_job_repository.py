@@ -1,14 +1,12 @@
 import uuid
-from collections.abc import Sequence
 from datetime import datetime
 
-from sqlalchemy import select, tuple_, update
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from signalscope.core.errors import NotFoundError, short_error_message
 from signalscope.core.leases import DEFAULT_LEASE_POLICY, JobNotHeldError, LeasePolicy
 from signalscope.domain.search.embedding_job import EmbeddingJob, EmbeddingJobStatus
-from signalscope.embeddings.registry import ModelKey
 
 # Enough for a few model batches, small enough to keep the claim short.
 MAX_BATCH_CLAIM = 256
@@ -35,42 +33,6 @@ class EmbeddingJobRepository:
 
     async def get(self, job_id: uuid.UUID) -> EmbeddingJob | None:
         return await self.session.get(EmbeddingJob, job_id)
-
-    async def claim_next(
-        self,
-        now: datetime,
-        models: Sequence[ModelKey],
-        lease: LeasePolicy = DEFAULT_LEASE_POLICY,
-    ) -> EmbeddingJob | None:
-        """Claim the pending job that has been available longest.
-
-        Only jobs for one of models are claimed, because a worker can only
-        run the models it has. Returns None when no such job is available.
-        Rows locked by another transaction are skipped, so two workers never
-        claim the same job. The caller should commit soon, because the row
-        stays locked until then. The claimed job gets a lease that ends
-        lease.duration after now.
-        """
-        if not models:
-            return None
-        result = await self.session.scalars(
-            select(EmbeddingJob)
-            .where(
-                EmbeddingJob.status == EmbeddingJobStatus.PENDING,
-                EmbeddingJob.available_at <= now,
-                tuple_(EmbeddingJob.provider, EmbeddingJob.model).in_(list(models)),
-            )
-            .order_by(EmbeddingJob.available_at, EmbeddingJob.created_at, EmbeddingJob.id)
-            .limit(1)
-            .with_for_update(skip_locked=True)
-            .execution_options(populate_existing=True)
-        )
-        job = result.one_or_none()
-        if job is None:
-            return None
-        _start(job, now, lease)
-        await self.session.flush()
-        return job
 
     async def claim_batch(
         self,

@@ -104,14 +104,23 @@ class Queue:
     name: str
     add: Callable[[AsyncSession], Awaitable[uuid.UUID]]
     repository: Callable[[AsyncSession], Any]
-    # Embedding jobs are only claimed for the models a worker has.
-    claim_options: tuple[Any, ...] = ()
+    claim: Callable[[Any, datetime], Awaitable[Any]]
+
+
+async def claim_next(repository: Any, now: datetime) -> Any:
+    return await repository.claim_next(now)
+
+
+async def claim_embedding_job(repository: EmbeddingJobRepository, now: datetime) -> Any:
+    # Embedding jobs are claimed in batches of one model.
+    jobs = await repository.claim_batch(now, *MODEL, 1)
+    return jobs[0] if jobs else None
 
 
 QUEUES = [
-    Queue("ingestion", add_ingestion_job, IngestionJobRepository),
-    Queue("processing", add_processing_job, DocumentProcessingJobRepository),
-    Queue("embedding", add_embedding_job, EmbeddingJobRepository, ([MODEL],)),
+    Queue("ingestion", add_ingestion_job, IngestionJobRepository, claim_next),
+    Queue("processing", add_processing_job, DocumentProcessingJobRepository, claim_next),
+    Queue("embedding", add_embedding_job, EmbeddingJobRepository, claim_embedding_job),
 ]
 
 
@@ -130,7 +139,7 @@ async def add(session_factory: SessionFactory, queue: Queue) -> uuid.UUID:
 
 async def claim(session_factory: SessionFactory, queue: Queue, now: datetime = NOW) -> Any:
     async with session_factory() as session:
-        job = await queue.repository(session).claim_next(now, *queue.claim_options)
+        job = await queue.claim(queue.repository(session), now)
         await session.commit()
     assert job is not None
     return job
