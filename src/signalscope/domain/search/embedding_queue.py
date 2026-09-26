@@ -18,6 +18,14 @@ ACTIVE_STATUSES = (EmbeddingJobStatus.PENDING, EmbeddingJobStatus.RUNNING)
 
 
 @dataclass(frozen=True, slots=True)
+class EmbeddingTarget:
+    """The provider and model that new chunks should be embedded with."""
+
+    provider: str
+    model: str
+
+
+@dataclass(frozen=True, slots=True)
 class EmbeddingQueueResult:
     chunks_seen: int = 0
     # New jobs plus finished jobs that were put back in the queue.

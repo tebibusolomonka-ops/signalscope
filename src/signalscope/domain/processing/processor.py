@@ -18,6 +18,11 @@ from signalscope.domain.documents.fingerprint import content_fingerprint
 from signalscope.domain.documents.model import LANGUAGE_MAX_LENGTH, Document
 from signalscope.domain.documents.revision import DocumentRevision
 from signalscope.domain.documents.revision_repository import DocumentRevisionRepository
+from signalscope.domain.search.embedding_queue import (
+    EmbeddingQueue,
+    EmbeddingQueueResult,
+    EmbeddingTarget,
+)
 from signalscope.domain.sources.scheduling import Clock, utc_now
 from signalscope.parsing.registry import ParserRegistry
 from signalscope.parsing.types import ParsedDocument
@@ -30,6 +35,8 @@ class ProcessingResult:
     extraction: DocumentExtraction
     # The earlier state that this processing replaced, when its content changed.
     revision: DocumentRevision | None = None
+    # Set when the processor queues embedding jobs for the new chunks.
+    embeddings: EmbeddingQueueResult | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,6 +61,10 @@ class DocumentProcessor:
 
     When a processed document is processed again and its content changes, the
     state it had before is kept as a new revision in that same transaction.
+
+    With an embedding target, embedding jobs for the new chunks are queued in
+    that transaction too. Replaced chunks take their embeddings and jobs with
+    them.
     """
 
     def __init__(
@@ -62,11 +73,13 @@ class DocumentProcessor:
         blobs: BlobStore,
         parsers: ParserRegistry,
         clock: Clock = utc_now,
+        embedding_target: EmbeddingTarget | None = None,
     ) -> None:
         self.session_factory = session_factory
         self.blobs = blobs
         self.parsers = parsers
         self.clock = clock
+        self.embedding_target = embedding_target
 
     async def process(self, asset_id: uuid.UUID) -> ProcessingResult:
         """Parse one asset. Failures raise errors whose messages are safe to store."""
@@ -121,6 +134,14 @@ class DocumentProcessor:
                 await DocumentChunkRepository(session).replace_for_document(document.id, chunks)
                 # Flush now, so a duplicate content hash shows up as a clear error.
                 await session.flush()
+                embeddings = None
+                if self.embedding_target is not None:
+                    embeddings = await EmbeddingQueue(session).queue_document(
+                        document.id,
+                        self.embedding_target.provider,
+                        self.embedding_target.model,
+                        self.clock(),
+                    )
                 await session.commit()
             except IntegrityError as error:
                 await session.rollback()
@@ -132,7 +153,9 @@ class DocumentProcessor:
             except Exception:
                 await session.rollback()
                 raise
-        return ProcessingResult(document=document, extraction=extraction, revision=revision)
+        return ProcessingResult(
+            document=document, extraction=extraction, revision=revision, embeddings=embeddings
+        )
 
     async def _save_extraction(
         self,
