@@ -209,10 +209,34 @@ shows its `lexical_rank`, its `vector_similarity` and the fused
 `hybrid_score`. Chunks without embeddings can still be found by the full text
 part. Both take `limit` and `source_id` like `/search`.
 
-No embedding model is configured yet, so both endpoints answer 503 for now.
-The code for queueing embedding jobs after processing, the embedding worker
-and the search itself is in place and tested with a fake model that only
-counts words. A real embedding model comes in a later step.
+Both endpoints answer 503 until local embeddings are turned on.
+
+### Local embeddings
+
+SignalScope can embed chunks on this machine with
+`intfloat/multilingual-e5-small`, which handles many languages. It is an
+optional extra, because it brings in sentence-transformers and PyTorch. Turn
+it on with:
+
+```bash
+pip install -e ".[local-embeddings]"
+export SIGNALSCOPE_LOCAL_EMBEDDINGS_ENABLED=true
+```
+
+The processing worker then queues an embedding job for every new chunk. Run
+the embedding worker to work through them:
+
+```bash
+signalscope run-embedding-worker --once
+```
+
+It embeds a batch of chunks in one model call and prints the model and how
+many jobs completed, failed or were taken over by another worker. Without
+`--once` it keeps running, with the same `--poll-seconds` and `--max-jobs`
+options as the other workers, where each batch counts as one job.
+`--batch-size` sets the most chunks per call. The model is downloaded the
+first time it is used. See [docs/configuration.md](docs/configuration.md) for
+the device, batch size and cache settings.
 
 ## Docker
 

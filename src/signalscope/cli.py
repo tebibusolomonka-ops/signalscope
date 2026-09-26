@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+import importlib.util
 import mimetypes
 import sys
 import uuid
@@ -34,10 +35,14 @@ from signalscope.domain.processing.job_repository import DocumentProcessingJobRe
 from signalscope.domain.processing.model import DocumentProcessingJob, ProcessingJobStatus
 from signalscope.domain.processing.processor import DocumentProcessor
 from signalscope.domain.processing.worker import DocumentProcessingWorker
+from signalscope.domain.search.embedding_job_repository import EmbeddingJobRepository
+from signalscope.domain.search.embedding_worker import EmbeddingWorker
 from signalscope.domain.sources.model import SourceType
 from signalscope.domain.sources.repository import SourceRepository
 from signalscope.domain.sources.scheduling import utc_now
-from signalscope.embeddings.runtime import local_embedding_target
+from signalscope.embeddings.local import LocalEmbeddingsNotInstalledError
+from signalscope.embeddings.registry import EmbeddingProviderRegistry
+from signalscope.embeddings.runtime import create_embedding_registry, local_embedding_target
 from signalscope.ingestion.http import HttpFetcher
 from signalscope.ingestion.rss import RssIngestionAdapter
 from signalscope.ingestion.web import WebIngestionAdapter
@@ -55,6 +60,9 @@ NO_BLOB_DIR_ERROR = "Error: Blob directory is not configured. Set SIGNALSCOPE_BL
 RECOVERY_LIMIT = 10
 LEASE_LOST_MESSAGE = "Lease lost: another worker took the job over."
 STOPPING_MESSAGE = "Stopping after the current job."
+LOCAL_EMBEDDINGS_DISABLED_ERROR = (
+    "Error: Local embeddings are not enabled. Set SIGNALSCOPE_LOCAL_EMBEDDINGS_ENABLED=true."
+)
 
 # Only the types built into Python, so the guess does not depend on the machine.
 MIME_TYPES = mimetypes.MimeTypes()
@@ -89,6 +97,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         if args.command == "run-worker":
             return asyncio.run(run_worker(settings, **loop_options))
+        if args.command == "run-embedding-worker":
+            return asyncio.run(
+                run_embedding_worker(settings, batch_size=args.batch_size, **loop_options)
+            )
         return asyncio.run(run_processing_worker(settings, **loop_options))
     except KeyboardInterrupt:
         print("Stopped.", file=sys.stderr)
@@ -134,6 +146,17 @@ def build_parser() -> argparse.ArgumentParser:
 
     processing = commands.add_parser("run-processing-worker", help="parse queued imported files")
     _add_worker_options(processing)
+
+    embedding = commands.add_parser(
+        "run-embedding-worker", help="embed queued chunks with the local model"
+    )
+    _add_worker_options(embedding)
+    embedding.add_argument(
+        "--batch-size",
+        type=positive_int,
+        default=None,
+        help="most chunks per model call (default: SIGNALSCOPE_LOCAL_EMBEDDING_BATCH_SIZE)",
+    )
     return parser
 
 
@@ -155,7 +178,7 @@ def _add_worker_options(parser: argparse.ArgumentParser) -> None:
 
 
 def _check_worker_options(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
-    is_worker = args.command in ("run-worker", "run-processing-worker")
+    is_worker = args.command in ("run-worker", "run-processing-worker", "run-embedding-worker")
     loop_option_given = is_worker and (args.poll_seconds is not None or args.max_jobs is not None)
     if loop_option_given and args.once:
         parser.error("--once cannot be used with --poll-seconds or --max-jobs")
@@ -346,6 +369,70 @@ async def run_processing_worker(
         return await _run_jobs(
             work,
             "No document processing job available.",
+            out,
+            once=once,
+            poll_seconds=poll_seconds,
+            max_jobs=max_jobs,
+        )
+
+
+async def run_embedding_worker(
+    settings: Settings,
+    out: TextIO | None = None,
+    err: TextIO | None = None,
+    *,
+    providers: EmbeddingProviderRegistry | None = None,
+    batch_size: int | None = None,
+    once: bool = True,
+    poll_seconds: float | None = None,
+    max_jobs: int | None = None,
+) -> int:
+    """Embed queued chunks in batches and print each result. Returns the exit code.
+
+    Without providers, the local model from settings is used. It is only
+    loaded when a batch needs it. In loop mode each batch counts as one job
+    for max_jobs.
+    """
+    out = sys.stdout if out is None else out
+    err = sys.stderr if err is None else err
+    if providers is None:
+        if not settings.local_embeddings_enabled:
+            print(LOCAL_EMBEDDINGS_DISABLED_ERROR, file=err)
+            return 1
+        # Checked here, so jobs are not claimed only to fail on the import.
+        if importlib.util.find_spec("sentence_transformers") is None:
+            print(f"Error: {LocalEmbeddingsNotInstalledError()}", file=err)
+            return 1
+        providers = create_embedding_registry(settings)
+    if settings.database_url is None:
+        print(NO_DATABASE_ERROR, file=err)
+        return 1
+
+    async with _database(settings) as session_factory:
+        worker = EmbeddingWorker(
+            session_factory,
+            providers,
+            batch_size=settings.local_embedding_batch_size if batch_size is None else batch_size,
+        )
+
+        async def work() -> bool | None:
+            async with session_factory() as session:
+                await EmbeddingJobRepository(session).recover_stale(utc_now(), RECOVERY_LIMIT)
+                await session.commit()
+            result = await worker.run_once()
+            if not result.jobs:
+                return None
+            first = result.jobs[0]
+            print(f"Model: {first.provider}/{first.model}", file=out)
+            print(f"Jobs: {len(result.jobs)}", file=out)
+            print(f"Completed: {result.completed}", file=out)
+            print(f"Failed: {result.failed}", file=out)
+            print(f"Lease lost: {result.lease_lost}", file=out)
+            return result.failed == 0 and result.lease_lost == 0
+
+        return await _run_jobs(
+            work,
+            "No embedding job available.",
             out,
             once=once,
             poll_seconds=poll_seconds,
