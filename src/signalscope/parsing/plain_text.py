@@ -2,7 +2,7 @@ import codecs
 import re
 
 from signalscope.parsing.content_type import content_charset
-from signalscope.parsing.types import DocumentParsingError, ParsedDocument
+from signalscope.parsing.types import DocumentParsingError, ParsedDocument, single_section
 
 # Old Windows text files often use this. Five of its bytes have no meaning, so
 # binary data usually fails to decode instead of turning into nonsense text.
@@ -36,7 +36,10 @@ class PlainTextParser:
         if not text.strip():
             text = ""
         return ParsedDocument(
-            text=text, title=title_from_filename(filename), metadata={"encoding": encoding}
+            text=text,
+            title=title_from_filename(filename),
+            metadata={"encoding": encoding},
+            sections=single_section(text, "document"),
         )
 
 

@@ -3,7 +3,13 @@ import logging
 
 from pypdf import PageObject, PdfReader
 
-from signalscope.parsing.types import DocumentParsingError, MetadataValue, ParsedDocument
+from signalscope.parsing.types import (
+    SECTION_SEPARATOR,
+    DocumentParsingError,
+    MetadataValue,
+    ParsedDocument,
+    ParsedSection,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -43,10 +49,16 @@ class PdfDocumentParser:
         except Exception as error:
             raise DocumentParsingError("Document is not a readable PDF.") from error
 
-        text = "\n\n".join(page_text for page_text in texts if page_text)
+        # One section per page with text. Page numbers start at 1, as people count them.
+        pages_with_text = [(number, page) for number, page in enumerate(texts, 1) if page]
+        sections = tuple(
+            ParsedSection(text=page, kind="page", index=index, metadata={"page_number": number})
+            for index, (number, page) in enumerate(pages_with_text)
+        )
+        text = SECTION_SEPARATOR.join(section.text for section in sections)
         # Without letters or digits, what came out is not text worth keeping.
         if not any(character.isalnum() for character in text):
-            text = ""
+            text, sections = "", ()
         metadata: dict[str, MetadataValue] = {
             "page_count": page_count,
             "truncated": page_count > MAX_PAGES,
@@ -55,7 +67,7 @@ class PdfDocumentParser:
         if author is not None:
             metadata["author"] = author
         title = _clean(info.title if info is not None else None)
-        return ParsedDocument(text=text, title=title, metadata=metadata)
+        return ParsedDocument(text=text, title=title, metadata=metadata, sections=sections)
 
 
 def _open(data: bytes) -> PdfReader:

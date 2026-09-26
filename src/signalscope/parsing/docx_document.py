@@ -6,7 +6,13 @@ import docx
 from docx.table import Table, _Cell
 from docx.text.paragraph import Paragraph
 
-from signalscope.parsing.types import DocumentParsingError, MetadataValue, ParsedDocument
+from signalscope.parsing.types import (
+    SECTION_SEPARATOR,
+    DocumentParsingError,
+    MetadataValue,
+    ParsedDocument,
+    ParsedSection,
+)
 
 DOCX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 MAX_DOCX_BYTES = 50 * 1024 * 1024
@@ -37,7 +43,7 @@ class DocxDocumentParser:
         _check_unpacked_size(data)
         try:
             document = docx.Document(io.BytesIO(data))
-            blocks = [text for text in _container_texts(document) if text.strip()]
+            sections = _sections(document)
             properties = document.core_properties
             title, author = _clean(properties.title), _clean(properties.author)
         except Exception as error:
@@ -47,7 +53,45 @@ class DocxDocumentParser:
         metadata: dict[str, MetadataValue] = {}
         if author is not None:
             metadata["author"] = author
-        return ParsedDocument(text="\n\n".join(blocks), title=title, metadata=metadata)
+        return ParsedDocument(
+            text=SECTION_SEPARATOR.join(section.text for section in sections),
+            title=title,
+            metadata=metadata,
+            sections=sections,
+        )
+
+
+def _sections(document: docx.document.Document) -> tuple[ParsedSection, ...]:
+    """Split the document at its headings. Text before the first heading is one section."""
+    parts: list[tuple[str | None, list[str]]] = [(None, [])]
+    for block in document.iter_inner_content():
+        if isinstance(block, Paragraph):
+            if _is_heading(block) and block.text.strip():
+                parts.append((block.text.strip(), []))
+            texts = [block.text]
+        else:
+            texts = list(_table_texts(block))
+        parts[-1][1].extend(text for text in texts if text.strip())
+
+    sections: list[ParsedSection] = []
+    for heading, blocks in parts:
+        if not blocks:
+            continue
+        metadata: dict[str, MetadataValue] = {} if heading is None else {"heading": heading}
+        sections.append(
+            ParsedSection(
+                text=SECTION_SEPARATOR.join(blocks),
+                kind="section",
+                index=len(sections),
+                metadata=metadata,
+            )
+        )
+    return tuple(sections)
+
+
+def _is_heading(paragraph: Paragraph) -> bool:
+    name = paragraph.style.name if paragraph.style is not None else None
+    return name is not None and name.startswith(("Heading", "Title"))
 
 
 def _check_unpacked_size(data: bytes) -> None:

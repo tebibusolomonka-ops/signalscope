@@ -1,6 +1,6 @@
 from signalscope.ingestion.web_page import parse_web_page
 from signalscope.parsing.content_type import content_charset
-from signalscope.parsing.types import MetadataValue, ParsedDocument
+from signalscope.parsing.types import MetadataValue, ParsedDocument, single_section
 
 
 class HtmlDocumentParser:
@@ -25,7 +25,11 @@ class HtmlDocumentParser:
         if page.published_at is not None:
             metadata["published_at"] = page.published_at.isoformat()
         return ParsedDocument(
-            text=page.text, title=page.title, language=page.language, metadata=metadata
+            text=page.text,
+            title=page.title,
+            language=page.language,
+            metadata=metadata,
+            sections=single_section(page.text, "body"),
         )
 
 

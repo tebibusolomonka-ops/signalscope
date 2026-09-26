@@ -1,7 +1,7 @@
 import json
 from typing import Any
 
-from signalscope.parsing.types import DocumentParsingError, ParsedDocument
+from signalscope.parsing.types import DocumentParsingError, ParsedDocument, single_section
 
 # Values nested deeper than this are left out.
 MAX_DEPTH = 32
@@ -36,10 +36,12 @@ class JsonParser:
 
         lines = _Lines()
         lines.add(value, path="", depth=0)
+        text = "\n".join(lines.lines)
         return ParsedDocument(
-            text="\n".join(lines.lines),
+            text=text,
             title=_title(value),
             metadata={"truncated": lines.truncated},
+            sections=single_section(text, "document"),
         )
 
 
