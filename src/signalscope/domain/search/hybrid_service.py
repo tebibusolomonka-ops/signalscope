@@ -4,7 +4,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from signalscope.domain.search.repository import MAX_SEARCH_LIMIT, SearchRepository, SearchResult
+from signalscope.domain.search.repository import MAX_CANDIDATE_LIMIT, SearchRepository, SearchResult
 from signalscope.domain.search.semantic_service import check_search_request, embed_query
 from signalscope.domain.search.service import DEFAULT_SEARCH_LIMIT
 from signalscope.domain.search.vector_repository import VectorSearchRepository, VectorSearchResult
@@ -13,6 +13,8 @@ from signalscope.embeddings.registry import EmbeddingProviderRegistry
 # Each search returns this many times the requested results, so a chunk that
 # only one of them ranks high can still make it into the fused list.
 CANDIDATE_MULTIPLIER = 3
+# Enough for three candidates per result at the largest public limit.
+MAX_HYBRID_CANDIDATES = MAX_CANDIDATE_LIMIT
 # The usual constant for Reciprocal Rank Fusion. It keeps the top few ranks
 # from outweighing everything else.
 RRF_CONSTANT = 60
@@ -36,7 +38,7 @@ class HybridSearchResult:
 
 
 def candidate_count(limit: int) -> int:
-    return min(limit * CANDIDATE_MULTIPLIER, MAX_SEARCH_LIMIT)
+    return min(limit * CANDIDATE_MULTIPLIER, MAX_HYBRID_CANDIDATES)
 
 
 def fuse(

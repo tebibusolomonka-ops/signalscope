@@ -112,7 +112,7 @@ def test_limit() -> None:
     assert len(results) == 3
 
 
-@pytest.mark.parametrize(("limit", "expected"), [(1, 3), (10, 30), (17, 50), (50, 50)])
+@pytest.mark.parametrize(("limit", "expected"), [(1, 3), (10, 30), (20, 60), (50, 150)])
 def test_candidate_count(limit: int, expected: int) -> None:
     assert candidate_count(limit) == expected
 
@@ -211,5 +211,29 @@ async def test_model_failure_is_not_hidden() -> None:
 
     with pytest.raises(QueryEmbeddingError):
         await service.search("water", provider="test", model="words-4")
+
+    assert fake_lexical.calls == []
+
+
+async def test_largest_limit_collects_150_candidates_and_returns_50() -> None:
+    chunk_ids = [uuid.uuid4() for _ in range(160)]
+    service, fake_lexical, fake_vectors = service_with(
+        FakeEmbeddingProvider(),
+        [lexical(chunk_id) for chunk_id in chunk_ids[:150]],
+        [vector(chunk_id) for chunk_id in chunk_ids[10:]],
+    )
+
+    results = await service.search("water", provider="test", model="words-4", limit=50)
+
+    assert len(results) == 50
+    assert fake_lexical.calls[0]["limit"] == 150
+    assert fake_vectors.calls[0]["limit"] == 150
+
+
+async def test_public_limit_is_still_50() -> None:
+    service, fake_lexical, _ = service_with(FakeEmbeddingProvider(), [], [])
+
+    with pytest.raises(InvalidInputError, match="between 1 and 50"):
+        await service.search("water", provider="test", model="words-4", limit=51)
 
     assert fake_lexical.calls == []

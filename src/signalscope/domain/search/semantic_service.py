@@ -4,7 +4,7 @@ import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from signalscope.core.errors import InvalidInputError, ServiceUnavailableError, SignalScopeError
-from signalscope.domain.search.repository import MAX_SEARCH_LIMIT
+from signalscope.domain.search.repository import PUBLIC_SEARCH_LIMIT
 from signalscope.domain.search.service import DEFAULT_SEARCH_LIMIT, MAX_QUERY_LENGTH
 from signalscope.domain.search.vector_repository import VectorSearchRepository, VectorSearchResult
 from signalscope.embeddings.provider import embed
@@ -24,8 +24,8 @@ def check_search_request(query: str, limit: int) -> str:
         raise InvalidInputError("Search query must not be empty.")
     if len(query) > MAX_QUERY_LENGTH:
         raise InvalidInputError(f"Search query must be at most {MAX_QUERY_LENGTH} characters.")
-    if not 1 <= limit <= MAX_SEARCH_LIMIT:
-        raise InvalidInputError(f"Limit must be between 1 and {MAX_SEARCH_LIMIT}.")
+    if not 1 <= limit <= PUBLIC_SEARCH_LIMIT:
+        raise InvalidInputError(f"Limit must be between 1 and {PUBLIC_SEARCH_LIMIT}.")
     return query
 
 

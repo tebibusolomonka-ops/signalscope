@@ -12,7 +12,11 @@ from signalscope.domain.documents.chunk import (
 )
 from signalscope.domain.documents.model import Document
 
-MAX_SEARCH_LIMIT = 50
+# The most results one API request can ask for.
+PUBLIC_SEARCH_LIMIT = 50
+# Code inside SignalScope, such as hybrid search collecting candidates, may ask
+# the repositories for more.
+MAX_CANDIDATE_LIMIT = 150
 # No highlight markers, so an excerpt is plain text and safe to show anywhere.
 HEADLINE_OPTIONS = 'StartSel="", StopSel="", MaxWords=35, MinWords=15'
 
@@ -45,8 +49,8 @@ class SearchRepository:
         phrases" match in order, "or" gives alternatives and -word excludes a
         word. A query without any words matches nothing.
         """
-        if not 1 <= limit <= MAX_SEARCH_LIMIT:
-            raise ValueError(f"limit must be between 1 and {MAX_SEARCH_LIMIT}")
+        if not 1 <= limit <= MAX_CANDIDATE_LIMIT:
+            raise ValueError(f"limit must be between 1 and {MAX_CANDIDATE_LIMIT}")
         tsquery = func.websearch_to_tsquery(text_search_config(), query)
         rank = func.ts_rank_cd(chunk_search_vector(), tsquery)
         statement = (

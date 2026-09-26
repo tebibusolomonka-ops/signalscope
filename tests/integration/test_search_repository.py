@@ -165,13 +165,15 @@ async def test_limit(session_factory: async_sessionmaker[AsyncSession]) -> None:
 
     assert len(await search(session_factory, "climate", limit=3)) == 3
     assert len(await search(session_factory, "climate", limit=50)) == 5
+    # Hybrid search asks for up to 150 candidates.
+    assert len(await search(session_factory, "climate", limit=150)) == 5
 
 
-@pytest.mark.parametrize("limit", [0, 51, -1])
+@pytest.mark.parametrize("limit", [0, 151, -1])
 async def test_limit_is_bounded(
     session_factory: async_sessionmaker[AsyncSession], limit: int
 ) -> None:
-    with pytest.raises(ValueError, match="between 1 and 50"):
+    with pytest.raises(ValueError, match="between 1 and 150"):
         await search(session_factory, "climate", limit=limit)
 
 

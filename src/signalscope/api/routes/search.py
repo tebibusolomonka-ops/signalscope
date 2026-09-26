@@ -7,7 +7,7 @@ from pydantic import StringConstraints
 from signalscope.api.dependencies import DatabaseSession, EmbeddingProviders
 from signalscope.domain.search.embedding_model import MODEL_MAX_LENGTH, PROVIDER_MAX_LENGTH
 from signalscope.domain.search.hybrid_service import HybridSearchService
-from signalscope.domain.search.repository import MAX_SEARCH_LIMIT
+from signalscope.domain.search.repository import PUBLIC_SEARCH_LIMIT
 from signalscope.domain.search.schemas import (
     HybridSearchResponse,
     HybridSearchResultRead,
@@ -35,7 +35,7 @@ SemanticQuery = Annotated[
     StringConstraints(strip_whitespace=True, min_length=1, max_length=MAX_QUERY_LENGTH),
     Query(description="Text to compare with the chunks by meaning."),
 ]
-SearchLimit = Annotated[int, Query(ge=1, le=MAX_SEARCH_LIMIT)]
+SearchLimit = Annotated[int, Query(ge=1, le=PUBLIC_SEARCH_LIMIT)]
 ProviderName = Annotated[
     str, Query(min_length=1, max_length=PROVIDER_MAX_LENGTH, description="Who runs the model.")
 ]

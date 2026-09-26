@@ -136,6 +136,8 @@ async def test_limit(session_factory: async_sessionmaker[AsyncSession]) -> None:
     results = await search(session_factory, limit=2)
 
     assert [result.chunk_id for result in results] == [chunks[0].id, chunks[1].id]
+    # Hybrid search asks for up to 150 candidates.
+    assert len(await search(session_factory, limit=150)) == 3
 
 
 async def test_equal_distances_keep_document_order(
@@ -211,7 +213,7 @@ async def test_no_embeddings(session_factory: async_sessionmaker[AsyncSession]) 
     assert await search(session_factory) == []
 
 
-@pytest.mark.parametrize("limit", [0, 51])
+@pytest.mark.parametrize("limit", [0, 151])
 async def test_limit_out_of_range(
     session_factory: async_sessionmaker[AsyncSession], limit: int
 ) -> None:

@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from signalscope.domain.documents.chunk import DocumentChunk
 from signalscope.domain.documents.model import Document
 from signalscope.domain.search.embedding_model import ChunkEmbedding
-from signalscope.domain.search.repository import MAX_SEARCH_LIMIT
+from signalscope.domain.search.repository import MAX_CANDIDATE_LIMIT
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,8 +52,8 @@ class VectorSearchRepository:
         source_id: uuid.UUID | None = None,
     ) -> list[VectorSearchResult]:
         """Return the closest chunks, smallest cosine distance first."""
-        if not 1 <= limit <= MAX_SEARCH_LIMIT:
-            raise ValueError(f"limit must be between 1 and {MAX_SEARCH_LIMIT}")
+        if not 1 <= limit <= MAX_CANDIDATE_LIMIT:
+            raise ValueError(f"limit must be between 1 and {MAX_CANDIDATE_LIMIT}")
         if len(vector) != dimensions:
             raise ValueError(f"vector has {len(vector)} dimensions instead of {dimensions}")
         distance = ChunkEmbedding.embedding.cosine_distance(list(vector))
