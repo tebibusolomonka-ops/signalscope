@@ -110,6 +110,25 @@ class HybridSearchService:
         source_id: uuid.UUID | None = None,
     ) -> list[HybridSearchResult]:
         query = check_search_request(query, limit)
+        return await self.candidates(
+            query, provider=provider, model=model, limit=limit, source_id=source_id
+        )
+
+    async def candidates(
+        self,
+        query: str,
+        *,
+        provider: str,
+        model: str,
+        limit: int,
+        source_id: uuid.UUID | None = None,
+    ) -> list[HybridSearchResult]:
+        """Like search, for code inside SignalScope that reorders the results.
+
+        The query must already be checked. limit may go up to MAX_CANDIDATE_LIMIT.
+        """
+        if not 1 <= limit <= MAX_CANDIDATE_LIMIT:
+            raise ValueError(f"limit must be between 1 and {MAX_CANDIDATE_LIMIT}")
         vector, dimensions = await embed_query(self.providers, query, provider, model)
         candidates = candidate_count(limit)
         lexical = await self.lexical.search(query, limit=candidates, source_id=source_id)
