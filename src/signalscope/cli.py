@@ -44,6 +44,7 @@ from signalscope.parsing.docx_document import DOCX_CONTENT_TYPE
 from signalscope.parsing.registry import create_default_parser_registry
 from signalscope.storage.local import LocalBlobStore
 from signalscope.workers.runner import DEFAULT_POLL_SECONDS, WorkerLoop
+from signalscope.workers.shutdown import stop_on_signals
 
 DEFAULT_SCHEDULE_LIMIT = 100
 DEFAULT_CLEANUP_LIMIT = 100
@@ -52,6 +53,7 @@ NO_BLOB_DIR_ERROR = "Error: Blob directory is not configured. Set SIGNALSCOPE_BL
 # Stale jobs put back in the queue before each claim.
 RECOVERY_LIMIT = 10
 LEASE_LOST_MESSAGE = "Lease lost: another worker took the job over."
+STOPPING_MESSAGE = "Stopping after the current job."
 
 # Only the types built into Python, so the guess does not depend on the machine.
 MIME_TYPES = mimetypes.MimeTypes()
@@ -375,7 +377,13 @@ async def _run_jobs(
         poll_seconds=DEFAULT_POLL_SECONDS if poll_seconds is None else poll_seconds,
         max_jobs=max_jobs,
     )
-    jobs = await loop.run()
+
+    def request_stop() -> None:
+        print(STOPPING_MESSAGE, file=out)
+        loop.stop()
+
+    with stop_on_signals(request_stop):
+        jobs = await loop.run()
     print(f"Jobs handled: {jobs}", file=out)
     return 0
 

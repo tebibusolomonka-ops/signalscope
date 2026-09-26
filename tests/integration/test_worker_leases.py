@@ -55,15 +55,20 @@ class Beats:
             await asyncio.wait_for(self.beat.wait(), TIMEOUT_SECONDS)
 
 
-def watch_heartbeats(monkeypatch: pytest.MonkeyPatch, repository: type, beats: Beats) -> None:
-    original = repository.heartbeat  # type: ignore[attr-defined]
+def watch_heartbeats(monkeypatch: pytest.MonkeyPatch, worker: type, beats: Beats) -> None:
+    """Record every heartbeat the worker finishes, with its result.
 
-    async def recording(self: object, job_id: uuid.UUID, now: datetime, lease: LeasePolicy) -> bool:
-        held = await original(self, job_id, now, lease)
+    The worker method returns only after its transaction has been committed,
+    so a recorded beat is always visible to the test.
+    """
+    original = worker._heartbeat  # type: ignore[attr-defined]
+
+    async def recording(self: object, job_id: uuid.UUID) -> bool:
+        held = await original(self, job_id)
         beats.record(held)
         return held
 
-    monkeypatch.setattr(repository, "heartbeat", recording)
+    monkeypatch.setattr(worker, "_heartbeat", recording)
 
 
 class BlockingWork:
@@ -182,7 +187,7 @@ async def test_ingestion_worker_extends_its_lease(
     source = await create_source(session_factory, SourceType.RSS)
     job = await queue_ingestion_job(session_factory, source)
     beats = Beats()
-    watch_heartbeats(monkeypatch, IngestionJobRepository, beats)
+    watch_heartbeats(monkeypatch, IngestionWorker, beats)
     work = BlockingWork()
 
     task = asyncio.create_task(ingestion_worker(session_factory, work).run_once())
@@ -198,7 +203,8 @@ async def test_ingestion_worker_extends_its_lease(
     assert extended.lease_expires_at is not None
     assert extended.lease_expires_at > claimed.lease_expires_at
     assert extended.heartbeat_at is not None
-    assert extended.heartbeat_at > claimed.claimed_at  # type: ignore[operator]
+    assert claimed.claimed_at is not None
+    assert extended.heartbeat_at > claimed.claimed_at
     assert result.job is not None
     assert result.job.status is IngestionJobStatus.COMPLETED
     assert not result.lease_lost
@@ -212,7 +218,7 @@ async def test_processing_worker_extends_its_lease(
     source = await create_source(session_factory, SourceType.UPLOAD)
     imported = await import_file(session_factory, blobs, source)
     beats = Beats()
-    watch_heartbeats(monkeypatch, DocumentProcessingJobRepository, beats)
+    watch_heartbeats(monkeypatch, DocumentProcessingWorker, beats)
     work = BlockingWork()
 
     task = asyncio.create_task(processing_worker(session_factory, work).run_once())
@@ -237,7 +243,7 @@ async def test_heartbeat_keeps_the_job_from_being_recovered(
     source = await create_source(session_factory, SourceType.UPLOAD)
     await import_file(session_factory, blobs, source)
     beats = Beats()
-    watch_heartbeats(monkeypatch, DocumentProcessingJobRepository, beats)
+    watch_heartbeats(monkeypatch, DocumentProcessingWorker, beats)
     work = BlockingWork()
 
     task = asyncio.create_task(processing_worker(session_factory, work).run_once())
@@ -263,7 +269,7 @@ async def test_lost_lease_leaves_the_job_alone(
     source = await create_source(session_factory, SourceType.UPLOAD)
     imported = await import_file(session_factory, blobs, source)
     beats = Beats()
-    watch_heartbeats(monkeypatch, DocumentProcessingJobRepository, beats)
+    watch_heartbeats(monkeypatch, DocumentProcessingWorker, beats)
     work = BlockingWork()
 
     task = asyncio.create_task(processing_worker(session_factory, work).run_once())
@@ -299,7 +305,7 @@ async def test_ingestion_lost_lease_leaves_the_job_alone(
     source = await create_source(session_factory, SourceType.RSS)
     job = await queue_ingestion_job(session_factory, source)
     beats = Beats()
-    watch_heartbeats(monkeypatch, IngestionJobRepository, beats)
+    watch_heartbeats(monkeypatch, IngestionWorker, beats)
     work = BlockingWork()
 
     task = asyncio.create_task(ingestion_worker(session_factory, work).run_once())
