@@ -62,6 +62,7 @@ async def test_upgrade_from_empty_database(
         "document_chunks",
         "blob_cleanup_tasks",
         "document_revisions",
+        "chunk_embeddings",
     }
     head = ScriptDirectory.from_config(migration_config).get_current_head()
     assert await current_revision(database_engine) == head
