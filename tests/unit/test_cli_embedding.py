@@ -124,3 +124,30 @@ def test_queue_entities_needs_local_entities(
 
     assert main(["queue-entities"]) == 1
     assert "SIGNALSCOPE_LOCAL_ENTITIES_ENABLED=true" in capsys.readouterr().err
+
+
+def test_entity_worker_arguments() -> None:
+    args = build_parser().parse_args(["run-entity-worker", "--max-jobs", "4"])
+
+    assert (args.command, args.once, args.max_jobs) == ("run-entity-worker", False, 4)
+
+
+def test_entity_worker_needs_local_entities(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.delenv("SIGNALSCOPE_LOCAL_ENTITIES_ENABLED", raising=False)
+    monkeypatch.setenv("SIGNALSCOPE_DATABASE_URL", FAKE_DATABASE_URL)
+
+    assert main(["run-entity-worker", "--once"]) == 1
+    assert "SIGNALSCOPE_LOCAL_ENTITIES_ENABLED=true" in capsys.readouterr().err
+
+
+async def test_entity_worker_needs_the_extra(monkeypatch: pytest.MonkeyPatch) -> None:
+    from signalscope.cli import run_entity_worker
+
+    monkeypatch.setitem(sys.modules, "gliner", None)
+    out, err = io.StringIO(), io.StringIO()
+    settings = Settings(database_url=FAKE_DATABASE_URL, local_entities_enabled=True)
+
+    assert await run_entity_worker(settings, out, err) == 1
+    assert 'pip install -e ".[local-entities]"' in err.getvalue()

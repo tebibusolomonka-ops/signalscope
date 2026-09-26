@@ -19,7 +19,10 @@ from signalscope.db.engine import create_database_engine
 from signalscope.db.session import create_session_factory
 from signalscope.domain.blobs.cleanup import BlobCleanupService
 from signalscope.domain.documents.files import MAX_FILE_BYTES
+from signalscope.domain.entities.job import EntityExtractionJobStatus
+from signalscope.domain.entities.job_repository import EntityExtractionJobRepository
 from signalscope.domain.entities.queue import EntityExtractionQueueService
+from signalscope.domain.entities.worker import EntityExtractionWorker
 from signalscope.domain.ingestion.executor import IngestionExecutor
 from signalscope.domain.ingestion.model import (
     IngestionJob,
@@ -48,7 +51,9 @@ from signalscope.embeddings.models import MULTILINGUAL_E5_SMALL
 from signalscope.embeddings.provider import EmbeddingInputRole, EmbeddingProvider, embed
 from signalscope.embeddings.registry import EmbeddingProviderRegistry
 from signalscope.embeddings.runtime import create_embedding_registry, local_embedding_target
-from signalscope.entities.runtime import local_entity_model
+from signalscope.entities.local import LocalEntitiesNotInstalledError
+from signalscope.entities.registry import EntityExtractorRegistry
+from signalscope.entities.runtime import create_entity_extractor_registry, local_entity_model
 from signalscope.evaluation.dataset import EvaluationDataError
 from signalscope.evaluation.gates import (
     QualityGate,
@@ -157,6 +162,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             return asyncio.run(
                 run_embedding_worker(settings, batch_size=args.batch_size, **loop_options)
             )
+        if args.command == "run-entity-worker":
+            return asyncio.run(run_entity_worker(settings, **loop_options))
         return asyncio.run(run_processing_worker(settings, **loop_options))
     except KeyboardInterrupt:
         print("Stopped.", file=sys.stderr)
@@ -253,6 +260,11 @@ def build_parser() -> argparse.ArgumentParser:
     processing = commands.add_parser("run-processing-worker", help="parse queued imported files")
     _add_worker_options(processing)
 
+    entity_worker = commands.add_parser(
+        "run-entity-worker", help="find entities in queued chunks with the local model"
+    )
+    _add_worker_options(entity_worker)
+
     embedding = commands.add_parser(
         "run-embedding-worker", help="embed queued chunks with the local model"
     )
@@ -284,7 +296,12 @@ def _add_worker_options(parser: argparse.ArgumentParser) -> None:
 
 
 def _check_worker_options(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
-    is_worker = args.command in ("run-worker", "run-processing-worker", "run-embedding-worker")
+    is_worker = args.command in (
+        "run-worker",
+        "run-processing-worker",
+        "run-embedding-worker",
+        "run-entity-worker",
+    )
     loop_option_given = is_worker and (args.poll_seconds is not None or args.max_jobs is not None)
     if loop_option_given and args.once:
         parser.error("--once cannot be used with --poll-seconds or --max-jobs")
@@ -610,6 +627,77 @@ async def run_embedding_worker(
             poll_seconds=poll_seconds,
             max_jobs=max_jobs,
         )
+
+
+async def run_entity_worker(
+    settings: Settings,
+    out: TextIO | None = None,
+    err: TextIO | None = None,
+    *,
+    extractors: EntityExtractorRegistry | None = None,
+    once: bool = True,
+    poll_seconds: float | None = None,
+    max_jobs: int | None = None,
+) -> int:
+    """Find entities in queued chunks and print each result. Returns the exit code.
+
+    Without extractors, the local model from settings is used. It is only
+    loaded when a job needs it, so an empty queue never loads it.
+    """
+    out = sys.stdout if out is None else out
+    err = sys.stderr if err is None else err
+    if extractors is None:
+        extractors = _local_entities(settings, err)
+        if extractors is None:
+            return 1
+    if settings.database_url is None:
+        print(NO_DATABASE_ERROR, file=err)
+        return 1
+
+    async with _database(settings) as session_factory:
+        worker = EntityExtractionWorker(session_factory, extractors)
+
+        async def work() -> bool | None:
+            async with session_factory() as session:
+                await EntityExtractionJobRepository(session).recover_stale(
+                    utc_now(), RECOVERY_LIMIT
+                )
+                await session.commit()
+            result = await worker.run_once()
+            if result.job is None:
+                return None
+            print(f"Job: {result.job.id}", file=out)
+            if result.lease_lost:
+                print(LEASE_LOST_MESSAGE, file=out)
+                return False
+            print(f"Status: {result.job.status}", file=out)
+            print(f"Mentions: {result.mention_count}", file=out)
+            if result.job.last_error:
+                print(f"Error: {result.job.last_error}", file=out)
+            return result.job.status is EntityExtractionJobStatus.COMPLETED
+
+        return await _run_jobs(
+            work,
+            "No entity extraction job available.",
+            out,
+            once=once,
+            poll_seconds=poll_seconds,
+            max_jobs=max_jobs,
+        )
+
+
+def _local_entities(settings: Settings, err: TextIO) -> EntityExtractorRegistry | None:
+    """The registry with the local entity model, or None after printing why not.
+
+    Nothing is loaded here. The library is only looked up.
+    """
+    if not settings.local_entities_enabled:
+        print(LOCAL_ENTITIES_DISABLED_ERROR, file=err)
+        return None
+    if importlib.util.find_spec("gliner") is None:
+        print(f"Error: {LocalEntitiesNotInstalledError()}", file=err)
+        return None
+    return create_entity_extractor_registry(settings)
 
 
 def _local_embeddings(settings: Settings, err: TextIO) -> EmbeddingProviderRegistry | None:

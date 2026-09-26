@@ -332,12 +332,34 @@ and the other modes, except lexical, need local embeddings.
 
 ### Entities
 
-`GET /entities` lists the people, organizations, places and other entities
-found in documents, with `query` for part of a name, `entity_type`, `limit`
-and `offset`. `GET /entities/{id}` shows one entity with its mentions. The
-tables, the extraction queue and the worker are in place, but no extraction
-model is configured yet, so the lists stay empty for now. Entities are linked
-by normalized name and type only, so two people with the same name share one
+SignalScope can find people, organizations, places, countries, cities,
+products, events and dates in chunks with `urchade/gliner_multi-v2.1`, a
+multilingual model that runs on this machine. It needs its own extra and
+switch:
+
+```bash
+pip install -e ".[local-entities]"
+export SIGNALSCOPE_LOCAL_ENTITIES_ENABLED=true
+```
+
+Queue the existing chunks, then run the worker:
+
+```bash
+signalscope queue-entities --limit 1000
+signalscope run-entity-worker --once
+```
+
+`queue-entities` checks chunks in a fixed order, skips those already read or
+waiting, and takes `--document-id` and `--limit`. `run-entity-worker` reads
+one chunk per job and prints the job, its status and how many mentions it
+found. Without `--once` it keeps running, with `--poll-seconds` and
+`--max-jobs`, and stops cleanly on Ctrl+C. The model is loaded, and
+downloaded the first time, only when a job needs it.
+
+`GET /entities` lists the entities found, with `query` for part of a name,
+`entity_type`, `limit` and `offset`. `GET /entities/{id}` shows one entity
+with its mentions. Types are stored in lower case. Entities are linked by
+normalized name and type only, so two people with the same name share one
 entity.
 
 ### Retrieval evaluation
