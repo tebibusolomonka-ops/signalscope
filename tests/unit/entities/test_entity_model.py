@@ -53,3 +53,17 @@ def test_normalizing_twice_changes_nothing() -> None:
     once = normalize_entity_name("  Ｍüller  AG ")
 
     assert normalize_entity_name(once) == once
+
+
+def test_entity_mentions_table() -> None:
+    from signalscope.domain.entities.mention import EntityMention
+
+    sql = str(CreateTable(EntityMention.__table__).compile(dialect=postgresql.dialect()))
+
+    assert "UNIQUE (chunk_id, start_char, end_char, provider, model)" in sql
+    assert "CHECK (end_char > start_char)" in sql
+    assert "CHECK (confidence IS NULL OR (confidence >= 0 AND confidence <= 1))" in sql
+    assert "FOREIGN KEY(entity_id) REFERENCES entities (id) ON DELETE RESTRICT" in sql
+    assert "FOREIGN KEY(chunk_id) REFERENCES document_chunks (id) ON DELETE CASCADE" in sql
+    assert "metadata JSONB DEFAULT '{}'::jsonb NOT NULL" in sql
+    assert Base.metadata.tables["entity_mentions"] is EntityMention.__table__
