@@ -64,6 +64,37 @@ class IngestionJobRepository:
         await self.session.flush()
         return job
 
+    async def recover_stale(self, now: datetime, limit: int) -> list[IngestionJob]:
+        """Put running jobs whose lease ran out back in the queue.
+
+        Their worker is taken to be gone. The jobs become pending and available
+        at now. attempt_count and last_error stay as they are. Rows locked by
+        another transaction are skipped, so two recoveries never take the same
+        job. Jobs whose lease ran out first are recovered first.
+        """
+        if limit < 1:
+            raise ValueError("limit must be at least 1")
+        result = await self.session.scalars(
+            select(IngestionJob)
+            .where(
+                IngestionJob.status == IngestionJobStatus.RUNNING,
+                IngestionJob.lease_expires_at <= now,
+            )
+            .order_by(IngestionJob.lease_expires_at, IngestionJob.id)
+            .limit(limit)
+            .with_for_update(skip_locked=True)
+            .execution_options(populate_existing=True)
+        )
+        jobs = list(result.all())
+        for job in jobs:
+            job.status = IngestionJobStatus.PENDING
+            job.available_at = now
+            job.claimed_at = None
+            job.heartbeat_at = None
+            job.lease_expires_at = None
+        await self.session.flush()
+        return jobs
+
     async def mark_completed(self, job_id: uuid.UUID, now: datetime) -> IngestionJob:
         return await self._finish(job_id, IngestionJobStatus.COMPLETED, now)
 
