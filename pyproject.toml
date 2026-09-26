@@ -31,6 +31,10 @@ dev = [
     "pytest>=8.3",
     "ruff>=0.8",
 ]
+# Runs embedding models on this machine. Brings in PyTorch and Transformers.
+local-embeddings = [
+    "sentence-transformers>=5.1",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/signalscope"]
@@ -50,6 +54,11 @@ strict = true
 [[tool.mypy.overrides]]
 # feedparser has no type information.
 module = ["feedparser", "feedparser.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# An optional extra, so it is often not installed where mypy runs.
+module = ["sentence_transformers", "sentence_transformers.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
