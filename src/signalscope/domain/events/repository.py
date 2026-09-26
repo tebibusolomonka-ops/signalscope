@@ -1,0 +1,83 @@
+import uuid
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Any
+
+from sqlalchemy import ColumnElement, func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from signalscope.domain.documents.chunk import DocumentChunk
+from signalscope.domain.events.model import Event, EventEvidence
+
+# The most evidence rows an event detail shows.
+MAX_DETAIL_EVIDENCE = 100
+
+
+@dataclass(frozen=True, slots=True)
+class EventFilters:
+    event_type: str | None = None
+    # Events that happened at or after this time. Events without a time are left out.
+    occurred_from: datetime | None = None
+    # Events that happened before this time.
+    occurred_to: datetime | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class EvidenceWithChunk:
+    evidence: EventEvidence
+    document_id: uuid.UUID
+    # Where the chunk came from, such as {"page_number": 3}.
+    chunk_metadata: dict[str, Any]
+
+
+class EventRepository:
+    """Read access to events and their evidence. It never commits."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self.session = session
+
+    async def list_page(
+        self, filters: EventFilters, limit: int, offset: int
+    ) -> tuple[list[Event], int]:
+        """Events in time order. Events without a known time come last."""
+        conditions = _conditions(filters)
+        events = await self.session.scalars(
+            select(Event)
+            .where(*conditions)
+            .order_by(Event.occurred_at.asc().nulls_last(), Event.created_at, Event.id)
+            .limit(limit)
+            .offset(offset)
+        )
+        total = await self.session.scalar(
+            select(func.count()).select_from(Event).where(*conditions)
+        )
+        return list(events), total or 0
+
+    async def get(self, event_id: uuid.UUID) -> Event | None:
+        return await self.session.get(Event, event_id)
+
+    async def evidence(
+        self, event_id: uuid.UUID, limit: int = MAX_DETAIL_EVIDENCE
+    ) -> list[EvidenceWithChunk]:
+        rows = await self.session.execute(
+            select(EventEvidence, DocumentChunk.document_id, DocumentChunk.chunk_metadata)
+            .join(DocumentChunk, DocumentChunk.id == EventEvidence.chunk_id)
+            .where(EventEvidence.event_id == event_id)
+            .order_by(DocumentChunk.document_id, DocumentChunk.position, EventEvidence.id)
+            .limit(limit)
+        )
+        return [
+            EvidenceWithChunk(evidence, document_id, dict(metadata))
+            for evidence, document_id, metadata in rows
+        ]
+
+
+def _conditions(filters: EventFilters) -> list[ColumnElement[bool]]:
+    conditions = []
+    if filters.event_type is not None:
+        conditions.append(Event.event_type == filters.event_type.strip().lower())
+    if filters.occurred_from is not None:
+        conditions.append(Event.occurred_at >= filters.occurred_from)
+    if filters.occurred_to is not None:
+        conditions.append(Event.occurred_at < filters.occurred_to)
+    return conditions
