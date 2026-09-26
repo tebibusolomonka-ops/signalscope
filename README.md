@@ -300,6 +300,46 @@ lets the reranker order them by the full chunk text. Each result shows its
 local embeddings are off. The model is loaded, and downloaded the first time,
 only when it first scores something.
 
+### Research context
+
+`POST /research/context` collects the evidence for a question, so that a
+future answer step can cite it. It does not write answers or summaries, and it
+does not call a language model.
+
+```bash
+curl -X POST http://localhost:8000/research/context \
+  -H "Content-Type: application/json" \
+  -d '{"query": "flooding in the harbour", "mode": "hybrid", "limit": 8}'
+```
+
+`mode` is `lexical`, `semantic`, `hybrid` (the default) or `reranked`, and
+`source_id` limits the search to one source. The response lists the evidence
+with IDs E1, E2 and so on, each with its document, chunk, title, URL, excerpt,
+chunk metadata such as the PDF page, and the search scores. At most two chunks
+come from one document, and overlapping or repeated chunks are left out.
+`context_text` holds the same evidence as numbered blocks with the full chunk
+text:
+
+```text
+[E1]
+Title: Harbour Report
+Page: 2
+Text: Water flooded the harbour district.
+```
+
+The IDs only hold within one response. Reranked mode needs local reranking,
+and the other modes, except lexical, need local embeddings.
+
+### Entities
+
+`GET /entities` lists the people, organizations, places and other entities
+found in documents, with `query` for part of a name, `entity_type`, `limit`
+and `offset`. `GET /entities/{id}` shows one entity with its mentions. The
+tables, the extraction queue and the worker are in place, but no extraction
+model is configured yet, so the lists stay empty for now. Entities are linked
+by normalized name and type only, so two people with the same name share one
+entity.
+
 ### Retrieval evaluation
 
 A retrieval dataset is a JSON file with documents, queries, and the documents
