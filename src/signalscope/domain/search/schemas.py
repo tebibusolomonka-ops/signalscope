@@ -22,3 +22,22 @@ class SearchResultRead(BaseModel):
 
 class SearchResponse(BaseModel):
     items: list[SearchResultRead]
+
+
+class SemanticSearchResultRead(BaseModel):
+    """One chunk close to the query. The vectors themselves are left out."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    document_id: uuid.UUID
+    chunk_id: uuid.UUID
+    source_id: uuid.UUID
+    title: str | None
+    url: str | None
+    chunk_metadata: dict[str, Any]
+    # 1 minus the cosine distance: 1 is the same direction, -1 the opposite.
+    similarity: float
+
+
+class SemanticSearchResponse(BaseModel):
+    items: list[SemanticSearchResultRead]

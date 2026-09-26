@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from signalscope.core.errors import ServiceUnavailableError
 from signalscope.db.session import get_session
+from signalscope.embeddings.registry import EmbeddingProviderRegistry
 from signalscope.storage.blob import BlobStore
 from signalscope.storage.local import LocalBlobStore
 
@@ -32,3 +33,11 @@ def blob_store(request: Request) -> BlobStore | None:
 
 
 Blobs = Annotated[BlobStore | None, Depends(blob_store)]
+
+
+def embedding_providers(request: Request) -> EmbeddingProviderRegistry:
+    registry: EmbeddingProviderRegistry = request.app.state.embedding_providers
+    return registry
+
+
+EmbeddingProviders = Annotated[EmbeddingProviderRegistry, Depends(embedding_providers)]
