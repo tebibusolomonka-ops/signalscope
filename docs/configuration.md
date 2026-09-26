@@ -16,6 +16,9 @@ empty, keeps its default value. An invalid value raises `SettingsError`.
 | `SIGNALSCOPE_LOCAL_EMBEDDING_DEVICE` | `cpu` | A device name, such as `cpu` or `cuda` |
 | `SIGNALSCOPE_LOCAL_EMBEDDING_BATCH_SIZE` | `32` | A whole number of at least 1 |
 | `SIGNALSCOPE_LOCAL_EMBEDDING_CACHE_DIR` | Not set | A folder path |
+| `SIGNALSCOPE_LOCAL_RERANKING_ENABLED` | `false` | `true`, `false`, `1`, `0`, `yes`, `no`, `on`, `off` |
+| `SIGNALSCOPE_LOCAL_RERANKING_DEVICE` | `cpu` | A device name, such as `cpu` or `cuda` |
+| `SIGNALSCOPE_LOCAL_RERANKING_BATCH_SIZE` | `16` | A whole number of at least 1 |
 
 Values are not case-sensitive, except for the app name, the database URL,
 the device and the folders.
@@ -73,3 +76,25 @@ into the cache the first time, when it first embeds something.
 needed. `SIGNALSCOPE_LOCAL_EMBEDDING_BATCH_SIZE` sets how many texts it embeds
 in one pass. `SIGNALSCOPE_LOCAL_EMBEDDING_CACHE_DIR` sets where the model
 files are kept.
+
+## Local reranking
+
+A reranker reads the query and each candidate passage together and scores how
+well they match. It is slower than vector search, so it only reorders a short
+list of candidates. SignalScope uses
+`cross-encoder/mmarco-mMiniLMv2-L12-H384-v1`, a multilingual model. It is fixed
+for now.
+
+It is off by default and needs its own switch, separate from local
+embeddings:
+
+```bash
+pip install -e ".[local-reranking]"
+export SIGNALSCOPE_LOCAL_RERANKING_ENABLED=true
+```
+
+Like the embedding model, it is loaded, and downloaded the first time, only
+when it first scores something. Its files go to
+`SIGNALSCOPE_LOCAL_EMBEDDING_CACHE_DIR` when that is set.
+`SIGNALSCOPE_LOCAL_RERANKING_DEVICE` picks where it runs, and
+`SIGNALSCOPE_LOCAL_RERANKING_BATCH_SIZE` how many pairs it scores in one pass.

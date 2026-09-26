@@ -209,3 +209,41 @@ def test_device_must_not_be_blank() -> None:
 def test_enabled_must_be_true_or_false() -> None:
     with pytest.raises(SettingsError, match="SIGNALSCOPE_LOCAL_EMBEDDINGS_ENABLED"):
         load_settings({"SIGNALSCOPE_LOCAL_EMBEDDINGS_ENABLED": "maybe"})
+
+
+def test_local_reranking_is_off_by_default() -> None:
+    settings = load_settings({})
+
+    assert settings.local_reranking_enabled is False
+    assert settings.local_reranking_device == "cpu"
+    assert settings.local_reranking_batch_size == 16
+
+
+def test_load_local_reranking_settings() -> None:
+    settings = load_settings(
+        {
+            "SIGNALSCOPE_LOCAL_RERANKING_ENABLED": "yes",
+            "SIGNALSCOPE_LOCAL_RERANKING_DEVICE": "cuda:1",
+            "SIGNALSCOPE_LOCAL_RERANKING_BATCH_SIZE": "4",
+        }
+    )
+
+    assert settings.local_reranking_enabled is True
+    assert settings.local_reranking_device == "cuda:1"
+    assert settings.local_reranking_batch_size == 4
+
+
+@pytest.mark.parametrize("value", ["0", "-1"])
+def test_reranking_batch_size_must_be_positive(value: str) -> None:
+    with pytest.raises(SettingsError, match="local_reranking_batch_size"):
+        load_settings({"SIGNALSCOPE_LOCAL_RERANKING_BATCH_SIZE": value})
+
+
+def test_reranking_batch_size_must_be_a_number() -> None:
+    with pytest.raises(SettingsError, match="SIGNALSCOPE_LOCAL_RERANKING_BATCH_SIZE"):
+        load_settings({"SIGNALSCOPE_LOCAL_RERANKING_BATCH_SIZE": "lots"})
+
+
+def test_reranking_device_must_not_be_blank() -> None:
+    with pytest.raises(SettingsError, match="local_reranking_device"):
+        Settings(local_reranking_device=" ")

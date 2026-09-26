@@ -6,6 +6,7 @@ from signalscope.api.middleware import RequestIDMiddleware, RequestLoggingMiddle
 from signalscope.api.routes import documents, embeddings, health, ingestion_runs, search, sources
 from signalscope.core.settings import Settings, load_settings
 from signalscope.embeddings.runtime import create_embedding_registry
+from signalscope.reranking.runtime import create_reranker_registry
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -16,6 +17,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # Empty unless local embeddings are enabled. Then semantic search answers 503.
     # Making the registry does not load the model.
     app.state.embedding_providers = create_embedding_registry(settings)
+    # Empty unless local reranking is enabled. The model is not loaded here either.
+    app.state.rerankers = create_reranker_registry(settings)
     add_error_handlers(app)
     # The last middleware added runs first, so the request ID is set before logging.
     app.add_middleware(RequestLoggingMiddleware)

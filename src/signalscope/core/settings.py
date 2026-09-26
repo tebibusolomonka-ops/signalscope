@@ -48,6 +48,11 @@ class Settings:
     local_embedding_batch_size: int = 32
     # Where downloaded model files are kept. Unset means the library default.
     local_embedding_cache_dir: Path | None = None
+    # The local mMARCO reranker. Off by default, for the same reasons.
+    local_reranking_enabled: bool = False
+    local_reranking_device: str = "cpu"
+    # How many query and passage pairs the reranker scores in one pass.
+    local_reranking_batch_size: int = 16
 
     def __post_init__(self) -> None:
         if not self.app_name.strip():
@@ -56,6 +61,10 @@ class Settings:
             raise SettingsError("local_embedding_device must not be empty")
         if self.local_embedding_batch_size < 1:
             raise SettingsError("local_embedding_batch_size must be at least 1")
+        if not self.local_reranking_device.strip():
+            raise SettingsError("local_reranking_device must not be empty")
+        if self.local_reranking_batch_size < 1:
+            raise SettingsError("local_reranking_batch_size must be at least 1")
         if self.database_url is not None and not self.database_url.startswith(DATABASE_URL_PREFIX):
             raise SettingsError(f"Database URL must start with {DATABASE_URL_PREFIX}")
 
@@ -85,6 +94,15 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
             env, "SIGNALSCOPE_LOCAL_EMBEDDING_BATCH_SIZE", defaults.local_embedding_batch_size
         ),
         local_embedding_cache_dir=_read_path(env, "SIGNALSCOPE_LOCAL_EMBEDDING_CACHE_DIR"),
+        local_reranking_enabled=_read_bool(
+            env, "SIGNALSCOPE_LOCAL_RERANKING_ENABLED", defaults.local_reranking_enabled
+        ),
+        local_reranking_device=_read_str(
+            env, "SIGNALSCOPE_LOCAL_RERANKING_DEVICE", defaults.local_reranking_device
+        ),
+        local_reranking_batch_size=_read_int(
+            env, "SIGNALSCOPE_LOCAL_RERANKING_BATCH_SIZE", defaults.local_reranking_batch_size
+        ),
     )
 
 
