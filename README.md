@@ -121,7 +121,8 @@ so run it from cron or a systemd timer.
 Without `--once`, the worker keeps running and takes jobs as they arrive. It
 waits `--poll-seconds` (5 by default) when the queue is empty, and
 `--max-jobs` makes it exit after that many jobs. A failed job does not stop
-it. Press Ctrl+C to stop it:
+it. Press Ctrl+C, or send SIGTERM, to stop it. The worker then finishes the
+job it is working on, takes no new one and exits:
 
 ```bash
 signalscope run-worker --poll-seconds 10
