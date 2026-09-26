@@ -47,6 +47,10 @@ class DocumentProcessingJob(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         DateTime(timezone=True), server_default=func.now()
     )
     claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # The last sign of life from the worker that holds the job.
+    heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # A running job whose lease has run out can be put back in the queue.
+    lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # How many times a worker claimed the job.
     attempt_count: Mapped[int] = mapped_column(default=0, server_default=text("0"))

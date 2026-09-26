@@ -19,6 +19,8 @@ def test_document_processing_jobs_table() -> None:
     assert "status VARCHAR(20) NOT NULL" in sql
     assert "available_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL" in sql
     assert "claimed_at TIMESTAMP WITH TIME ZONE," in sql
+    assert "heartbeat_at TIMESTAMP WITH TIME ZONE," in sql
+    assert "lease_expires_at TIMESTAMP WITH TIME ZONE," in sql
     assert "finished_at TIMESTAMP WITH TIME ZONE," in sql
     assert "attempt_count INTEGER DEFAULT 0 NOT NULL" in sql
     assert "last_error VARCHAR(1000)," in sql
