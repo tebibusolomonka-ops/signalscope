@@ -1,5 +1,9 @@
 import hashlib
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
+from types import MappingProxyType
+
+from signalscope.parsing.types import MetadataValue
 
 MAX_CHUNK_CHARS = 1200
 OVERLAP_CHARS = 200
@@ -17,6 +21,11 @@ class TextChunk:
     start_char: int
     end_char: int
     text_hash: str
+    # Where the chunk came from, such as {"page_number": 3}.
+    metadata: Mapping[str, MetadataValue] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "metadata", MappingProxyType(dict(self.metadata)))
 
 
 def chunk_text(

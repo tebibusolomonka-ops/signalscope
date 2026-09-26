@@ -39,6 +39,7 @@ def test_checks() -> None:
         "CHECK (end_char >= start_char)",
         "CHECK (text <> '')",
         "CHECK (text_hash ~ '^[0-9a-f]{64}$')",
+        "CHECK (jsonb_typeof(metadata) = 'object')",
     ]:
         assert check in sql
 
@@ -52,3 +53,10 @@ def test_chunks_are_deleted_with_their_document() -> None:
 
 def test_chunk_is_in_project_metadata() -> None:
     assert Base.metadata.tables["document_chunks"] is DocumentChunk.__table__
+
+
+def test_metadata_column() -> None:
+    table = DocumentChunk.__table__
+
+    assert "metadata JSONB DEFAULT '{}'::jsonb NOT NULL" in table_sql()
+    assert DocumentChunk.__mapper__.c.chunk_metadata is table.c.metadata

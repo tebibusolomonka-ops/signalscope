@@ -1,8 +1,10 @@
 import pytest
+from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from signalscope.domain.documents.chunk_repository import DocumentChunkRepository
-from signalscope.domain.documents.chunking import chunk_text
+from signalscope.domain.documents.chunking import TextChunk, chunk_text
 from signalscope.domain.documents.model import Document
 from signalscope.domain.sources.model import Source, SourceType
 
@@ -129,3 +131,54 @@ async def test_replace_does_not_commit(
         )
 
     assert await stored_texts(session_factory, document) == []
+
+
+async def test_chunk_metadata_is_stored(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    document = await create_document(session_factory, "Page text.")
+    chunk = chunk_text("Page text.")[0]
+    with_metadata = TextChunk(
+        position=chunk.position,
+        text=chunk.text,
+        start_char=chunk.start_char,
+        end_char=chunk.end_char,
+        text_hash=chunk.text_hash,
+        metadata={"page_number": 3, "section_kind": "page", "section_index": 2},
+    )
+
+    async with session_factory() as session:
+        await DocumentChunkRepository(session).replace_for_document(document.id, [with_metadata])
+        await session.commit()
+
+    async with session_factory() as session:
+        [stored] = await DocumentChunkRepository(session).list_by_document(document.id)
+    assert stored.chunk_metadata == {"page_number": 3, "section_kind": "page", "section_index": 2}
+
+
+async def test_chunk_metadata_defaults_to_an_empty_object(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    document = await create_document(session_factory, FIRST_TEXT)
+    await replace(session_factory, document, FIRST_TEXT)
+
+    async with session_factory() as session:
+        chunks = await DocumentChunkRepository(session).list_by_document(document.id)
+    assert all(chunk.chunk_metadata == {} for chunk in chunks)
+
+
+async def test_chunk_metadata_must_be_an_object(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    document = await create_document(session_factory, FIRST_TEXT)
+
+    async with session_factory() as session:
+        with pytest.raises(IntegrityError):
+            await session.execute(
+                text(
+                    "INSERT INTO document_chunks (id, document_id, position, text, start_char, "
+                    "end_char, text_hash, metadata) VALUES (gen_random_uuid(), :document_id, 0, "
+                    "'x', 0, 1, :text_hash, '[1]'::jsonb)"
+                ),
+                {"document_id": document.id, "text_hash": "d" * 64},
+            )

@@ -4,6 +4,7 @@ import random
 import pytest
 
 from signalscope.domain.documents.chunking import TextChunk, chunk_text
+from signalscope.parsing.types import MetadataValue
 
 # Small sizes keep the test texts readable.
 SMALL = {"max_chars": 50, "overlap_chars": 10, "min_chars": 25}
@@ -180,3 +181,21 @@ def test_chunking_is_deterministic() -> None:
 def test_invalid_sizes_are_rejected(sizes: dict[str, int]) -> None:
     with pytest.raises(ValueError, match="chunk sizes"):
         chunk_text("text", **sizes)
+
+
+def test_chunks_have_no_metadata_by_default() -> None:
+    [chunk] = chunk_text("Hello.")
+
+    assert chunk.metadata == {}
+
+
+def test_chunk_metadata_cannot_be_changed() -> None:
+    metadata: dict[str, MetadataValue] = {"page_number": 2}
+    chunk = TextChunk(
+        position=0, text="x", start_char=0, end_char=1, text_hash="h", metadata=metadata
+    )
+    metadata["page_number"] = 3
+
+    assert chunk.metadata == {"page_number": 2}
+    with pytest.raises(TypeError):
+        chunk.metadata["page_number"] = 4  # type: ignore[index]

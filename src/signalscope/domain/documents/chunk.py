@@ -17,6 +17,7 @@ from sqlalchemy import (
     func,
     text,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from signalscope.db.base import Base
@@ -26,6 +27,8 @@ TEXT_HASH_LENGTH = 64
 # Full text search uses the "simple" configuration, which lowercases words but
 # does not assume a language.
 TEXT_SEARCH_CONFIG = "simple"
+# Defined here, because inside the class "text" is the name of a column.
+EMPTY_JSON_OBJECT = text("'{}'::jsonb")
 
 
 class DocumentChunk(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -44,6 +47,7 @@ class DocumentChunk(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         CheckConstraint("end_char >= start_char", name="end_char_not_before_start_char"),
         CheckConstraint("text <> ''", name="text_not_empty"),
         CheckConstraint("text_hash ~ '^[0-9a-f]{64}$'", name="text_hash_is_hex"),
+        CheckConstraint("jsonb_typeof(metadata) = 'object'", name="metadata_is_object"),
     )
 
     # Chunks are derived data, so they go away with their document.
@@ -55,6 +59,11 @@ class DocumentChunk(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     end_char: Mapped[int]
     # Hex SHA-256 of the chunk text.
     text_hash: Mapped[str] = mapped_column(String(TEXT_HASH_LENGTH))
+    # Where the chunk came from, such as {"page_number": 3}. SQLAlchemy uses
+    # "metadata" on every model, so the attribute has another name.
+    chunk_metadata: Mapped[dict[str, Any]] = mapped_column(
+        "metadata", JSONB, default=dict, server_default=EMPTY_JSON_OBJECT
+    )
 
 
 def text_search_config() -> TextClause:

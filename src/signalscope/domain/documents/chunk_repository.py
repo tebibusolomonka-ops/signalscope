@@ -41,6 +41,7 @@ class DocumentChunkRepository:
                 start_char=chunk.start_char,
                 end_char=chunk.end_char,
                 text_hash=chunk.text_hash,
+                chunk_metadata=dict(chunk.metadata),
             )
             for chunk in chunks
         )
