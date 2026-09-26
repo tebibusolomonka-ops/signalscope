@@ -1,6 +1,6 @@
 import uuid
 from datetime import UTC, datetime
-from typing import Annotated
+from typing import Annotated, Any
 
 from pydantic import AfterValidator, AwareDatetime, BaseModel, ConfigDict, StringConstraints
 
@@ -11,6 +11,7 @@ from signalscope.domain.documents.model import (
     URL_MAX_LENGTH,
     url_fits,
 )
+from signalscope.domain.documents.revision import DocumentRevision
 
 # Converted to UTC, so responses look the same before and after a database round trip.
 UtcDatetime = Annotated[AwareDatetime, AfterValidator(lambda value: value.astimezone(UTC))]
@@ -62,3 +63,47 @@ class DocumentRead(BaseModel):
     published_at: datetime | None
     created_at: datetime
     updated_at: datetime
+
+
+class DocumentRevisionSummary(BaseModel):
+    """One earlier state of a document, without its text."""
+
+    version: int
+    title: str | None
+    language: str | None
+    url: str | None
+    content_hash: str | None
+    # Number of characters in the stored content, or None when there was none.
+    content_length: int | None
+    created_at: datetime
+
+    @classmethod
+    def from_revision(cls, revision: DocumentRevision) -> "DocumentRevisionSummary":
+        return cls(
+            version=revision.version,
+            title=revision.title,
+            language=revision.language,
+            url=revision.url,
+            content_hash=revision.content_hash,
+            content_length=None if revision.content is None else len(revision.content),
+            created_at=revision.created_at,
+        )
+
+
+class DocumentRevisionList(BaseModel):
+    items: list[DocumentRevisionSummary]
+
+
+class DocumentRevisionRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    document_id: uuid.UUID
+    version: int
+    title: str | None
+    content: str | None
+    language: str | None
+    url: str | None
+    content_hash: str | None
+    # What the parser reported for this state, such as a page count.
+    parser_metadata: dict[str, Any]
+    created_at: datetime

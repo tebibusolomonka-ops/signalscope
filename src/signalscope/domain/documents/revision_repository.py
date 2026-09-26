@@ -27,6 +27,14 @@ class DocumentRevisionRepository:
         )
         return list(result.all())
 
+    async def get(self, document_id: uuid.UUID, version: int) -> DocumentRevision | None:
+        result = await self.session.scalars(
+            select(DocumentRevision).where(
+                DocumentRevision.document_id == document_id, DocumentRevision.version == version
+            )
+        )
+        return result.one_or_none()
+
     async def latest_version(self, document_id: uuid.UUID) -> int:
         """Return the highest version of a document, or 0 when it has no revisions."""
         result = await self.session.scalar(
