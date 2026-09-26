@@ -3,6 +3,7 @@ from collections.abc import Sequence
 import pytest
 
 from signalscope.core.errors import ServiceUnavailableError
+from signalscope.embeddings.provider import EmbeddingInputRole
 from signalscope.embeddings.registry import (
     DuplicateEmbeddingProviderError,
     EmbeddingProviderRegistry,
@@ -16,7 +17,9 @@ class FakeProvider:
         self.model_name = model_name
         self.dimensions = 2
 
-    async def embed_texts(self, texts: Sequence[str]) -> list[list[float]]:
+    async def embed_texts(
+        self, texts: Sequence[str], role: EmbeddingInputRole
+    ) -> list[list[float]]:
         return [[1.0, 0.0] for _ in texts]
 
 

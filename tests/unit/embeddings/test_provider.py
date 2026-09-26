@@ -3,9 +3,16 @@ from collections.abc import Sequence
 import pytest
 
 from signalscope.core.errors import SignalScopeError
-from signalscope.embeddings.provider import EmbeddingError, EmbeddingProvider, embed
+from signalscope.embeddings.provider import (
+    EmbeddingError,
+    EmbeddingInputRole,
+    EmbeddingProvider,
+    embed,
+)
 
 pytestmark = pytest.mark.anyio
+
+PASSAGE = EmbeddingInputRole.PASSAGE
 
 
 class FakeProvider:
@@ -18,9 +25,13 @@ class FakeProvider:
     def __init__(self, answer: list[list[float]] | None = None) -> None:
         self.answer = answer
         self.calls: list[list[str]] = []
+        self.roles: list[EmbeddingInputRole] = []
 
-    async def embed_texts(self, texts: Sequence[str]) -> list[list[float]]:
+    async def embed_texts(
+        self, texts: Sequence[str], role: EmbeddingInputRole
+    ) -> list[list[float]]:
         self.calls.append(list(texts))
+        self.roles.append(role)
         if self.answer is not None:
             return self.answer
         return [[float(len(text)), float(text.count("a")), 1.0] for text in texts]
@@ -37,13 +48,13 @@ def test_fake_provider_follows_the_protocol() -> None:
 
 
 async def test_one_text() -> None:
-    assert await embed(FakeProvider(), ["banana"]) == [[6.0, 3.0, 1.0]]
+    assert await embed(FakeProvider(), ["banana"], PASSAGE) == [[6.0, 3.0, 1.0]]
 
 
 async def test_several_texts_in_one_call() -> None:
     provider = FakeProvider()
 
-    vectors = await embed(provider, ["a", "bb", "ccc"])
+    vectors = await embed(provider, ["a", "bb", "ccc"], PASSAGE)
 
     assert vectors == [[1.0, 1.0, 1.0], [2.0, 0.0, 1.0], [3.0, 0.0, 1.0]]
     assert provider.calls == [["a", "bb", "ccc"]]
@@ -52,12 +63,12 @@ async def test_several_texts_in_one_call() -> None:
 async def test_no_texts_calls_nothing() -> None:
     provider = FakeProvider()
 
-    assert await embed(provider, []) == []
+    assert await embed(provider, [], PASSAGE) == []
     assert provider.calls == []
 
 
 async def test_whole_numbers_become_floats() -> None:
-    vectors = await embed(FakeProvider([[1, 2, 3]]), ["x"])  # type: ignore[list-item]
+    vectors = await embed(FakeProvider([[1, 2, 3]]), ["x"], PASSAGE)  # type: ignore[list-item]
 
     assert vectors == [[1.0, 2.0, 3.0]]
     assert all(isinstance(value, float) for value in vectors[0])
@@ -78,7 +89,7 @@ async def test_whole_numbers_become_floats() -> None:
 )
 async def test_bad_answers_are_rejected(answer: list[list[float]], message: str) -> None:
     with pytest.raises(EmbeddingError, match=message) as error:
-        await embed(FakeProvider(answer), ["x"])
+        await embed(FakeProvider(answer), ["x"], PASSAGE)
 
     assert "test/letters-3" in str(error.value)
 
@@ -86,3 +97,18 @@ async def test_bad_answers_are_rejected(answer: list[list[float]], message: str)
 def test_embedding_error_is_safe_to_show() -> None:
     assert issubclass(EmbeddingError, SignalScopeError)
     assert str(EmbeddingError()) == "Embedding failed."
+
+
+@pytest.mark.parametrize("role", [EmbeddingInputRole.QUERY, EmbeddingInputRole.PASSAGE])
+async def test_role_is_passed_to_the_provider(role: EmbeddingInputRole) -> None:
+    provider = FakeProvider()
+
+    await embed(provider, ["water"], role)
+
+    assert provider.roles == [role]
+
+
+def test_roles() -> None:
+    assert [role.value for role in EmbeddingInputRole] == ["query", "passage"]
+    with pytest.raises(ValueError):
+        EmbeddingInputRole("document")

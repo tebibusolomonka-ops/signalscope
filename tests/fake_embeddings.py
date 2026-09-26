@@ -8,6 +8,8 @@ import asyncio
 import re
 from collections.abc import Sequence
 
+from signalscope.embeddings.provider import EmbeddingInputRole
+
 WORDS = ("climate", "energy", "water")
 
 
@@ -24,6 +26,7 @@ class FakeEmbeddingProvider:
         # One number per word, plus a constant so no vector is all zeros.
         self.dimensions = len(self.words) + 1
         self.calls: list[list[str]] = []
+        self.roles: list[EmbeddingInputRole] = []
         self.started = asyncio.Event()
         # When set, embed_texts waits until the test sets this event.
         self.gate: asyncio.Event | None = None
@@ -34,8 +37,11 @@ class FakeEmbeddingProvider:
         tokens = re.findall(r"[a-z]+", text.lower())
         return [float(tokens.count(word)) for word in self.words] + [1.0]
 
-    async def embed_texts(self, texts: Sequence[str]) -> list[list[float]]:
+    async def embed_texts(
+        self, texts: Sequence[str], role: EmbeddingInputRole
+    ) -> list[list[float]]:
         self.calls.append(list(texts))
+        self.roles.append(role)
         self.started.set()
         if self.gate is not None:
             await self.gate.wait()

@@ -1,5 +1,6 @@
 import math
 from collections.abc import Sequence
+from enum import StrEnum
 from typing import Protocol
 
 from signalscope.core.errors import SignalScopeError
@@ -9,6 +10,15 @@ class EmbeddingError(SignalScopeError):
     """An embedding could not be made. The message is safe to store and show."""
 
     default_message = "Embedding failed."
+
+
+class EmbeddingInputRole(StrEnum):
+    """What a text is used for. Retrieval models may embed the two differently."""
+
+    # A search query.
+    QUERY = "query"
+    # Stored text that queries are compared with, such as a document chunk.
+    PASSAGE = "passage"
 
 
 class EmbeddingProvider(Protocol):
@@ -22,12 +32,20 @@ class EmbeddingProvider(Protocol):
     model_name: str
     dimensions: int
 
-    async def embed_texts(self, texts: Sequence[str]) -> list[list[float]]:
-        """Return one vector per text, in the same order."""
+    async def embed_texts(
+        self, texts: Sequence[str], role: EmbeddingInputRole
+    ) -> list[list[float]]:
+        """Return one vector per text, in the same order.
+
+        Callers pass plain text. Any model-specific formatting for role, such
+        as a prefix, is added by the provider.
+        """
         ...
 
 
-async def embed(provider: EmbeddingProvider, texts: Sequence[str]) -> list[list[float]]:
+async def embed(
+    provider: EmbeddingProvider, texts: Sequence[str], role: EmbeddingInputRole
+) -> list[list[float]]:
     """Embed texts with provider and check what comes back.
 
     Code should call this instead of provider.embed_texts, so every vector is
@@ -35,7 +53,7 @@ async def embed(provider: EmbeddingProvider, texts: Sequence[str]) -> list[list[
     """
     if not texts:
         return []
-    vectors = await provider.embed_texts(list(texts))
+    vectors = await provider.embed_texts(list(texts), role)
     check_vectors(provider, vectors, expected_count=len(texts))
     return [[float(value) for value in vector] for vector in vectors]
 

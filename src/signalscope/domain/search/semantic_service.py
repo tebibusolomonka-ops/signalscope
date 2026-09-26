@@ -7,7 +7,7 @@ from signalscope.core.errors import InvalidInputError, ServiceUnavailableError, 
 from signalscope.domain.search.repository import PUBLIC_SEARCH_LIMIT
 from signalscope.domain.search.service import DEFAULT_SEARCH_LIMIT, MAX_QUERY_LENGTH
 from signalscope.domain.search.vector_repository import VectorSearchRepository, VectorSearchResult
-from signalscope.embeddings.provider import embed
+from signalscope.embeddings.provider import EmbeddingInputRole, embed
 from signalscope.embeddings.registry import EmbeddingProviderRegistry
 
 logger = logging.getLogger(__name__)
@@ -39,7 +39,7 @@ async def embed_query(
     """
     provider = providers.get(provider_name, model_name)
     try:
-        [vector] = await embed(provider, [query])
+        [vector] = await embed(provider, [query], EmbeddingInputRole.QUERY)
     except SignalScopeError as error:
         raise QueryEmbeddingError(f"Search query could not be embedded: {error}") from error
     except Exception as error:

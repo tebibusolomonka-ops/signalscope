@@ -12,7 +12,7 @@ from signalscope.domain.search.embedding_job import EmbeddingJob, EmbeddingJobSt
 from signalscope.domain.search.embedding_job_repository import EmbeddingJobRepository
 from signalscope.domain.search.embedding_repository import ChunkEmbeddingRepository
 from signalscope.domain.sources.scheduling import Clock, utc_now
-from signalscope.embeddings.provider import embed
+from signalscope.embeddings.provider import EmbeddingInputRole, embed
 from signalscope.embeddings.registry import EmbeddingProviderRegistry
 from signalscope.workers.heartbeat import Sleep, keep_lease_alive
 
@@ -93,7 +93,7 @@ class EmbeddingWorker:
             return _Outcome()
         try:
             provider = self.providers.get(job.provider, job.model)
-            [vector] = await embed(provider, [chunk.text])
+            [vector] = await embed(provider, [chunk.text], EmbeddingInputRole.PASSAGE)
         except SignalScopeError as error:
             # These messages are written for people, such as "Model is not ready."
             logger.warning("Embedding job %s failed: %s", job.id, error)

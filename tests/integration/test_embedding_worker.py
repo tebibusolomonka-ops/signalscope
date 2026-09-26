@@ -24,7 +24,7 @@ from signalscope.domain.search.embedding_worker import (
 )
 from signalscope.domain.sources.model import Source, SourceType
 from signalscope.domain.sources.scheduling import utc_now
-from signalscope.embeddings.provider import EmbeddingError
+from signalscope.embeddings.provider import EmbeddingError, EmbeddingInputRole
 from signalscope.embeddings.registry import EmbeddingProviderRegistry
 
 pytestmark = pytest.mark.anyio
@@ -140,6 +140,8 @@ async def test_chunk_is_embedded(
     assert result.job.status is EmbeddingJobStatus.COMPLETED
     assert result.lease_lost is False
     assert provider.calls == [[TEXT]]
+    # Stored chunks are passages. Only search queries use the query role.
+    assert provider.roles == [EmbeddingInputRole.PASSAGE]
     [saved] = await embeddings(session_factory)
     assert saved.chunk_id == chunk.id
     assert (saved.provider, saved.model, saved.dimensions) == ("test", "words-4", 4)

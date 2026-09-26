@@ -9,7 +9,7 @@ from fake_embeddings import FakeEmbeddingProvider
 from signalscope.core.errors import InvalidInputError
 from signalscope.domain.search.semantic_service import QueryEmbeddingError, SemanticSearchService
 from signalscope.domain.search.vector_repository import VectorSearchResult
-from signalscope.embeddings.provider import EmbeddingError
+from signalscope.embeddings.provider import EmbeddingError, EmbeddingInputRole
 from signalscope.embeddings.registry import (
     EmbeddingProviderRegistry,
     EmbeddingProviderUnavailableError,
@@ -57,6 +57,7 @@ async def test_query_is_embedded_once_and_searched(
     )
 
     assert provider.calls == [["Water and energy"]]
+    assert provider.roles == [EmbeddingInputRole.QUERY]
     assert repository.calls == [
         {
             "vector": [0.0, 1.0, 1.0, 1.0],
