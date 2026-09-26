@@ -3,7 +3,8 @@ name: signalscope
 
 services:
   postgres:
-    image: postgres:17
+    # PostgreSQL 17 with the pgvector extension, which SignalScope needs.
+    image: pgvector/pgvector:pg17
     environment:
       POSTGRES_DB: signalscope
       POSTGRES_USER: signalscope
