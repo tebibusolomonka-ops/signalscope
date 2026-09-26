@@ -131,3 +131,17 @@ def test_missing_model() -> None:
         EntityExtractorRegistry().get("test", "x")
 
     assert isinstance(error.value, ServiceUnavailableError)
+
+
+async def test_entity_types_come_back_normalized() -> None:
+    extractor = FakeEntityExtractor()
+    extractor.answer = [
+        mention(text="Merkel", entity_type="PERSON", start_char=0, end_char=6),
+        mention(entity_type=" Person "),
+    ]
+
+    found = await extract_mentions(extractor, TEXT)
+
+    assert [item.entity_type for item in found] == ["person", "person"]
+    # The span itself is left as it was.
+    assert [item.text for item in found] == ["Merkel", "Macron"]

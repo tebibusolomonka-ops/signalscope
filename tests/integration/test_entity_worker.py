@@ -307,3 +307,20 @@ async def test_deleted_chunk_is_left_alone(
 
     assert result.lease_lost is True
     assert await mentions(session_factory) == []
+
+
+async def test_types_in_other_cases_reuse_one_entity(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    extractor = FakeEntityExtractor()
+    extractor.answer = [
+        ExtractedEntityMention("Merkel", "PERSON", 0, 6),
+        ExtractedEntityMention("Merkel", "Person", 11, 17),
+    ]
+    await create_chunks(session_factory, "Merkel and Merkel.")
+
+    await worker(session_factory, extractor).run_once()
+
+    [entity] = await entities(session_factory)
+    assert entity.entity_type == "person"
+    assert {mention.entity_type for mention in await mentions(session_factory)} == {"person"}

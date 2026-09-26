@@ -81,3 +81,26 @@ def test_entity_extraction_jobs_table() -> None:
     status = EntityExtractionJob.__table__.c.status
     assert status.default.arg is EntityExtractionJobStatus.PENDING  # type: ignore[union-attr]
     assert Base.metadata.tables["entity_extraction_jobs"] is EntityExtractionJob.__table__
+
+
+@pytest.mark.parametrize(
+    ("entity_type", "normalized"),
+    [
+        ("PERSON", "person"),
+        ("Person", "person"),
+        ("  person \n", "person"),
+        ("work_of_art", "work_of_art"),
+    ],
+)
+def test_normalize_entity_type(entity_type: str, normalized: str) -> None:
+    from signalscope.domain.entities.names import normalize_entity_type
+
+    assert normalize_entity_type(entity_type) == normalized
+
+
+@pytest.mark.parametrize("entity_type", ["", "   ", "\t"])
+def test_blank_entity_type_is_rejected(entity_type: str) -> None:
+    from signalscope.domain.entities.names import normalize_entity_type
+
+    with pytest.raises(ValueError, match="must not be empty"):
+        normalize_entity_type(entity_type)

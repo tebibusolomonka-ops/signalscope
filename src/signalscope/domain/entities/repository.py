@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from signalscope.domain.documents.chunk import DocumentChunk
 from signalscope.domain.entities.mention import EntityMention
 from signalscope.domain.entities.model import Entity
-from signalscope.domain.entities.names import normalize_entity_name
+from signalscope.domain.entities.names import normalize_entity_name, normalize_entity_type
 
 # The most mentions an entity detail shows. mention_count still counts them all.
 MAX_DETAIL_MENTIONS = 100
@@ -89,5 +89,5 @@ def _conditions(query: str | None, entity_type: str | None) -> list[ColumnElemen
             Entity.normalized_name.contains(normalize_entity_name(query), autoescape=True)
         )
     if entity_type is not None:
-        conditions.append(Entity.entity_type == entity_type)
+        conditions.append(Entity.entity_type == normalize_entity_type(entity_type))
     return conditions

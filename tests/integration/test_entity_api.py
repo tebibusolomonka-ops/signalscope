@@ -136,3 +136,13 @@ async def test_unknown_entity(client: httpx.AsyncClient) -> None:
 
     assert response.status_code == 404
     assert response.json() == {"error": {"code": "not_found", "message": "Entity was not found."}}
+
+
+async def test_type_filter_ignores_case(
+    client: httpx.AsyncClient, session_factory: async_sessionmaker[AsyncSession]
+) -> None:
+    await extract(session_factory, "Merkel met Macron in Berlin.")
+
+    page = await get(client, "/entities", entity_type=" PERSON ")
+
+    assert [item["canonical_name"] for item in page["items"]] == ["Macron", "Merkel"]

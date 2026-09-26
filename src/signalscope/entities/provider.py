@@ -1,10 +1,11 @@
 import math
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Protocol
 
 from signalscope.core.errors import ServiceUnavailableError, SignalScopeError
 from signalscope.domain.entities.model import ENTITY_NAME_MAX_LENGTH, ENTITY_TYPE_MAX_LENGTH
+from signalscope.domain.entities.names import normalize_entity_type
 
 
 class EntityExtractorUnavailableError(ServiceUnavailableError):
@@ -47,7 +48,8 @@ async def extract_mentions(
     """Extract mentions with provider and check each one against the text.
 
     Code should call this instead of provider.extract, so every mention is
-    checked the same way before it is stored.
+    checked the same way before it is stored. The entity types come back
+    normalized, so "PERSON" and "person" are one type.
     """
     if not text.strip():
         return []
@@ -57,7 +59,10 @@ async def extract_mentions(
         problem = _problem(mention, text)
         if problem is not None:
             raise InvalidEntityMentionError(f"Entity extraction model {name} {problem}.")
-    return list(mentions)
+    return [
+        replace(mention, entity_type=normalize_entity_type(mention.entity_type))
+        for mention in mentions
+    ]
 
 
 def _problem(mention: ExtractedEntityMention, text: str) -> str | None:
