@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from signalscope.core.errors import ConflictError, NotFoundError, ServiceUnavailableError
 from signalscope.db.errors import is_foreign_key_violation, is_unique_violation
+from signalscope.domain.blobs.repository import BlobCleanupTaskRepository
 from signalscope.domain.documents.asset_repository import DocumentAssetRepository
 from signalscope.domain.documents.extraction_repository import DocumentExtractionRepository
 from signalscope.domain.documents.model import Document
@@ -14,6 +15,7 @@ from signalscope.domain.documents.schemas import DocumentCreate
 from signalscope.domain.processing.job_repository import DocumentProcessingJobRepository
 from signalscope.domain.processing.model import ProcessingJobStatus
 from signalscope.domain.sources.repository import SourceRepository
+from signalscope.domain.sources.scheduling import Clock, utc_now
 from signalscope.storage.blob import BlobStorageError, BlobStore
 
 logger = logging.getLogger(__name__)
@@ -26,10 +28,13 @@ class DocumentService:
     rolled back and the error is raised again.
     """
 
-    def __init__(self, session: AsyncSession, blobs: BlobStore | None = None) -> None:
+    def __init__(
+        self, session: AsyncSession, blobs: BlobStore | None = None, clock: Clock = utc_now
+    ) -> None:
         self.session = session
         # Only needed to delete documents that have a stored file.
         self.blobs = blobs
+        self.clock = clock
         self.documents = DocumentRepository(session)
         self.sources = SourceRepository(session)
         self.assets = DocumentAssetRepository(session)
@@ -71,8 +76,8 @@ class DocumentService:
 
         The database rows go first, in one transaction. The file is deleted
         only after that commit, so a failed delete never leaves rows that
-        point to a missing file. If the file cannot be deleted, it is left
-        behind and logged.
+        point to a missing file. If the file cannot be deleted then, a blob
+        cleanup task is saved so that it can be deleted later.
         """
         try:
             asset = await self.assets.get_by_document(document_id)
@@ -104,5 +109,15 @@ class DocumentService:
     async def _delete_blob(self, blobs: BlobStore, key: str) -> None:
         try:
             await blobs.delete(key)
-        except BlobStorageError:
-            logger.exception("Could not delete blob %s of a deleted document", key)
+        except BlobStorageError as error:
+            logger.warning("Could not delete blob %s of a deleted document", key, exc_info=True)
+            await self._track_cleanup(key, str(error))
+
+    async def _track_cleanup(self, key: str, error: str) -> None:
+        # The document is already gone, so a failure here must not fail the delete.
+        try:
+            await BlobCleanupTaskRepository(self.session).add(key, self.clock(), error)
+            await self.session.commit()
+        except Exception:
+            await self.session.rollback()
+            logger.exception("Could not save a cleanup task for blob %s", key)

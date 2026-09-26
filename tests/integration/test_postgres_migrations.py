@@ -60,6 +60,7 @@ async def test_upgrade_from_empty_database(
         "document_extractions",
         "document_processing_jobs",
         "document_chunks",
+        "blob_cleanup_tasks",
     }
     head = ScriptDirectory.from_config(migration_config).get_current_head()
     assert await current_revision(database_engine) == head
