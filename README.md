@@ -319,6 +319,11 @@ prints Recall@k, MRR@k and nDCG@k, and the mean, median (p50) and p95 search
 time in milliseconds. The reranked mode also prints the reranker time
 separately, because the reranker runs after the search.
 
+`--json-output report.json` also writes the results to a JSON file: the
+dataset, the k values, the models used, and for each mode the scores, the
+scores of each query and the timings. It holds no vectors and no document
+text, so reports from different runs can be compared.
+
 The command needs `SIGNALSCOPE_DATABASE_URL`. It writes the dataset into the
 database in one transaction, searches it with the normal search code, and
 rolls the transaction back at the end, so nothing stays behind. Embeddings are

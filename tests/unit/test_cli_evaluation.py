@@ -234,3 +234,12 @@ def test_report_format_with_reranking_and_a_skipped_mode() -> None:
         "Semantic\n"
         "Skipped: Model is missing.\n"
     )
+
+
+def test_json_output_argument() -> None:
+    args = build_parser().parse_args(
+        ["evaluate-retrieval", "data.json", "--json-output", "out/report.json"]
+    )
+
+    assert args.json_output == Path("out/report.json")
+    assert build_parser().parse_args(["evaluate-retrieval", "data.json"]).json_output is None

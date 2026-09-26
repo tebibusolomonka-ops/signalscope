@@ -1,4 +1,5 @@
 import io
+import json
 import re
 from pathlib import Path
 
@@ -144,3 +145,46 @@ async def test_all_modes_say_when_the_reranker_is_missing(settings: Settings) ->
         "\nReranked\n"
         "Skipped: Local reranking is not enabled. Set SIGNALSCOPE_LOCAL_RERANKING_ENABLED=true.\n"
     )
+
+
+async def test_json_report_next_to_the_text_output(settings: Settings, tmp_path: Path) -> None:
+    path = tmp_path / "report.json"
+    out, err = io.StringIO(), io.StringIO()
+
+    code = await evaluate_retrieval(
+        EXAMPLE,
+        settings,
+        out,
+        err,
+        mode="hybrid",
+        ks=[1, 5],
+        provider=FakeEmbeddingProvider(),
+        json_output=path,
+    )
+
+    assert (code, err.getvalue()) == (0, "")
+    assert out.getvalue().startswith("Dataset: media-smoke\nQueries: 4\n\nHybrid\n")
+    data = json.loads(path.read_text(encoding="utf-8"))
+    assert (data["dataset"], data["query_count"], data["ks"]) == ("media-smoke", 4, [1, 5])
+    assert list(data["modes"]) == ["hybrid"]
+    assert data["models"]["embedding"] == {"provider": "test", "model": "words-4", "dimensions": 4}
+    assert data["models"]["reranker"] is None
+    assert [query["key"] for query in data["modes"]["hybrid"]["queries"]] == [
+        "q1",
+        "q2",
+        "q3",
+        "q4",
+    ]
+    # Scores and keys only: no document text.
+    assert "Offshore wind farms" not in path.read_text(encoding="utf-8")
+
+
+async def test_json_report_that_cannot_be_written(settings: Settings, tmp_path: Path) -> None:
+    out, err = io.StringIO(), io.StringIO()
+
+    code = await evaluate_retrieval(
+        EXAMPLE, settings, out, err, mode="lexical", json_output=tmp_path / "missing" / "r.json"
+    )
+
+    assert code == 1
+    assert err.getvalue().startswith("Error: Cannot write ")

@@ -48,6 +48,7 @@ from signalscope.embeddings.provider import EmbeddingInputRole, EmbeddingProvide
 from signalscope.embeddings.registry import EmbeddingProviderRegistry
 from signalscope.embeddings.runtime import create_embedding_registry, local_embedding_target
 from signalscope.evaluation.dataset import EvaluationDataError
+from signalscope.evaluation.json_report import report_data, write_json_report
 from signalscope.evaluation.loader import load_dataset
 from signalscope.evaluation.report import format_reports
 from signalscope.evaluation.retrieval import (
@@ -115,7 +116,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "cleanup-blobs":
         return asyncio.run(cleanup_blobs(args.limit, settings))
     if args.command == "evaluate-retrieval":
-        return asyncio.run(evaluate_retrieval(args.dataset, settings, mode=args.mode, ks=args.k))
+        return asyncio.run(
+            evaluate_retrieval(
+                args.dataset, settings, mode=args.mode, ks=args.k, json_output=args.json_output
+            )
+        )
     if args.command == "check-embedding-model":
         return asyncio.run(check_embedding_model(settings))
     if args.command == "queue-embeddings":
@@ -199,6 +204,9 @@ def build_parser() -> argparse.ArgumentParser:
         type=evaluation_ks,
         default=list(DEFAULT_KS),
         help="comma-separated cut-offs (default: 1,5,10)",
+    )
+    evaluation.add_argument(
+        "--json-output", type=Path, default=None, help="also write the results to this JSON file"
     )
 
     commands.add_parser(
@@ -565,6 +573,7 @@ async def evaluate_retrieval(
     ks: Sequence[int] = DEFAULT_KS,
     provider: EmbeddingProvider | None = None,
     reranker: RerankerProvider | None = None,
+    json_output: Path | None = None,
 ) -> int:
     """Score search on a dataset file and print the results. Returns the exit code.
 
@@ -572,7 +581,7 @@ async def evaluate_retrieval(
     model from settings. The reranked mode also uses reranker, or the local
     reranker. In the all mode a missing reranker skips the reranked mode, and
     the output says so. The dataset is loaded into the database only for the
-    run and rolled back.
+    run and rolled back. With json_output the results are also written there.
     """
     out = sys.stdout if out is None else out
     err = sys.stderr if err is None else err
@@ -621,6 +630,22 @@ async def evaluate_retrieval(
                     await evaluate_reranked(session_factory, dataset, provider, reranker, ks)
                 )
     out.write(format_reports(dataset.name, len(dataset.queries), reports, skipped))
+    if json_output is not None:
+        used = {report.mode for report in reports}
+        data = report_data(
+            dataset.name,
+            len(dataset.queries),
+            check_ks(ks),
+            reports,
+            skipped,
+            embedding=provider if used - {"lexical"} else None,
+            reranker=reranker if "reranked" in used else None,
+        )
+        try:
+            write_json_report(json_output, data)
+        except OSError as error:
+            print(f"Error: Cannot write {json_output}: {error.strerror}", file=err)
+            return 1
     return 0
 
 
