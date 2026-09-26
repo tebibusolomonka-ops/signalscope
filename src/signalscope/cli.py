@@ -37,6 +37,7 @@ from signalscope.domain.processing.worker import DocumentProcessingWorker
 from signalscope.domain.sources.model import SourceType
 from signalscope.domain.sources.repository import SourceRepository
 from signalscope.domain.sources.scheduling import utc_now
+from signalscope.embeddings.runtime import local_embedding_target
 from signalscope.ingestion.http import HttpFetcher
 from signalscope.ingestion.rss import RssIngestionAdapter
 from signalscope.ingestion.web import WebIngestionAdapter
@@ -319,7 +320,12 @@ async def run_processing_worker(
 
     blobs = LocalBlobStore(settings.blob_dir)
     async with _database(settings) as session_factory:
-        processor = DocumentProcessor(session_factory, blobs, create_default_parser_registry())
+        processor = DocumentProcessor(
+            session_factory,
+            blobs,
+            create_default_parser_registry(),
+            embedding_target=local_embedding_target(settings),
+        )
         worker = DocumentProcessingWorker(session_factory, processor)
 
         async def work() -> bool | None:

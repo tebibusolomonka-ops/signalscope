@@ -5,7 +5,7 @@ from signalscope.api.lifespan import lifespan
 from signalscope.api.middleware import RequestIDMiddleware, RequestLoggingMiddleware
 from signalscope.api.routes import documents, health, ingestion_runs, search, sources
 from signalscope.core.settings import Settings, load_settings
-from signalscope.embeddings.registry import EmbeddingProviderRegistry
+from signalscope.embeddings.runtime import create_embedding_registry
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -13,8 +13,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         settings = load_settings()
     app = FastAPI(title=settings.app_name, debug=settings.debug, lifespan=lifespan)
     app.state.settings = settings
-    # No embedding model is configured yet, so semantic search answers 503.
-    app.state.embedding_providers = EmbeddingProviderRegistry()
+    # Empty unless local embeddings are enabled. Then semantic search answers 503.
+    # Making the registry does not load the model.
+    app.state.embedding_providers = create_embedding_registry(settings)
     add_error_handlers(app)
     # The last middleware added runs first, so the request ID is set before logging.
     app.add_middleware(RequestLoggingMiddleware)

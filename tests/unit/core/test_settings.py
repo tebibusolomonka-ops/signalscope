@@ -163,3 +163,49 @@ def test_database_url_is_not_shown_in_repr() -> None:
     settings = Settings(database_url=DATABASE_URL)
 
     assert DATABASE_URL not in repr(settings)
+
+
+def test_local_embeddings_are_off_by_default() -> None:
+    settings = load_settings({})
+
+    assert settings.local_embeddings_enabled is False
+    assert settings.local_embedding_device == "cpu"
+    assert settings.local_embedding_batch_size == 32
+    assert settings.local_embedding_cache_dir is None
+
+
+def test_load_local_embedding_settings() -> None:
+    settings = load_settings(
+        {
+            "SIGNALSCOPE_LOCAL_EMBEDDINGS_ENABLED": "true",
+            "SIGNALSCOPE_LOCAL_EMBEDDING_DEVICE": "cuda",
+            "SIGNALSCOPE_LOCAL_EMBEDDING_BATCH_SIZE": " 8 ",
+            "SIGNALSCOPE_LOCAL_EMBEDDING_CACHE_DIR": "/var/cache/models",
+        }
+    )
+
+    assert settings.local_embeddings_enabled is True
+    assert settings.local_embedding_device == "cuda"
+    assert settings.local_embedding_batch_size == 8
+    assert settings.local_embedding_cache_dir == Path("/var/cache/models")
+
+
+@pytest.mark.parametrize("value", ["0", "-4"])
+def test_batch_size_must_be_positive(value: str) -> None:
+    with pytest.raises(SettingsError, match="local_embedding_batch_size"):
+        load_settings({"SIGNALSCOPE_LOCAL_EMBEDDING_BATCH_SIZE": value})
+
+
+def test_batch_size_must_be_a_number() -> None:
+    with pytest.raises(SettingsError, match="SIGNALSCOPE_LOCAL_EMBEDDING_BATCH_SIZE"):
+        load_settings({"SIGNALSCOPE_LOCAL_EMBEDDING_BATCH_SIZE": "many"})
+
+
+def test_device_must_not_be_blank() -> None:
+    with pytest.raises(SettingsError, match="local_embedding_device"):
+        Settings(local_embedding_device="  ")
+
+
+def test_enabled_must_be_true_or_false() -> None:
+    with pytest.raises(SettingsError, match="SIGNALSCOPE_LOCAL_EMBEDDINGS_ENABLED"):
+        load_settings({"SIGNALSCOPE_LOCAL_EMBEDDINGS_ENABLED": "maybe"})

@@ -1,14 +1,17 @@
+import dataclasses
 import io
 import re
 import uuid
 from pathlib import Path
 
 import pytest
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from signalscope.cli import import_file, run_processing_worker
 from signalscope.core.settings import Settings
 from signalscope.domain.documents.model import Document
+from signalscope.domain.search.embedding_job import EmbeddingJob
 from signalscope.domain.sources.model import Source, SourceType
 
 pytestmark = pytest.mark.anyio
@@ -81,3 +84,40 @@ async def test_failed_processing_exits_with_an_error(
     assert code == 1
     assert out.splitlines()[1] == "Status: failed"
     assert out.splitlines()[3] == "Error: No parser is available for image/png."
+
+
+async def test_enabled_local_embeddings_queue_jobs_for_new_chunks(
+    settings: Settings,
+    session_factory: async_sessionmaker[AsyncSession],
+    source: Source,
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "notes.txt"
+    path.write_bytes(b"Climate policy notes.")
+    await import_local_file(settings, source, path)
+    enabled = dataclasses.replace(settings, local_embeddings_enabled=True)
+
+    code, _, _ = await run(enabled)
+
+    assert code == 0
+    async with session_factory() as session:
+        jobs = list(await session.scalars(select(EmbeddingJob)))
+    assert [(job.provider, job.model) for job in jobs] == [
+        ("sentence_transformers", "intfloat/multilingual-e5-small")
+    ]
+
+
+async def test_disabled_local_embeddings_queue_nothing(
+    settings: Settings,
+    session_factory: async_sessionmaker[AsyncSession],
+    source: Source,
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "notes.txt"
+    path.write_bytes(b"Climate policy notes.")
+    await import_local_file(settings, source, path)
+
+    assert (await run(settings))[0] == 0
+
+    async with session_factory() as session:
+        assert list(await session.scalars(select(EmbeddingJob))) == []

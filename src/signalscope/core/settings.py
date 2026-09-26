@@ -39,10 +39,23 @@ class Settings:
     database_url: str | None = field(default=None, repr=False)
     # Folder for raw file bytes, such as imported PDFs.
     blob_dir: Path | None = None
+    # The local multilingual E5 model. Off by default, because it needs the
+    # local-embeddings extra and downloads the model on first use.
+    local_embeddings_enabled: bool = False
+    # Where the model runs, such as "cpu" or "cuda".
+    local_embedding_device: str = "cpu"
+    # How many texts the model embeds in one pass.
+    local_embedding_batch_size: int = 32
+    # Where downloaded model files are kept. Unset means the library default.
+    local_embedding_cache_dir: Path | None = None
 
     def __post_init__(self) -> None:
         if not self.app_name.strip():
             raise SettingsError("app_name must not be empty")
+        if not self.local_embedding_device.strip():
+            raise SettingsError("local_embedding_device must not be empty")
+        if self.local_embedding_batch_size < 1:
+            raise SettingsError("local_embedding_batch_size must be at least 1")
         if self.database_url is not None and not self.database_url.startswith(DATABASE_URL_PREFIX):
             raise SettingsError(f"Database URL must start with {DATABASE_URL_PREFIX}")
 
@@ -62,6 +75,16 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
         log_level=_read_enum(env, "SIGNALSCOPE_LOG_LEVEL", LogLevel, defaults.log_level),
         database_url=_read(env, "SIGNALSCOPE_DATABASE_URL"),
         blob_dir=_read_path(env, "SIGNALSCOPE_BLOB_DIR"),
+        local_embeddings_enabled=_read_bool(
+            env, "SIGNALSCOPE_LOCAL_EMBEDDINGS_ENABLED", defaults.local_embeddings_enabled
+        ),
+        local_embedding_device=_read_str(
+            env, "SIGNALSCOPE_LOCAL_EMBEDDING_DEVICE", defaults.local_embedding_device
+        ),
+        local_embedding_batch_size=_read_int(
+            env, "SIGNALSCOPE_LOCAL_EMBEDDING_BATCH_SIZE", defaults.local_embedding_batch_size
+        ),
+        local_embedding_cache_dir=_read_path(env, "SIGNALSCOPE_LOCAL_EMBEDDING_CACHE_DIR"),
     )
 
 
@@ -78,6 +101,16 @@ def _read_path(env: Mapping[str, str], name: str) -> Path | None:
 def _read_str(env: Mapping[str, str], name: str, default: str) -> str:
     value = _read(env, name)
     return default if value is None else value
+
+
+def _read_int(env: Mapping[str, str], name: str, default: int) -> int:
+    value = _read(env, name)
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except ValueError:
+        raise SettingsError(f"{name} must be a whole number, got {value!r}") from None
 
 
 def _read_bool(env: Mapping[str, str], name: str, default: bool) -> bool:
