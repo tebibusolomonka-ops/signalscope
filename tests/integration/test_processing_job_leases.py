@@ -276,3 +276,79 @@ async def test_recovered_job_can_be_claimed_again(
 
     assert claimed is not None
     assert (claimed.id, claimed.attempt_count) == (job.id, 3)
+
+
+async def heartbeat(
+    session_factory: async_sessionmaker[AsyncSession],
+    job_id: uuid.UUID,
+    now: datetime,
+    lease: LeasePolicy = DEFAULT_LEASE_POLICY,
+) -> bool:
+    async with session_factory() as session:
+        extended = await DocumentProcessingJobRepository(session).heartbeat(job_id, now, lease)
+        await session.commit()
+    return extended
+
+
+async def test_heartbeat_extends_the_lease(
+    session_factory: async_sessionmaker[AsyncSession], source: Source
+) -> None:
+    job = await add_job(session_factory, source)
+    await claim(session_factory)
+    later = NOW + timedelta(minutes=4)
+
+    assert await heartbeat(session_factory, job.id, later)
+
+    saved = await reload(session_factory, job.id)
+    assert (saved.heartbeat_at, saved.lease_expires_at) == (later, later + timedelta(minutes=5))
+    assert saved.claimed_at == NOW
+
+
+async def test_heartbeat_with_a_custom_lease(
+    session_factory: async_sessionmaker[AsyncSession], source: Source
+) -> None:
+    job = await add_job(session_factory, source)
+    await claim(session_factory)
+
+    await heartbeat(session_factory, job.id, NOW, LeasePolicy(timedelta(minutes=30)))
+
+    saved = await reload(session_factory, job.id)
+    assert saved.lease_expires_at == NOW + timedelta(minutes=30)
+
+
+async def test_heartbeat_keeps_the_job_from_being_recovered(
+    session_factory: async_sessionmaker[AsyncSession], source: Source
+) -> None:
+    job = await add_job(
+        session_factory,
+        source,
+        ProcessingJobStatus.RUNNING,
+        lease_expires_at=NOW - timedelta(minutes=1),
+    )
+
+    assert await heartbeat(session_factory, job.id, NOW)
+
+    assert await recover(session_factory) == []
+
+
+@pytest.mark.parametrize(
+    "status",
+    [ProcessingJobStatus.PENDING, ProcessingJobStatus.COMPLETED, ProcessingJobStatus.FAILED],
+)
+async def test_heartbeat_needs_a_running_job(
+    session_factory: async_sessionmaker[AsyncSession],
+    source: Source,
+    status: ProcessingJobStatus,
+) -> None:
+    job = await add_job(session_factory, source, status)
+
+    assert not await heartbeat(session_factory, job.id, NOW)
+
+    saved = await reload(session_factory, job.id)
+    assert (saved.heartbeat_at, saved.lease_expires_at) == (job.heartbeat_at, None)
+
+
+async def test_heartbeat_for_an_unknown_job(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    assert not await heartbeat(session_factory, uuid.uuid4(), NOW)

@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from signalscope.core.errors import ConflictError, NotFoundError, short_error_message
@@ -67,6 +67,26 @@ class DocumentProcessingJobRepository:
         job.attempt_count += 1
         await self.session.flush()
         return job
+
+    async def heartbeat(
+        self, job_id: uuid.UUID, now: datetime, lease: LeasePolicy = DEFAULT_LEASE_POLICY
+    ) -> bool:
+        """Extend the lease of a running job.
+
+        Returns False when there is no running job with that ID, for example
+        because it finished or was recovered after its lease ran out. The
+        worker has then lost the job and should stop working on it.
+        """
+        result = await self.session.execute(
+            update(DocumentProcessingJob)
+            .where(
+                DocumentProcessingJob.id == job_id,
+                DocumentProcessingJob.status == ProcessingJobStatus.RUNNING,
+            )
+            .values(heartbeat_at=now, lease_expires_at=lease.expires_at(now))
+            .returning(DocumentProcessingJob.id)
+        )
+        return result.scalar_one_or_none() is not None
 
     async def recover_stale(self, now: datetime, limit: int) -> list[DocumentProcessingJob]:
         """Put running jobs whose lease ran out back in the queue.
