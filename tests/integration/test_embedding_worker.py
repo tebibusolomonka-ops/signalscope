@@ -271,11 +271,13 @@ async def test_lease_is_extended_while_the_model_runs(
     assert len(await embeddings(session_factory)) == 1
 
 
+# Far enough ahead that every lease has run out.
+LATER = timedelta(hours=1)
+
+
 async def recover(session_factory: async_sessionmaker[AsyncSession]) -> None:
     async with session_factory() as session:
-        recovered = await EmbeddingJobRepository(session).recover_stale(
-            utc_now() + timedelta(hours=1), limit=10
-        )
+        recovered = await EmbeddingJobRepository(session).recover_stale(utc_now() + LATER, limit=10)
         await session.commit()
     assert len(recovered) == 1
 
@@ -312,7 +314,10 @@ async def test_job_claimed_again_by_another_worker_is_left_alone(
 
     await recover(session_factory)
     async with session_factory() as session:
-        other = await EmbeddingJobRepository(session).claim_next(utc_now(), [("test", "words-4")])
+        # Recovery made the job available at its own time, so claim at that time too.
+        other = await EmbeddingJobRepository(session).claim_next(
+            utc_now() + LATER, [("test", "words-4")]
+        )
         await session.commit()
     assert other is not None
     provider.gate.set()
