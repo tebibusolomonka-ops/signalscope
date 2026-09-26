@@ -3,7 +3,7 @@ from contextlib import aclosing
 from typing import Annotated
 
 from fastapi import Depends, Request
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from signalscope.core.errors import ServiceUnavailableError
 from signalscope.db.session import get_session
@@ -24,6 +24,21 @@ async def database_session(request: Request) -> AsyncIterator[AsyncSession]:
 
 
 DatabaseSession = Annotated[AsyncSession, Depends(database_session)]
+
+
+def database_session_factory(request: Request) -> async_sessionmaker[AsyncSession]:
+    """For services that open their own sessions."""
+    session_factory: async_sessionmaker[AsyncSession] | None = getattr(
+        request.app.state, "session_factory", None
+    )
+    if session_factory is None:
+        raise ServiceUnavailableError("Database is not configured.")
+    return session_factory
+
+
+DatabaseSessionFactory = Annotated[
+    async_sessionmaker[AsyncSession], Depends(database_session_factory)
+]
 
 
 def blob_store(request: Request) -> BlobStore | None:

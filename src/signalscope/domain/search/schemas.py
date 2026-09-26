@@ -66,3 +66,18 @@ class HybridSearchResultRead(BaseModel):
 
 class HybridSearchResponse(BaseModel):
     items: list[HybridSearchResultRead]
+
+
+class EmbeddingCoverageRead(BaseModel):
+    """How many chunks have a current embedding from one model."""
+
+    provider: str
+    model: str
+    # Set when the numbers are for one document only.
+    document_id: uuid.UUID | None
+    chunk_count: int
+    embedded_count: int
+    pending_count: int
+    failed_count: int
+    # embedded_count / chunk_count, or None when there are no chunks.
+    coverage: float | None

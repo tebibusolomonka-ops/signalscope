@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from signalscope.api.errors import add_error_handlers
 from signalscope.api.lifespan import lifespan
 from signalscope.api.middleware import RequestIDMiddleware, RequestLoggingMiddleware
-from signalscope.api.routes import documents, health, ingestion_runs, search, sources
+from signalscope.api.routes import documents, embeddings, health, ingestion_runs, search, sources
 from signalscope.core.settings import Settings, load_settings
 from signalscope.embeddings.runtime import create_embedding_registry
 
@@ -25,4 +25,5 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(documents.router)
     app.include_router(ingestion_runs.router)
     app.include_router(search.router)
+    app.include_router(embeddings.router)
     return app
