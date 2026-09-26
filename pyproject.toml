@@ -39,6 +39,10 @@ local-embeddings = [
 local-reranking = [
     "sentence-transformers>=5.1",
 ]
+# Runs the entity extraction model on this machine. Also brings in PyTorch.
+local-entities = [
+    "gliner>=0.2.29",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/signalscope"]
@@ -63,6 +67,11 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 # An optional extra, so it is often not installed where mypy runs.
 module = ["sentence_transformers", "sentence_transformers.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# Also an optional extra.
+module = ["gliner", "gliner.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
