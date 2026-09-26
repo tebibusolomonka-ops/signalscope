@@ -12,6 +12,7 @@ from signalscope.domain.documents.model import Document
 from signalscope.domain.documents.revision import DocumentRevision
 from signalscope.domain.ingestion.model import IngestionJob, IngestionRun
 from signalscope.domain.processing.model import DocumentProcessingJob
+from signalscope.domain.search.embedding_job import EmbeddingJob
 from signalscope.domain.search.embedding_model import ChunkEmbedding
 from signalscope.domain.sources.model import Source
 
@@ -25,6 +26,7 @@ __all__ = [
     "DocumentExtraction",
     "DocumentProcessingJob",
     "DocumentRevision",
+    "EmbeddingJob",
     "IngestionJob",
     "IngestionRun",
     "Source",
