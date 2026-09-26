@@ -13,6 +13,7 @@ from signalscope.domain.documents.revision import DocumentRevision
 from signalscope.domain.entities.job import EntityExtractionJob
 from signalscope.domain.entities.mention import EntityMention
 from signalscope.domain.entities.model import Entity
+from signalscope.domain.events.model import Event, EventEvidence
 from signalscope.domain.ingestion.model import IngestionJob, IngestionRun
 from signalscope.domain.processing.model import DocumentProcessingJob
 from signalscope.domain.search.embedding_job import EmbeddingJob
@@ -33,6 +34,8 @@ __all__ = [
     "Entity",
     "EntityExtractionJob",
     "EntityMention",
+    "Event",
+    "EventEvidence",
     "IngestionJob",
     "IngestionRun",
     "Source",
