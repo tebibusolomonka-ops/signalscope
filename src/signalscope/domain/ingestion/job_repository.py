@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from signalscope.core.errors import ConflictError, NotFoundError, short_error_message
+from signalscope.core.leases import DEFAULT_LEASE_POLICY, LeasePolicy
 from signalscope.domain.ingestion.model import IngestionJob, IngestionJobStatus
 
 
@@ -30,12 +31,15 @@ class IngestionJobRepository:
     async def get(self, job_id: uuid.UUID) -> IngestionJob | None:
         return await self.session.get(IngestionJob, job_id)
 
-    async def claim_next(self, now: datetime) -> IngestionJob | None:
+    async def claim_next(
+        self, now: datetime, lease: LeasePolicy = DEFAULT_LEASE_POLICY
+    ) -> IngestionJob | None:
         """Claim the pending job that has been available longest.
 
         Returns None when no job is available. Rows locked by another
         transaction are skipped, so two workers never claim the same job. The
         caller should commit soon, because the row stays locked until then.
+        The claimed job gets a lease that ends lease.duration after now.
         """
         result = await self.session.scalars(
             select(IngestionJob)
@@ -53,6 +57,8 @@ class IngestionJobRepository:
             return None
         job.status = IngestionJobStatus.RUNNING
         job.claimed_at = now
+        job.heartbeat_at = now
+        job.lease_expires_at = lease.expires_at(now)
         # The row is locked, so no other transaction can change the count meanwhile.
         job.attempt_count += 1
         await self.session.flush()
@@ -90,5 +96,7 @@ class IngestionJobRepository:
         job.status = status
         job.finished_at = now
         job.last_error = last_error
+        # A finished job is no longer held, so it can never look stale.
+        job.lease_expires_at = None
         await self.session.flush()
         return job
