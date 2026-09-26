@@ -19,6 +19,7 @@ from signalscope.db.engine import create_database_engine
 from signalscope.db.session import create_session_factory
 from signalscope.domain.blobs.cleanup import BlobCleanupService
 from signalscope.domain.documents.files import MAX_FILE_BYTES
+from signalscope.domain.entities.queue import EntityExtractionQueueService
 from signalscope.domain.ingestion.executor import IngestionExecutor
 from signalscope.domain.ingestion.model import (
     IngestionJob,
@@ -47,6 +48,7 @@ from signalscope.embeddings.models import MULTILINGUAL_E5_SMALL
 from signalscope.embeddings.provider import EmbeddingInputRole, EmbeddingProvider, embed
 from signalscope.embeddings.registry import EmbeddingProviderRegistry
 from signalscope.embeddings.runtime import create_embedding_registry, local_embedding_target
+from signalscope.entities.runtime import local_entity_model
 from signalscope.evaluation.dataset import EvaluationDataError
 from signalscope.evaluation.gates import (
     QualityGate,
@@ -87,6 +89,9 @@ RECOVERY_LIMIT = 10
 LEASE_LOST_MESSAGE = "Lease lost: another worker took the job over."
 STOPPING_MESSAGE = "Stopping after the current job."
 EVALUATION_MODES = ("lexical", "semantic", "hybrid", "reranked")
+LOCAL_ENTITIES_DISABLED_ERROR = (
+    "Error: Local entity extraction is not enabled. Set SIGNALSCOPE_LOCAL_ENTITIES_ENABLED=true."
+)
 LOCAL_RERANKING_DISABLED = (
     "Local reranking is not enabled. Set SIGNALSCOPE_LOCAL_RERANKING_ENABLED=true."
 )
@@ -138,6 +143,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(
             queue_embeddings(settings, document_id=args.document_id, limit=args.limit)
         )
+    if args.command == "queue-entities":
+        return asyncio.run(queue_entities(settings, document_id=args.document_id, limit=args.limit))
     loop_options = {
         "once": args.once,
         "poll_seconds": args.poll_seconds,
@@ -197,6 +204,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--document-id", type=uuid.UUID, default=None, help="only this document (default: all)"
     )
     backlog.add_argument(
+        "--limit", type=positive_int, default=None, help="most jobs to create (default: no limit)"
+    )
+
+    entity_backlog = commands.add_parser(
+        "queue-entities", help="queue entity extraction jobs for chunks not read yet"
+    )
+    entity_backlog.add_argument(
+        "--document-id", type=uuid.UUID, default=None, help="only this document (default: all)"
+    )
+    entity_backlog.add_argument(
         "--limit", type=positive_int, default=None, help="most jobs to create (default: no limit)"
     )
 
@@ -367,6 +384,43 @@ async def queue_embeddings(
     print(f"Chunks checked: {result.chunks_seen}", file=out)
     print(f"Jobs created: {result.jobs_created}", file=out)
     print(f"Already embedded: {result.already_embedded}", file=out)
+    print(f"Already queued: {result.already_queued}", file=out)
+    return 0
+
+
+async def queue_entities(
+    settings: Settings,
+    out: TextIO | None = None,
+    err: TextIO | None = None,
+    *,
+    document_id: uuid.UUID | None = None,
+    limit: int | None = None,
+) -> int:
+    """Queue entity extraction jobs for existing chunks and print the counts.
+
+    Returns the exit code. Nothing is loaded: the model only runs in the worker.
+    """
+    out = sys.stdout if out is None else out
+    err = sys.stderr if err is None else err
+    model = local_entity_model(settings)
+    if model is None:
+        print(LOCAL_ENTITIES_DISABLED_ERROR, file=err)
+        return 1
+    if settings.database_url is None:
+        print(NO_DATABASE_ERROR, file=err)
+        return 1
+
+    async with _database(settings) as session_factory:
+        try:
+            result = await EntityExtractionQueueService(session_factory).queue_backlog(
+                model.provider, model.model, document_id=document_id, limit=limit
+            )
+        except NotFoundError as error:
+            print(f"Error: {error}", file=err)
+            return 1
+    print(f"Chunks checked: {result.chunks_seen}", file=out)
+    print(f"Jobs created: {result.jobs_created}", file=out)
+    print(f"Already extracted: {result.already_extracted}", file=out)
     print(f"Already queued: {result.already_queued}", file=out)
     return 0
 

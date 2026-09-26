@@ -108,3 +108,19 @@ def test_queue_embeddings_needs_local_embeddings(
 
     assert main(["queue-embeddings"]) == 1
     assert "SIGNALSCOPE_LOCAL_EMBEDDINGS_ENABLED=true" in capsys.readouterr().err
+
+
+def test_queue_entities_arguments() -> None:
+    args = build_parser().parse_args(["queue-entities", "--limit", "25"])
+
+    assert (args.command, args.document_id, args.limit) == ("queue-entities", None, 25)
+
+
+def test_queue_entities_needs_local_entities(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.delenv("SIGNALSCOPE_LOCAL_ENTITIES_ENABLED", raising=False)
+    monkeypatch.setenv("SIGNALSCOPE_DATABASE_URL", FAKE_DATABASE_URL)
+
+    assert main(["queue-entities"]) == 1
+    assert "SIGNALSCOPE_LOCAL_ENTITIES_ENABLED=true" in capsys.readouterr().err
