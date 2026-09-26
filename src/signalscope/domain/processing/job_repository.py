@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from signalscope.core.errors import ConflictError, NotFoundError, short_error_message
@@ -30,6 +30,24 @@ class DocumentProcessingJobRepository:
 
     async def get(self, job_id: uuid.UUID) -> DocumentProcessingJob | None:
         return await self.session.get(DocumentProcessingJob, job_id)
+
+    async def lock_for_document(self, document_id: uuid.UUID) -> list[DocumentProcessingJob]:
+        """Load the jobs of a document and lock them until the transaction ends.
+
+        Workers skip locked rows, so none of these jobs can be claimed meanwhile.
+        """
+        result = await self.session.scalars(
+            select(DocumentProcessingJob)
+            .where(DocumentProcessingJob.document_id == document_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        return list(result.all())
+
+    async def delete_for_document(self, document_id: uuid.UUID) -> None:
+        await self.session.execute(
+            delete(DocumentProcessingJob).where(DocumentProcessingJob.document_id == document_id)
+        )
 
     async def claim_next(
         self, now: datetime, lease: LeasePolicy = DEFAULT_LEASE_POLICY

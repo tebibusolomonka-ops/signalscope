@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from signalscope.domain.documents.extraction import DocumentExtraction
@@ -26,3 +26,8 @@ class DocumentExtractionRepository:
             select(DocumentExtraction).where(DocumentExtraction.document_id == document_id)
         )
         return result.one_or_none()
+
+    async def delete_for_document(self, document_id: uuid.UUID) -> None:
+        await self.session.execute(
+            delete(DocumentExtraction).where(DocumentExtraction.document_id == document_id)
+        )

@@ -4,7 +4,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, status
 from pydantic import AwareDatetime
 
-from signalscope.api.dependencies import DatabaseSession
+from signalscope.api.dependencies import Blobs, DatabaseSession
 from signalscope.api.pagination import Page, Pagination
 from signalscope.domain.documents.repository import DocumentFilters
 from signalscope.domain.documents.schemas import DocumentCreate, DocumentRead, Language
@@ -13,8 +13,8 @@ from signalscope.domain.documents.service import DocumentService
 router = APIRouter(prefix="/documents", tags=["Documents"])
 
 
-def get_document_service(session: DatabaseSession) -> DocumentService:
-    return DocumentService(session)
+def get_document_service(session: DatabaseSession, blobs: Blobs) -> DocumentService:
+    return DocumentService(session, blobs)
 
 
 def get_document_filters(

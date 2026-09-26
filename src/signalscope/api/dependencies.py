@@ -7,6 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from signalscope.core.errors import ServiceUnavailableError
 from signalscope.db.session import get_session
+from signalscope.storage.blob import BlobStore
+from signalscope.storage.local import LocalBlobStore
 
 
 async def database_session(request: Request) -> AsyncIterator[AsyncSession]:
@@ -21,3 +23,12 @@ async def database_session(request: Request) -> AsyncIterator[AsyncSession]:
 
 
 DatabaseSession = Annotated[AsyncSession, Depends(database_session)]
+
+
+def blob_store(request: Request) -> BlobStore | None:
+    """The store for raw files, or None when SIGNALSCOPE_BLOB_DIR is not set."""
+    blob_dir = request.app.state.settings.blob_dir
+    return None if blob_dir is None else LocalBlobStore(blob_dir)
+
+
+Blobs = Annotated[BlobStore | None, Depends(blob_store)]

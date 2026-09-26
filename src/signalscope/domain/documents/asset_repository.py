@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from signalscope.domain.documents.asset import DocumentAsset
@@ -29,3 +29,6 @@ class DocumentAssetRepository:
             select(DocumentAsset).where(DocumentAsset.document_id == document_id)
         )
         return result.one_or_none()
+
+    async def delete(self, asset_id: uuid.UUID) -> None:
+        await self.session.execute(delete(DocumentAsset).where(DocumentAsset.id == asset_id))

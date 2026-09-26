@@ -110,20 +110,18 @@ async def test_invalid_asset_is_rejected(
             await session.flush()
 
 
-async def test_document_with_an_asset_cannot_be_deleted(
+async def test_document_with_an_asset_needs_file_storage_to_be_deleted(
     client: httpx.AsyncClient, session_factory: async_sessionmaker[AsyncSession]
 ) -> None:
     document = await create_document(session_factory)
     await add_asset(session_factory, asset_for(document))
 
+    # The test app has no SIGNALSCOPE_BLOB_DIR, so the file could not be removed.
     response = await client.delete(f"/documents/{document.id}")
 
-    assert response.status_code == 409
+    assert response.status_code == 503
     assert response.json() == {
-        "error": {
-            "code": "conflict",
-            "message": "Document has a stored file and cannot be deleted.",
-        }
+        "error": {"code": "service_unavailable", "message": "File storage is not configured."}
     }
     assert (await client.get(f"/documents/{document.id}")).status_code == 200
 
