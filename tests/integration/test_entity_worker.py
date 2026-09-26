@@ -174,12 +174,13 @@ async def test_another_type_is_another_entity(
 
     await worker(session_factory, extractor).run_once()
 
-    assert [
+    # Both share the normalized name, so compare them without their order.
+    assert {
         (entity.normalized_name, entity.entity_type) for entity in await entities(session_factory)
-    ] == [
+    } == {
         ("jordan", "location"),
         ("jordan", "person"),
-    ]
+    }
 
 
 async def test_extracting_again_replaces_the_mentions(
