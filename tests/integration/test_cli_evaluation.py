@@ -188,3 +188,29 @@ async def test_json_report_that_cannot_be_written(settings: Settings, tmp_path: 
 
     assert code == 1
     assert err.getvalue().startswith("Error: Cannot write ")
+
+
+async def run_with_gates(settings: Settings, tmp_path: Path, minimum: float) -> tuple[int, str]:
+    path = tmp_path / "gates.json"
+    path.write_text(json.dumps({"lexical": {"recall@10": minimum}}), encoding="utf-8")
+    out, err = io.StringIO(), io.StringIO()
+    code = await evaluate_retrieval(EXAMPLE, settings, out, err, mode="lexical", quality_gates=path)
+    assert err.getvalue() == ""
+    return code, out.getvalue()
+
+
+async def test_quality_gates_that_pass(settings: Settings, tmp_path: Path) -> None:
+    code, output = await run_with_gates(settings, tmp_path, 0.0)
+
+    assert code == 0
+    assert output.endswith("minimum 0.000, passed\nGates missed: 0 of 1\n")
+
+
+async def test_quality_gates_that_are_missed(settings: Settings, tmp_path: Path) -> None:
+    # The example cannot reach a perfect score with full text search alone.
+    code, output = await run_with_gates(settings, tmp_path, 1.0)
+
+    assert code == 1
+    assert output.endswith("minimum 1.000, missed\nGates missed: 1 of 1\n")
+    # The scores are printed before the gates, as without gates.
+    assert "\nLexical\nRecall@1: " in output

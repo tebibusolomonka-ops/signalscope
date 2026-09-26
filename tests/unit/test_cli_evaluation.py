@@ -243,3 +243,45 @@ def test_json_output_argument() -> None:
 
     assert args.json_output == Path("out/report.json")
     assert build_parser().parse_args(["evaluate-retrieval", "data.json"]).json_output is None
+
+
+def write_gates(tmp_path: Path, gates: object) -> Path:
+    path = tmp_path / "gates.json"
+    path.write_text(json.dumps(gates), encoding="utf-8")
+    return path
+
+
+def test_quality_gates_argument() -> None:
+    args = build_parser().parse_args(
+        ["evaluate-retrieval", "data.json", "--quality-gates", "gates.json"]
+    )
+
+    assert args.quality_gates == Path("gates.json")
+
+
+@pytest.mark.parametrize(
+    ("gates", "options", "message"),
+    [
+        ({"hybrid": {"recall@20": 0.5}}, {"ks": [1, 5, 10]}, "needs k=20 in --k"),
+        ({"hybrid": {"recall@10": 0.5}}, {"mode": "lexical"}, "needs --mode hybrid or all"),
+        ({"hybrid": {"f1@10": 0.5}}, {}, "not a known metric"),
+        ({"fuzzy": {"recall@10": 0.5}}, {}, "unknown mode"),
+    ],
+    ids=["k not evaluated", "mode not run", "unknown metric", "unknown mode"],
+)
+async def test_gates_that_cannot_be_checked(
+    tmp_path: Path, gates: object, options: dict[str, object], message: str
+) -> None:
+    out, err = io.StringIO(), io.StringIO()
+
+    code = await evaluate_retrieval(
+        EXAMPLE,
+        Settings(database_url=FAKE_DATABASE_URL),
+        out,
+        err,
+        quality_gates=write_gates(tmp_path, gates),
+        **options,  # type: ignore[arg-type]
+    )
+
+    assert (code, out.getvalue()) == (1, "")
+    assert message in err.getvalue()

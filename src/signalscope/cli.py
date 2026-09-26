@@ -48,6 +48,12 @@ from signalscope.embeddings.provider import EmbeddingInputRole, EmbeddingProvide
 from signalscope.embeddings.registry import EmbeddingProviderRegistry
 from signalscope.embeddings.runtime import create_embedding_registry, local_embedding_target
 from signalscope.evaluation.dataset import EvaluationDataError
+from signalscope.evaluation.gates import (
+    QualityGate,
+    check_gates,
+    format_gate_results,
+    load_quality_gates,
+)
 from signalscope.evaluation.json_report import report_data, write_json_report
 from signalscope.evaluation.loader import load_dataset
 from signalscope.evaluation.report import format_reports
@@ -118,7 +124,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "evaluate-retrieval":
         return asyncio.run(
             evaluate_retrieval(
-                args.dataset, settings, mode=args.mode, ks=args.k, json_output=args.json_output
+                args.dataset,
+                settings,
+                mode=args.mode,
+                ks=args.k,
+                json_output=args.json_output,
+                quality_gates=args.quality_gates,
             )
         )
     if args.command == "check-embedding-model":
@@ -207,6 +218,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     evaluation.add_argument(
         "--json-output", type=Path, default=None, help="also write the results to this JSON file"
+    )
+    evaluation.add_argument(
+        "--quality-gates",
+        type=Path,
+        default=None,
+        help="JSON file of minimum scores; the exit code is 1 when one is missed",
     )
 
     commands.add_parser(
@@ -574,6 +591,7 @@ async def evaluate_retrieval(
     provider: EmbeddingProvider | None = None,
     reranker: RerankerProvider | None = None,
     json_output: Path | None = None,
+    quality_gates: Path | None = None,
 ) -> int:
     """Score search on a dataset file and print the results. Returns the exit code.
 
@@ -582,6 +600,7 @@ async def evaluate_retrieval(
     reranker. In the all mode a missing reranker skips the reranked mode, and
     the output says so. The dataset is loaded into the database only for the
     run and rolled back. With json_output the results are also written there.
+    With quality_gates, the exit code is 1 when a minimum in that file is missed.
     """
     out = sys.stdout if out is None else out
     err = sys.stderr if err is None else err
@@ -591,6 +610,17 @@ async def evaluate_retrieval(
         print(f"Error: {error}", file=err)
         return 1
     modes: tuple[str, ...] = EVALUATION_MODES if mode == "all" else (mode,)
+    gates = []
+    if quality_gates is not None:
+        try:
+            gates = load_quality_gates(quality_gates, EVALUATION_MODES)
+        except EvaluationDataError as error:
+            print(f"Error: {error}", file=err)
+            return 1
+        problem = _gate_problem(gates, modes, check_ks(ks))
+        if problem is not None:
+            print(f"Error: {problem}", file=err)
+            return 1
     skipped: dict[str, str] = {}
     if reranker is None and "reranked" in modes:
         problem = _local_reranking_problem(settings)
@@ -646,7 +676,24 @@ async def evaluate_retrieval(
         except OSError as error:
             print(f"Error: Cannot write {json_output}: {error.strerror}", file=err)
             return 1
+    if gates:
+        results = check_gates(gates, reports)
+        out.write(format_gate_results(results))
+        if not all(result.passed for result in results):
+            return 1
     return 0
+
+
+def _gate_problem(
+    gates: Sequence[QualityGate], modes: Sequence[str], ks: Sequence[int]
+) -> str | None:
+    """Why the gates cannot be checked in this run, or None."""
+    for gate in gates:
+        if gate.mode not in modes:
+            return f"Quality gate {gate.label} needs --mode {gate.mode} or all."
+        if gate.k not in ks:
+            return f"Quality gate {gate.label} needs k={gate.k} in --k."
+    return None
 
 
 def _local_reranking_problem(settings: Settings) -> str | None:

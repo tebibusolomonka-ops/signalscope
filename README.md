@@ -324,6 +324,18 @@ dataset, the k values, the models used, and for each mode the scores, the
 scores of each query and the timings. It holds no vectors and no document
 text, so reports from different runs can be compared.
 
+`--quality-gates gates.json` checks the scores against minimums that you
+choose, per mode:
+
+```json
+{"hybrid": {"recall@10": 0.8, "mrr@10": 0.5}, "reranked": {"ndcg@10": 0.6}}
+```
+
+The metrics are `recall@k`, `mrr@k` and `ndcg@k`, and each k must be in
+`--k`. The command prints each minimum as passed or missed and exits with 1
+when one is missed. SignalScope ships no minimums of its own, because the real
+models have not been measured on a reference dataset yet.
+
 The command needs `SIGNALSCOPE_DATABASE_URL`. It writes the dataset into the
 database in one transaction, searches it with the normal search code, and
 rolls the transaction back at the end, so nothing stays behind. Embeddings are
