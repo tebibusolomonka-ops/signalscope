@@ -3,7 +3,7 @@ import asyncio
 import mimetypes
 import sys
 import uuid
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import TextIO
@@ -17,27 +17,38 @@ from signalscope.db.engine import create_database_engine
 from signalscope.db.session import create_session_factory
 from signalscope.domain.documents.files import MAX_FILE_BYTES
 from signalscope.domain.ingestion.executor import IngestionExecutor
-from signalscope.domain.ingestion.model import IngestionJobStatus, IngestionRun, IngestionStatus
+from signalscope.domain.ingestion.model import (
+    IngestionJob,
+    IngestionJobStatus,
+    IngestionRun,
+    IngestionStatus,
+)
+from signalscope.domain.ingestion.recovery import recover_stale_ingestion_jobs
 from signalscope.domain.ingestion.registry import AdapterRegistry, UnsupportedSourceTypeError
 from signalscope.domain.ingestion.scheduler import IngestionScheduler
 from signalscope.domain.ingestion.service import IngestionRunService
 from signalscope.domain.ingestion.worker import IngestionWorker
 from signalscope.domain.processing.file_import import FileImportService
-from signalscope.domain.processing.model import ProcessingJobStatus
+from signalscope.domain.processing.job_repository import DocumentProcessingJobRepository
+from signalscope.domain.processing.model import DocumentProcessingJob, ProcessingJobStatus
 from signalscope.domain.processing.processor import DocumentProcessor
 from signalscope.domain.processing.worker import DocumentProcessingWorker
 from signalscope.domain.sources.model import SourceType
 from signalscope.domain.sources.repository import SourceRepository
+from signalscope.domain.sources.scheduling import utc_now
 from signalscope.ingestion.http import HttpFetcher
 from signalscope.ingestion.rss import RssIngestionAdapter
 from signalscope.ingestion.web import WebIngestionAdapter
 from signalscope.parsing.docx_document import DOCX_CONTENT_TYPE
 from signalscope.parsing.registry import create_default_parser_registry
 from signalscope.storage.local import LocalBlobStore
+from signalscope.workers.runner import DEFAULT_POLL_SECONDS, WorkerLoop
 
 DEFAULT_SCHEDULE_LIMIT = 100
 NO_DATABASE_ERROR = "Error: Database URL is not configured. Set SIGNALSCOPE_DATABASE_URL."
 NO_BLOB_DIR_ERROR = "Error: Blob directory is not configured. Set SIGNALSCOPE_BLOB_DIR."
+# Stale jobs put back in the queue before each claim.
+RECOVERY_LIMIT = 10
 
 # Only the types built into Python, so the guess does not depend on the machine.
 MIME_TYPES = mimetypes.MimeTypes()
@@ -46,7 +57,9 @@ MIME_TYPES.add_type("application/xhtml+xml", ".xhtml")
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    _check_worker_options(parser, args)
 
     try:
         settings = load_settings()
@@ -60,9 +73,18 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(schedule_ingestion(args.limit, settings))
     if args.command == "import-file":
         return asyncio.run(import_file(args.source_id, args.path, settings, args.content_type))
-    if args.command == "run-worker":
-        return asyncio.run(run_worker(settings))
-    return asyncio.run(run_processing_worker(settings))
+    loop_options = {
+        "once": args.once,
+        "poll_seconds": args.poll_seconds,
+        "max_jobs": args.max_jobs,
+    }
+    try:
+        if args.command == "run-worker":
+            return asyncio.run(run_worker(settings, **loop_options))
+        return asyncio.run(run_processing_worker(settings, **loop_options))
+    except KeyboardInterrupt:
+        print("Stopped.", file=sys.stderr)
+        return 0
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -91,17 +113,46 @@ def build_parser() -> argparse.ArgumentParser:
         "--content-type", help="media type of the file (default: guessed from the file name)"
     )
 
-    worker = commands.add_parser("run-worker", help="run a queued ingestion job")
-    # Only one mode exists for now. The flag keeps the command clear if a loop is added.
-    worker.add_argument(
-        "--once", action="store_true", required=True, help="run at most one job, then exit"
+    worker = commands.add_parser("run-worker", help="run queued ingestion jobs")
+    _add_worker_options(worker)
+
+    processing = commands.add_parser("run-processing-worker", help="parse queued imported files")
+    _add_worker_options(processing)
+    return parser
+
+
+def _add_worker_options(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--once",
+        action="store_true",
+        help="run at most one job, then exit (default: keep running until stopped)",
+    )
+    parser.add_argument(
+        "--poll-seconds",
+        type=positive_float,
+        default=None,
+        help=f"seconds to wait when there is no work (default: {DEFAULT_POLL_SECONDS:g})",
+    )
+    parser.add_argument(
+        "--max-jobs", type=positive_int, default=None, help="exit after this many jobs"
     )
 
-    processing = commands.add_parser("run-processing-worker", help="parse a queued imported file")
-    processing.add_argument(
-        "--once", action="store_true", required=True, help="run at most one job, then exit"
-    )
-    return parser
+
+def _check_worker_options(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
+    is_worker = args.command in ("run-worker", "run-processing-worker")
+    loop_option_given = is_worker and (args.poll_seconds is not None or args.max_jobs is not None)
+    if loop_option_given and args.once:
+        parser.error("--once cannot be used with --poll-seconds or --max-jobs")
+
+
+def positive_float(value: str) -> float:
+    try:
+        number = float(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"must be a number: {value!r}") from None
+    if not number > 0 or number == float("inf"):
+        raise argparse.ArgumentTypeError(f"must be a positive number: {value}")
+    return number
 
 
 def positive_int(value: str) -> int:
@@ -163,10 +214,15 @@ async def run_worker(
     registry: AdapterRegistry | None = None,
     out: TextIO | None = None,
     err: TextIO | None = None,
+    *,
+    once: bool = True,
+    poll_seconds: float | None = None,
+    max_jobs: int | None = None,
 ) -> int:
-    """Run one queued job and print the result. Returns the exit code.
+    """Run queued ingestion jobs and print each result. Returns the exit code.
 
-    Having no job to run is not an error.
+    With once, at most one job runs, and having no job is not an error.
+    Otherwise the worker keeps going until it is stopped or has run max_jobs.
     """
     out = sys.stdout if out is None else out
     err = sys.stderr if err is None else err
@@ -175,27 +231,39 @@ async def run_worker(
         return 1
 
     async with _database(settings) as session_factory, _adapters(registry) as adapters:
-        executor = IngestionExecutor(session_factory, adapters)
-        result = await IngestionWorker(session_factory, executor).run_once()
+        worker = IngestionWorker(session_factory, IngestionExecutor(session_factory, adapters))
 
-    if result.job is None:
-        print("No ingestion job available.", file=out)
-        return 0
-    print(f"Job: {result.job.id}", file=out)
-    print(f"Status: {result.job.status}", file=out)
-    if result.job.last_error:
-        print(f"Error: {result.job.last_error}", file=out)
-    return 0 if result.job.status is IngestionJobStatus.COMPLETED else 1
+        async def work() -> bool | None:
+            await recover_stale_ingestion_jobs(session_factory, utc_now(), RECOVERY_LIMIT)
+            job = (await worker.run_once()).job
+            if job is None:
+                return None
+            _print_ingestion_job(job, out)
+            return job.status is IngestionJobStatus.COMPLETED
+
+        return await _run_jobs(
+            work,
+            "No ingestion job available.",
+            out,
+            once=once,
+            poll_seconds=poll_seconds,
+            max_jobs=max_jobs,
+        )
 
 
 async def run_processing_worker(
     settings: Settings,
     out: TextIO | None = None,
     err: TextIO | None = None,
+    *,
+    once: bool = True,
+    poll_seconds: float | None = None,
+    max_jobs: int | None = None,
 ) -> int:
-    """Parse one queued file and print the result. Returns the exit code.
+    """Parse queued files and print each result. Returns the exit code.
 
-    Having no job to run is not an error.
+    With once, at most one job runs, and having no job is not an error.
+    Otherwise the worker keeps going until it is stopped or has run max_jobs.
     """
     out = sys.stdout if out is None else out
     err = sys.stderr if err is None else err
@@ -209,17 +277,78 @@ async def run_processing_worker(
     blobs = LocalBlobStore(settings.blob_dir)
     async with _database(settings) as session_factory:
         processor = DocumentProcessor(session_factory, blobs, create_default_parser_registry())
-        result = await DocumentProcessingWorker(session_factory, processor).run_once()
+        worker = DocumentProcessingWorker(session_factory, processor)
 
-    if result.job is None:
-        print("No document processing job available.", file=out)
-        return 0
-    print(f"Job: {result.job.id}", file=out)
-    print(f"Status: {result.job.status}", file=out)
-    print(f"Document: {result.job.document_id}", file=out)
-    if result.job.last_error:
-        print(f"Error: {result.job.last_error}", file=out)
-    return 0 if result.job.status is ProcessingJobStatus.COMPLETED else 1
+        async def work() -> bool | None:
+            async with session_factory() as session:
+                await DocumentProcessingJobRepository(session).recover_stale(
+                    utc_now(), RECOVERY_LIMIT
+                )
+                await session.commit()
+            job = (await worker.run_once()).job
+            if job is None:
+                return None
+            _print_processing_job(job, out)
+            return job.status is ProcessingJobStatus.COMPLETED
+
+        return await _run_jobs(
+            work,
+            "No document processing job available.",
+            out,
+            once=once,
+            poll_seconds=poll_seconds,
+            max_jobs=max_jobs,
+        )
+
+
+async def _run_jobs(
+    work: Callable[[], Awaitable[bool | None]],
+    no_work_message: str,
+    out: TextIO,
+    *,
+    once: bool,
+    poll_seconds: float | None,
+    max_jobs: int | None,
+) -> int:
+    """Run jobs with work(), which returns None when there was no job.
+
+    In once mode the exit code is 1 when the job failed. A long running worker
+    keeps going after a failed job, so its exit code only says whether it
+    stopped normally.
+    """
+    if once:
+        completed = await work()
+        if completed is None:
+            print(no_work_message, file=out)
+            return 0
+        return 0 if completed else 1
+
+    async def handled_a_job() -> bool:
+        return await work() is not None
+
+    loop = WorkerLoop(
+        handled_a_job,
+        poll_seconds=DEFAULT_POLL_SECONDS if poll_seconds is None else poll_seconds,
+        max_jobs=max_jobs,
+    )
+    jobs = await loop.run()
+    print(f"Jobs handled: {jobs}", file=out)
+    return 0
+
+
+def _print_ingestion_job(job: IngestionJob, out: TextIO) -> None:
+    print(f"Job: {job.id}", file=out)
+    print(f"Status: {job.status}", file=out)
+    if job.last_error:
+        print(f"Error: {job.last_error}", file=out)
+
+
+def _print_processing_job(job: DocumentProcessingJob, out: TextIO) -> None:
+    print(f"Job: {job.id}", file=out)
+    print(f"Status: {job.status}", file=out)
+    print(f"Document: {job.document_id}", file=out)
+    if job.last_error:
+        print(f"Error: {job.last_error}", file=out)
 
 
 async def import_file(

@@ -16,14 +16,6 @@ def test_arguments() -> None:
     assert (args.command, args.once) == ("run-processing-worker", True)
 
 
-def test_once_is_required(capsys: pytest.CaptureFixture[str]) -> None:
-    with pytest.raises(SystemExit) as exit_info:
-        main(["run-processing-worker"])
-
-    assert exit_info.value.code == 2
-    assert "the following arguments are required: --once" in capsys.readouterr().err
-
-
 def test_missing_database_url(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

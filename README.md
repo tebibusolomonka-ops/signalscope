@@ -115,9 +115,21 @@ signalscope run-worker --once
 
 It prints `No ingestion job available.` when there is nothing to do, or the job
 ID and its status. The exit code is 0 when the job completed or there was no
-job, and 1 when the job failed. Both commands do one pass and exit, so run them
-from cron or a systemd timer. Several workers can run at the same time without
-taking the same job.
+job, and 1 when the job failed. `schedule-ingestion` does one pass and exits,
+so run it from cron or a systemd timer.
+
+Without `--once`, the worker keeps running and takes jobs as they arrive. It
+waits `--poll-seconds` (5 by default) when the queue is empty, and
+`--max-jobs` makes it exit after that many jobs. A failed job does not stop
+it. Press Ctrl+C to stop it:
+
+```bash
+signalscope run-worker --poll-seconds 10
+```
+
+Several workers can run at the same time without taking the same job. A
+claimed job has a five minute lease. When a worker crashes, the next worker
+puts its job back in the queue once the lease has run out.
 
 ### Importing files
 
@@ -141,8 +153,13 @@ signalscope run-processing-worker --once
 
 It saves the text on the document and prints the job ID, its status and the
 document ID, or `No document processing job available.` The exit code is 0
-when the job completed or there was no job, and 1 when processing failed. Run
-it again, or from a timer, to work through the queue.
+when the job completed or there was no job, and 1 when processing failed.
+Without `--once` it keeps working through the queue, with the same
+`--poll-seconds` and `--max-jobs` options as `run-worker`:
+
+```bash
+signalscope run-processing-worker
+```
 
 ### Search
 

@@ -83,16 +83,6 @@ def test_bad_schedule_limit_is_rejected(
     assert message in capsys.readouterr().err
 
 
-def test_worker_needs_once(capsys: pytest.CaptureFixture[str]) -> None:
-    assert build_parser().parse_args(["run-worker", "--once"]).once is True
-
-    with pytest.raises(SystemExit) as exit_info:
-        main(["run-worker"])
-
-    assert exit_info.value.code == 2
-    assert "the following arguments are required: --once" in capsys.readouterr().err
-
-
 @pytest.mark.parametrize("argv", [["schedule-ingestion"], ["run-worker", "--once"]])
 def test_queue_commands_need_a_database(
     argv: list[str], monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]

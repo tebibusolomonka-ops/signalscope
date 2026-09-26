@@ -1,6 +1,10 @@
 import uuid
 from typing import Any
 
+# Importing the PostgreSQL dialect registers its versions of func.to_tsvector and
+# the other search functions. Without it, whether the index below compiles
+# would depend on which modules happened to be imported first.
+import sqlalchemy.dialects.postgresql  # noqa: F401
 from sqlalchemy import (
     CheckConstraint,
     ColumnElement,
