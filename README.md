@@ -278,6 +278,28 @@ shows its `lexical_rank`, its `vector_similarity` and the fused
 part. Both take `limit` and `source_id` like `/search`. They answer 503 when
 local embeddings are off.
 
+### Reranking
+
+A reranker reads the query and each candidate chunk together and reorders the
+candidates. SignalScope uses `cross-encoder/mmarco-mMiniLMv2-L12-H384-v1`, a
+multilingual model that runs on this machine. It needs its own extra and
+switch, next to local embeddings:
+
+```bash
+pip install -e ".[local-reranking]"
+export SIGNALSCOPE_LOCAL_RERANKING_ENABLED=true
+```
+
+```bash
+curl "http://localhost:8000/search/reranked?q=flood+risk&limit=10"
+```
+
+`/search/reranked` runs hybrid search for three candidates per result and
+lets the reranker order them by the full chunk text. Each result shows its
+`hybrid_score` and its `reranker_score`. It answers 503 when local reranking or
+local embeddings are off. The model is loaded, and downloaded the first time,
+only when it first scores something.
+
 ### Retrieval evaluation
 
 A retrieval dataset is a JSON file with documents, queries, and the documents
@@ -289,10 +311,13 @@ signalscope evaluate-retrieval docs/examples/media-smoke.json
 signalscope evaluate-retrieval data.json --mode lexical --k 1,5,10
 ```
 
-`--mode` is `lexical`, `semantic`, `hybrid` or `all` (the default). Lexical
-mode needs no model. The other modes need local embeddings. For each mode it
+`--mode` is `lexical`, `semantic`, `hybrid`, `reranked` or `all` (the
+default). Lexical mode needs no model. The other modes need local embeddings,
+and the reranked mode needs local reranking too. In the `all` mode a missing
+reranker skips the reranked mode, and the output says why. For each mode it
 prints Recall@k, MRR@k and nDCG@k, and the mean, median (p50) and p95 search
-time in milliseconds.
+time in milliseconds. The reranked mode also prints the reranker time
+separately, because the reranker runs after the search.
 
 The command needs `SIGNALSCOPE_DATABASE_URL`. It writes the dataset into the
 database in one transaction, searches it with the normal search code, and

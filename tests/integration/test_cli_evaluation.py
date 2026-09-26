@@ -7,6 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from fake_embeddings import FakeEmbeddingProvider
+from fake_reranker import FakeReranker
 from signalscope.cli import evaluate_retrieval
 from signalscope.core.settings import Settings
 from signalscope.domain.documents.model import Document
@@ -85,3 +86,61 @@ async def test_all_modes(
     # Every run rolled its rows back.
     async with session_factory() as session:
         assert await session.scalar(select(func.count()).select_from(Document)) == 0
+
+
+async def test_reranked_mode(settings: Settings) -> None:
+    out, err = io.StringIO(), io.StringIO()
+    reranker = FakeReranker()
+
+    code = await evaluate_retrieval(
+        EXAMPLE,
+        settings,
+        out,
+        err,
+        mode="reranked",
+        ks=[1, 5],
+        provider=FakeEmbeddingProvider(),
+        reranker=reranker,
+    )
+
+    assert (code, err.getvalue()) == (0, "")
+    lines = section(out.getvalue(), "Reranked")
+    assert [line.split(":")[0] for line in lines][-3:] == [
+        "Reranking mean",
+        "Reranking p50",
+        "Reranking p95",
+    ]
+    # One reranker call per query.
+    assert len(reranker.calls) == 4
+
+
+async def test_all_modes_include_the_reranker_when_it_is_there(settings: Settings) -> None:
+    out, err = io.StringIO(), io.StringIO()
+
+    code = await evaluate_retrieval(
+        EXAMPLE,
+        settings,
+        out,
+        err,
+        ks=[1],
+        provider=FakeEmbeddingProvider(),
+        reranker=FakeReranker(),
+    )
+
+    assert code == 0
+    titles = [line for line in out.getvalue().splitlines() if line.istitle() and ":" not in line]
+    assert titles == ["Lexical", "Semantic", "Hybrid", "Reranked"]
+
+
+async def test_all_modes_say_when_the_reranker_is_missing(settings: Settings) -> None:
+    out, err = io.StringIO(), io.StringIO()
+
+    code = await evaluate_retrieval(
+        EXAMPLE, settings, out, err, ks=[1], provider=FakeEmbeddingProvider()
+    )
+
+    assert (code, err.getvalue()) == (0, "")
+    assert out.getvalue().endswith(
+        "\nReranked\n"
+        "Skipped: Local reranking is not enabled. Set SIGNALSCOPE_LOCAL_RERANKING_ENABLED=true.\n"
+    )

@@ -55,6 +55,7 @@ from signalscope.evaluation.retrieval import (
     check_ks,
     evaluate_hybrid,
     evaluate_lexical,
+    evaluate_reranked,
     evaluate_semantic,
 )
 from signalscope.ingestion.http import HttpFetcher
@@ -62,6 +63,10 @@ from signalscope.ingestion.rss import RssIngestionAdapter
 from signalscope.ingestion.web import WebIngestionAdapter
 from signalscope.parsing.docx_document import DOCX_CONTENT_TYPE
 from signalscope.parsing.registry import create_default_parser_registry
+from signalscope.reranking.local import LocalRerankingNotInstalledError
+from signalscope.reranking.models import MMARCO_MINILM
+from signalscope.reranking.provider import RerankerProvider
+from signalscope.reranking.runtime import create_reranker_registry
 from signalscope.storage.local import LocalBlobStore
 from signalscope.workers.runner import DEFAULT_POLL_SECONDS, WorkerLoop
 from signalscope.workers.shutdown import stop_on_signals
@@ -74,7 +79,10 @@ NO_BLOB_DIR_ERROR = "Error: Blob directory is not configured. Set SIGNALSCOPE_BL
 RECOVERY_LIMIT = 10
 LEASE_LOST_MESSAGE = "Lease lost: another worker took the job over."
 STOPPING_MESSAGE = "Stopping after the current job."
-EVALUATION_MODES = ("lexical", "semantic", "hybrid")
+EVALUATION_MODES = ("lexical", "semantic", "hybrid", "reranked")
+LOCAL_RERANKING_DISABLED = (
+    "Local reranking is not enabled. Set SIGNALSCOPE_LOCAL_RERANKING_ENABLED=true."
+)
 SMOKE_QUERY = "offshore wind energy"
 SMOKE_PASSAGE = "Offshore wind farms produced more electricity this year."
 LOCAL_EMBEDDINGS_DISABLED_ERROR = (
@@ -556,11 +564,15 @@ async def evaluate_retrieval(
     mode: str = "all",
     ks: Sequence[int] = DEFAULT_KS,
     provider: EmbeddingProvider | None = None,
+    reranker: RerankerProvider | None = None,
 ) -> int:
     """Score search on a dataset file and print the results. Returns the exit code.
 
-    Semantic and hybrid modes use provider, or the local model from settings.
-    The dataset is loaded into the database only for the run and rolled back.
+    Semantic, hybrid and reranked modes use provider, or the local embedding
+    model from settings. The reranked mode also uses reranker, or the local
+    reranker. In the all mode a missing reranker skips the reranked mode, and
+    the output says so. The dataset is loaded into the database only for the
+    run and rolled back.
     """
     out = sys.stdout if out is None else out
     err = sys.stderr if err is None else err
@@ -569,7 +581,20 @@ async def evaluate_retrieval(
     except EvaluationDataError as error:
         print(f"Error: {error}", file=err)
         return 1
-    modes = EVALUATION_MODES if mode == "all" else (mode,)
+    modes: tuple[str, ...] = EVALUATION_MODES if mode == "all" else (mode,)
+    skipped: dict[str, str] = {}
+    if reranker is None and "reranked" in modes:
+        problem = _local_reranking_problem(settings)
+        if problem is None:
+            reranker = create_reranker_registry(settings).get(
+                MMARCO_MINILM.provider, MMARCO_MINILM.model
+            )
+        elif mode == "reranked":
+            print(f"Error: {problem}", file=err)
+            return 1
+        else:
+            skipped["reranked"] = problem
+            modes = tuple(name for name in modes if name != "reranked")
     if provider is None and modes != ("lexical",):
         provider = _local_provider(settings, err)
         if provider is None:
@@ -588,10 +613,24 @@ async def evaluate_retrieval(
             assert provider is not None
             if name == "semantic":
                 reports.append(await evaluate_semantic(session_factory, dataset, provider, ks))
-            else:
+            elif name == "hybrid":
                 reports.append(await evaluate_hybrid(session_factory, dataset, provider, ks))
-    out.write(format_reports(dataset.name, len(dataset.queries), reports))
+            else:
+                assert reranker is not None
+                reports.append(
+                    await evaluate_reranked(session_factory, dataset, provider, reranker, ks)
+                )
+    out.write(format_reports(dataset.name, len(dataset.queries), reports, skipped))
     return 0
+
+
+def _local_reranking_problem(settings: Settings) -> str | None:
+    """Why the local reranker cannot be used, or None when it can. Nothing is loaded."""
+    if not settings.local_reranking_enabled:
+        return LOCAL_RERANKING_DISABLED
+    if importlib.util.find_spec("sentence_transformers") is None:
+        return str(LocalRerankingNotInstalledError())
+    return None
 
 
 async def check_embedding_model(

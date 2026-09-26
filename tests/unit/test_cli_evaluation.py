@@ -173,3 +173,64 @@ async def test_model_check_reports_a_model_error() -> None:
 
     assert await check_embedding_model(Settings(), out, err, provider=provider) == 1
     assert "1 dimensions instead of 4" in err.getvalue()
+
+
+def test_reranked_mode_argument() -> None:
+    args = build_parser().parse_args(["evaluate-retrieval", "data.json", "--mode", "reranked"])
+
+    assert args.mode == "reranked"
+
+
+async def test_reranked_mode_needs_local_reranking() -> None:
+    out, err = io.StringIO(), io.StringIO()
+
+    code = await evaluate_retrieval(
+        EXAMPLE, Settings(database_url=FAKE_DATABASE_URL), out, err, mode="reranked"
+    )
+
+    assert (code, out.getvalue()) == (1, "")
+    assert err.getvalue() == (
+        "Error: Local reranking is not enabled. Set SIGNALSCOPE_LOCAL_RERANKING_ENABLED=true.\n"
+    )
+
+
+async def test_reranked_mode_needs_the_reranking_extra(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setitem(sys.modules, "sentence_transformers", None)
+    out, err = io.StringIO(), io.StringIO()
+    settings = Settings(database_url=FAKE_DATABASE_URL, local_reranking_enabled=True)
+
+    code = await evaluate_retrieval(EXAMPLE, settings, out, err, mode="reranked")
+
+    assert code == 1
+    assert 'pip install -e ".[local-reranking]"' in err.getvalue()
+
+
+def test_report_format_with_reranking_and_a_skipped_mode() -> None:
+    latency = LatencySummary(mean_ms=1.0, p50_ms=1.0, p95_ms=1.0)
+    report = RetrievalReport(
+        mode="reranked",
+        dataset="media-smoke",
+        ks=(1,),
+        metrics=MetricsSummary(query_count=1, recall={1: 1.0}, mrr={1: 1.0}, ndcg={1: 1.0}),
+        queries=(),
+        latency=latency,
+        reranking_latency=LatencySummary(mean_ms=12.5, p50_ms=12.0, p95_ms=20.25),
+    )
+
+    text = format_reports("media-smoke", 1, [report], {"semantic": "Model is missing."})
+
+    assert text.endswith(
+        "Reranked\n"
+        "Recall@1: 1.000\n"
+        "MRR@1: 1.000\n"
+        "nDCG@1: 1.000\n"
+        "Mean: 1.00 ms\n"
+        "p50: 1.00 ms\n"
+        "p95: 1.00 ms\n"
+        "Reranking mean: 12.50 ms\n"
+        "Reranking p50: 12.00 ms\n"
+        "Reranking p95: 20.25 ms\n"
+        "\n"
+        "Semantic\n"
+        "Skipped: Model is missing.\n"
+    )
