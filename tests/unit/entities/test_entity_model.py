@@ -67,3 +67,17 @@ def test_entity_mentions_table() -> None:
     assert "FOREIGN KEY(chunk_id) REFERENCES document_chunks (id) ON DELETE CASCADE" in sql
     assert "metadata JSONB DEFAULT '{}'::jsonb NOT NULL" in sql
     assert Base.metadata.tables["entity_mentions"] is EntityMention.__table__
+
+
+def test_entity_extraction_jobs_table() -> None:
+    from signalscope.domain.entities.job import EntityExtractionJob, EntityExtractionJobStatus
+
+    sql = str(CreateTable(EntityExtractionJob.__table__).compile(dialect=postgresql.dialect()))
+
+    assert "lease_token UUID," in sql
+    assert "UNIQUE (chunk_id, provider, model)" in sql
+    assert "CHECK (status IN ('pending', 'running', 'completed', 'failed'))" in sql
+    assert "FOREIGN KEY(chunk_id) REFERENCES document_chunks (id) ON DELETE CASCADE" in sql
+    status = EntityExtractionJob.__table__.c.status
+    assert status.default.arg is EntityExtractionJobStatus.PENDING  # type: ignore[union-attr]
+    assert Base.metadata.tables["entity_extraction_jobs"] is EntityExtractionJob.__table__

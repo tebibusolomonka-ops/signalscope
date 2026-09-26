@@ -10,6 +10,7 @@ from signalscope.domain.documents.chunk import DocumentChunk
 from signalscope.domain.documents.extraction import DocumentExtraction
 from signalscope.domain.documents.model import Document
 from signalscope.domain.documents.revision import DocumentRevision
+from signalscope.domain.entities.job import EntityExtractionJob
 from signalscope.domain.entities.mention import EntityMention
 from signalscope.domain.entities.model import Entity
 from signalscope.domain.ingestion.model import IngestionJob, IngestionRun
@@ -30,6 +31,7 @@ __all__ = [
     "DocumentRevision",
     "EmbeddingJob",
     "Entity",
+    "EntityExtractionJob",
     "EntityMention",
     "IngestionJob",
     "IngestionRun",
