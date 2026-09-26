@@ -53,3 +53,19 @@ def test_claim_evidence_table() -> None:
     assert "FOREIGN KEY(claim_id) REFERENCES claims (id) ON DELETE RESTRICT" in sql
     assert "FOREIGN KEY(chunk_id) REFERENCES document_chunks (id) ON DELETE CASCADE" in sql
     assert Base.metadata.tables["claim_evidence"] is ClaimEvidence.__table__
+
+
+def test_claim_extraction_jobs_table() -> None:
+    from signalscope.domain.claims.job import ClaimExtractionJob, ClaimExtractionJobStatus
+
+    sql = sql_of(ClaimExtractionJob.__table__)
+
+    assert "lease_token UUID," in sql
+    assert "UNIQUE (chunk_id, provider, model)" in sql
+    assert "CHECK (status IN ('pending', 'running', 'completed', 'failed'))" in sql
+    assert "FOREIGN KEY(chunk_id) REFERENCES document_chunks (id) ON DELETE CASCADE" in sql
+    status = ClaimExtractionJob.__table__.c.status
+    assert status.default.arg is ClaimExtractionJobStatus.PENDING  # type: ignore[union-attr]
+    indexes = {index.name for index in ClaimExtractionJob.__table__.indexes}
+    assert indexes == {"ix_claim_extraction_jobs_status_available_at"}
+    assert Base.metadata.tables["claim_extraction_jobs"] is ClaimExtractionJob.__table__
