@@ -223,8 +223,17 @@ pip install -e ".[local-embeddings]"
 export SIGNALSCOPE_LOCAL_EMBEDDINGS_ENABLED=true
 ```
 
-The processing worker then queues an embedding job for every new chunk. Run
-the embedding worker to work through them:
+The processing worker then queues an embedding job for every new chunk.
+Chunks from before that have no job yet. Queue them with:
+
+```bash
+signalscope queue-embeddings --limit 1000
+```
+
+It checks the chunks in a fixed order, skips those that already have a current
+embedding or a waiting job, and prints how many it checked and queued.
+`--document-id` limits it to one document. Run the embedding worker to work
+through the jobs:
 
 ```bash
 signalscope run-embedding-worker --once

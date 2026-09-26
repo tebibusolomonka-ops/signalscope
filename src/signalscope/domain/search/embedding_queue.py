@@ -3,7 +3,7 @@ from collections.abc import Collection
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import and_, select, update
+from sqlalchemy import and_, literal, select, tuple_, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -15,6 +15,8 @@ from signalscope.domain.search.embedding_model import ChunkEmbedding
 from signalscope.domain.sources.scheduling import Clock, utc_now
 
 ACTIVE_STATUSES = (EmbeddingJobStatus.PENDING, EmbeddingJobStatus.RUNNING)
+# How many chunks one backlog transaction checks.
+BACKLOG_PAGE_SIZE = 500
 
 
 @dataclass(frozen=True, slots=True)
@@ -202,3 +204,79 @@ class EmbeddingQueueService:
                 await session.rollback()
                 raise
         return result
+
+    async def queue_backlog(
+        self,
+        provider: str,
+        model: str,
+        *,
+        document_id: uuid.UUID | None = None,
+        limit: int | None = None,
+        page_size: int = BACKLOG_PAGE_SIZE,
+    ) -> EmbeddingQueueResult:
+        """Queue jobs for existing chunks that need an embedding from model.
+
+        Chunks are checked page by page in a stable order, each page in its
+        own transaction, so the whole table is never loaded at once. At most
+        limit jobs are created. Chunks that are already done are skipped, so
+        running this again moves on to the chunks that still need work.
+        """
+        if limit is not None and limit < 1:
+            raise ValueError("limit must be at least 1")
+        if page_size < 1:
+            raise ValueError("page_size must be at least 1")
+        if document_id is not None:
+            async with self.session_factory() as session:
+                if await session.get(Document, document_id) is None:
+                    raise NotFoundError("Document was not found.")
+        total = EmbeddingQueueResult()
+        after: tuple[uuid.UUID, int] | None = None
+        while limit is None or total.jobs_created < limit:
+            # A page never holds more chunks than jobs may still be created.
+            size = page_size if limit is None else min(page_size, limit - total.jobs_created)
+            async with self.session_factory() as session:
+                try:
+                    page = await _chunk_page(session, document_id, after, size)
+                    if not page:
+                        break
+                    result = await EmbeddingQueue(session).queue_chunks(
+                        [chunk_id for chunk_id, _, _ in page], provider, model, self.clock()
+                    )
+                    await session.commit()
+                except Exception:
+                    await session.rollback()
+                    raise
+            total = _add_results(total, result)
+            _, last_document, last_position = page[-1]
+            after = (last_document, last_position)
+        return total
+
+
+async def _chunk_page(
+    session: AsyncSession,
+    document_id: uuid.UUID | None,
+    after: tuple[uuid.UUID, int] | None,
+    size: int,
+) -> list[tuple[uuid.UUID, uuid.UUID, int]]:
+    """The next chunks in (document, position) order, after the given key."""
+    statement = select(DocumentChunk.id, DocumentChunk.document_id, DocumentChunk.position)
+    if document_id is not None:
+        statement = statement.where(DocumentChunk.document_id == document_id)
+    if after is not None:
+        statement = statement.where(
+            tuple_(DocumentChunk.document_id, DocumentChunk.position)
+            > tuple_(literal(after[0]), literal(after[1]))
+        )
+    rows = await session.execute(
+        statement.order_by(DocumentChunk.document_id, DocumentChunk.position).limit(size)
+    )
+    return [(chunk_id, document, position) for chunk_id, document, position in rows]
+
+
+def _add_results(first: EmbeddingQueueResult, second: EmbeddingQueueResult) -> EmbeddingQueueResult:
+    return EmbeddingQueueResult(
+        chunks_seen=first.chunks_seen + second.chunks_seen,
+        jobs_created=first.jobs_created + second.jobs_created,
+        already_queued=first.already_queued + second.already_queued,
+        already_embedded=first.already_embedded + second.already_embedded,
+    )

@@ -11,7 +11,7 @@ from typing import TextIO
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from signalscope.core.errors import SignalScopeError
+from signalscope.core.errors import NotFoundError, SignalScopeError
 from signalscope.core.logging import configure_logging
 from signalscope.core.settings import Settings, SettingsError, load_settings
 from signalscope.db.engine import create_database_engine
@@ -36,6 +36,7 @@ from signalscope.domain.processing.model import DocumentProcessingJob, Processin
 from signalscope.domain.processing.processor import DocumentProcessor
 from signalscope.domain.processing.worker import DocumentProcessingWorker
 from signalscope.domain.search.embedding_job_repository import EmbeddingJobRepository
+from signalscope.domain.search.embedding_queue import EmbeddingQueueService
 from signalscope.domain.search.embedding_worker import EmbeddingWorker
 from signalscope.domain.sources.model import SourceType
 from signalscope.domain.sources.repository import SourceRepository
@@ -89,6 +90,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(import_file(args.source_id, args.path, settings, args.content_type))
     if args.command == "cleanup-blobs":
         return asyncio.run(cleanup_blobs(args.limit, settings))
+    if args.command == "queue-embeddings":
+        return asyncio.run(
+            queue_embeddings(settings, document_id=args.document_id, limit=args.limit)
+        )
     loop_options = {
         "once": args.once,
         "poll_seconds": args.poll_seconds,
@@ -139,6 +144,16 @@ def build_parser() -> argparse.ArgumentParser:
         type=positive_int,
         default=DEFAULT_CLEANUP_LIMIT,
         help=f"most files to try (default: {DEFAULT_CLEANUP_LIMIT})",
+    )
+
+    backlog = commands.add_parser(
+        "queue-embeddings", help="queue embedding jobs for chunks that have no current embedding"
+    )
+    backlog.add_argument(
+        "--document-id", type=uuid.UUID, default=None, help="only this document (default: all)"
+    )
+    backlog.add_argument(
+        "--limit", type=positive_int, default=None, help="most jobs to create (default: no limit)"
     )
 
     worker = commands.add_parser("run-worker", help="run queued ingestion jobs")
@@ -245,6 +260,40 @@ async def schedule_ingestion(
         result = await IngestionScheduler(session_factory).schedule_due(limit)
     print(f"Sources due: {result.sources_considered}", file=out)
     print(f"Jobs created: {result.jobs_created}", file=out)
+    return 0
+
+
+async def queue_embeddings(
+    settings: Settings,
+    out: TextIO | None = None,
+    err: TextIO | None = None,
+    *,
+    document_id: uuid.UUID | None = None,
+    limit: int | None = None,
+) -> int:
+    """Queue embedding jobs for existing chunks and print the counts. Returns the exit code."""
+    out = sys.stdout if out is None else out
+    err = sys.stderr if err is None else err
+    target = local_embedding_target(settings)
+    if target is None:
+        print(LOCAL_EMBEDDINGS_DISABLED_ERROR, file=err)
+        return 1
+    if settings.database_url is None:
+        print(NO_DATABASE_ERROR, file=err)
+        return 1
+
+    async with _database(settings) as session_factory:
+        try:
+            result = await EmbeddingQueueService(session_factory).queue_backlog(
+                target.provider, target.model, document_id=document_id, limit=limit
+            )
+        except NotFoundError as error:
+            print(f"Error: {error}", file=err)
+            return 1
+    print(f"Chunks checked: {result.chunks_seen}", file=out)
+    print(f"Jobs created: {result.jobs_created}", file=out)
+    print(f"Already embedded: {result.already_embedded}", file=out)
+    print(f"Already queued: {result.already_queued}", file=out)
     return 0
 
 

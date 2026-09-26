@@ -82,3 +82,29 @@ async def test_missing_database_url() -> None:
     assert err.getvalue() == (
         "Error: Database URL is not configured. Set SIGNALSCOPE_DATABASE_URL.\n"
     )
+
+
+def test_queue_embeddings_arguments() -> None:
+    document_id = "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+
+    args = build_parser().parse_args(
+        ["queue-embeddings", "--document-id", document_id, "--limit", "500"]
+    )
+
+    assert (args.command, str(args.document_id), args.limit) == (
+        "queue-embeddings",
+        document_id,
+        500,
+    )
+    defaults = build_parser().parse_args(["queue-embeddings"])
+    assert (defaults.document_id, defaults.limit) == (None, None)
+
+
+def test_queue_embeddings_needs_local_embeddings(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.delenv("SIGNALSCOPE_LOCAL_EMBEDDINGS_ENABLED", raising=False)
+    monkeypatch.setenv("SIGNALSCOPE_DATABASE_URL", FAKE_DATABASE_URL)
+
+    assert main(["queue-embeddings"]) == 1
+    assert "SIGNALSCOPE_LOCAL_EMBEDDINGS_ENABLED=true" in capsys.readouterr().err
