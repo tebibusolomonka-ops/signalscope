@@ -15,6 +15,7 @@ from signalscope.core.logging import configure_logging
 from signalscope.core.settings import Settings, SettingsError, load_settings
 from signalscope.db.engine import create_database_engine
 from signalscope.db.session import create_session_factory
+from signalscope.domain.blobs.cleanup import BlobCleanupService
 from signalscope.domain.documents.files import MAX_FILE_BYTES
 from signalscope.domain.ingestion.executor import IngestionExecutor
 from signalscope.domain.ingestion.model import (
@@ -45,6 +46,7 @@ from signalscope.storage.local import LocalBlobStore
 from signalscope.workers.runner import DEFAULT_POLL_SECONDS, WorkerLoop
 
 DEFAULT_SCHEDULE_LIMIT = 100
+DEFAULT_CLEANUP_LIMIT = 100
 NO_DATABASE_ERROR = "Error: Database URL is not configured. Set SIGNALSCOPE_DATABASE_URL."
 NO_BLOB_DIR_ERROR = "Error: Blob directory is not configured. Set SIGNALSCOPE_BLOB_DIR."
 # Stale jobs put back in the queue before each claim.
@@ -73,6 +75,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(schedule_ingestion(args.limit, settings))
     if args.command == "import-file":
         return asyncio.run(import_file(args.source_id, args.path, settings, args.content_type))
+    if args.command == "cleanup-blobs":
+        return asyncio.run(cleanup_blobs(args.limit, settings))
     loop_options = {
         "once": args.once,
         "poll_seconds": args.poll_seconds,
@@ -111,6 +115,14 @@ def build_parser() -> argparse.ArgumentParser:
     import_command.add_argument("path", type=Path, help="the file to import")
     import_command.add_argument(
         "--content-type", help="media type of the file (default: guessed from the file name)"
+    )
+
+    cleanup = commands.add_parser("cleanup-blobs", help="delete stored files that were left behind")
+    cleanup.add_argument(
+        "--limit",
+        type=positive_int,
+        default=DEFAULT_CLEANUP_LIMIT,
+        help=f"most files to try (default: {DEFAULT_CLEANUP_LIMIT})",
     )
 
     worker = commands.add_parser("run-worker", help="run queued ingestion jobs")
@@ -207,6 +219,31 @@ async def schedule_ingestion(
     print(f"Sources due: {result.sources_considered}", file=out)
     print(f"Jobs created: {result.jobs_created}", file=out)
     return 0
+
+
+async def cleanup_blobs(
+    limit: int, settings: Settings, out: TextIO | None = None, err: TextIO | None = None
+) -> int:
+    """Delete files that were left behind and print the counts. Returns the exit code.
+
+    The exit code is 1 when a file could not be deleted. It is tried again later.
+    """
+    out = sys.stdout if out is None else out
+    err = sys.stderr if err is None else err
+    if settings.database_url is None:
+        print(NO_DATABASE_ERROR, file=err)
+        return 1
+    if settings.blob_dir is None:
+        print(NO_BLOB_DIR_ERROR, file=err)
+        return 1
+
+    blobs = LocalBlobStore(settings.blob_dir)
+    async with _database(settings) as session_factory:
+        result = await BlobCleanupService(session_factory, blobs).run(limit)
+    print(f"Checked: {result.checked}", file=out)
+    print(f"Deleted: {result.deleted}", file=out)
+    print(f"Failed: {result.failed}", file=out)
+    return 0 if result.failed == 0 else 1
 
 
 async def run_worker(

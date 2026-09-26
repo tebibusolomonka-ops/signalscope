@@ -161,6 +161,17 @@ Without `--once` it keeps working through the queue, with the same
 signalscope run-processing-worker
 ```
 
+`DELETE /documents/<id>` also deletes the stored file of an imported document.
+If the file cannot be deleted at that moment, it is recorded and can be
+removed later:
+
+```bash
+signalscope cleanup-blobs --limit 100
+```
+
+It prints how many files it checked, deleted and could not delete. Files that
+could not be deleted are tried again later, with a longer wait each time.
+
 ### Search
 
 Processed text is split into chunks that PostgreSQL full text search can find:
