@@ -31,3 +31,19 @@ def test_event_evidence_table() -> None:
     assert "CHECK (confidence IS NULL OR (confidence >= 0 AND confidence <= 1))" in sql
     assert "metadata JSONB DEFAULT '{}'::jsonb NOT NULL" in sql
     assert Base.metadata.tables["event_evidence"] is EventEvidence.__table__
+
+
+def test_event_extraction_jobs_table() -> None:
+    from signalscope.domain.events.job import EventExtractionJob, EventExtractionJobStatus
+
+    sql = sql_of(EventExtractionJob.__table__)
+
+    assert "lease_token UUID," in sql
+    assert "UNIQUE (chunk_id, provider, model)" in sql
+    assert "CHECK (status IN ('pending', 'running', 'completed', 'failed'))" in sql
+    assert "FOREIGN KEY(chunk_id) REFERENCES document_chunks (id) ON DELETE CASCADE" in sql
+    status = EventExtractionJob.__table__.c.status
+    assert status.default.arg is EventExtractionJobStatus.PENDING  # type: ignore[union-attr]
+    indexes = {index.name for index in EventExtractionJob.__table__.indexes}
+    assert indexes == {"ix_event_extraction_jobs_status_available_at"}
+    assert Base.metadata.tables["event_extraction_jobs"] is EventExtractionJob.__table__
