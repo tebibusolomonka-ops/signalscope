@@ -19,6 +19,9 @@ empty, keeps its default value. An invalid value raises `SettingsError`.
 | `SIGNALSCOPE_LOCAL_RERANKING_ENABLED` | `false` | `true`, `false`, `1`, `0`, `yes`, `no`, `on`, `off` |
 | `SIGNALSCOPE_LOCAL_RERANKING_DEVICE` | `cpu` | A device name, such as `cpu` or `cuda` |
 | `SIGNALSCOPE_LOCAL_RERANKING_BATCH_SIZE` | `16` | A whole number of at least 1 |
+| `SIGNALSCOPE_LOCAL_ENTITIES_ENABLED` | `false` | `true`, `false`, `1`, `0`, `yes`, `no`, `on`, `off` |
+| `SIGNALSCOPE_LOCAL_ENTITY_DEVICE` | `cpu` | A device name, such as `cpu` or `cuda` |
+| `SIGNALSCOPE_LOCAL_ENTITY_THRESHOLD` | `0.5` | A number above 0 and at most 1 |
 
 Values are not case-sensitive, except for the app name, the database URL,
 the device and the folders.
@@ -98,3 +101,23 @@ when it first scores something. Its files go to
 `SIGNALSCOPE_LOCAL_EMBEDDING_CACHE_DIR` when that is set.
 `SIGNALSCOPE_LOCAL_RERANKING_DEVICE` picks where it runs, and
 `SIGNALSCOPE_LOCAL_RERANKING_BATCH_SIZE` how many pairs it scores in one pass.
+
+## Local entity extraction
+
+SignalScope can find people, organizations, places and other entities in
+chunks with `urchade/gliner_multi-v2.1`, a multilingual GLiNER model. It looks
+for a fixed list of types: person, organization, location, country, city,
+product, event and date. Types are stored in lower case.
+
+It is off by default and has its own extra and switch:
+
+```bash
+pip install -e ".[local-entities]"
+export SIGNALSCOPE_LOCAL_ENTITIES_ENABLED=true
+```
+
+The model is loaded, and downloaded the first time, only when it first reads
+a chunk. Its files go to `SIGNALSCOPE_LOCAL_EMBEDDING_CACHE_DIR` when that is
+set. `SIGNALSCOPE_LOCAL_ENTITY_DEVICE` picks where it runs.
+`SIGNALSCOPE_LOCAL_ENTITY_THRESHOLD` is the lowest score a span needs to be
+kept. Higher values keep fewer, surer entities.

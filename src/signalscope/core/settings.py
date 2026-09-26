@@ -1,3 +1,4 @@
+import math
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -53,6 +54,11 @@ class Settings:
     local_reranking_device: str = "cpu"
     # How many query and passage pairs the reranker scores in one pass.
     local_reranking_batch_size: int = 16
+    # The local GLiNER entity model. Off by default, for the same reasons.
+    local_entities_enabled: bool = False
+    local_entity_device: str = "cpu"
+    # Spans the model scores lower than this are left out.
+    local_entity_threshold: float = 0.5
 
     def __post_init__(self) -> None:
         if not self.app_name.strip():
@@ -65,6 +71,10 @@ class Settings:
             raise SettingsError("local_reranking_device must not be empty")
         if self.local_reranking_batch_size < 1:
             raise SettingsError("local_reranking_batch_size must be at least 1")
+        if not self.local_entity_device.strip():
+            raise SettingsError("local_entity_device must not be empty")
+        if not 0 < self.local_entity_threshold <= 1:
+            raise SettingsError("local_entity_threshold must be above 0 and at most 1")
         if self.database_url is not None and not self.database_url.startswith(DATABASE_URL_PREFIX):
             raise SettingsError(f"Database URL must start with {DATABASE_URL_PREFIX}")
 
@@ -103,6 +113,15 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
         local_reranking_batch_size=_read_int(
             env, "SIGNALSCOPE_LOCAL_RERANKING_BATCH_SIZE", defaults.local_reranking_batch_size
         ),
+        local_entities_enabled=_read_bool(
+            env, "SIGNALSCOPE_LOCAL_ENTITIES_ENABLED", defaults.local_entities_enabled
+        ),
+        local_entity_device=_read_str(
+            env, "SIGNALSCOPE_LOCAL_ENTITY_DEVICE", defaults.local_entity_device
+        ),
+        local_entity_threshold=_read_float(
+            env, "SIGNALSCOPE_LOCAL_ENTITY_THRESHOLD", defaults.local_entity_threshold
+        ),
     )
 
 
@@ -129,6 +148,19 @@ def _read_int(env: Mapping[str, str], name: str, default: int) -> int:
         return int(value)
     except ValueError:
         raise SettingsError(f"{name} must be a whole number, got {value!r}") from None
+
+
+def _read_float(env: Mapping[str, str], name: str, default: float) -> float:
+    value = _read(env, name)
+    if value is None:
+        return default
+    try:
+        number = float(value)
+    except ValueError:
+        raise SettingsError(f"{name} must be a number, got {value!r}") from None
+    if not math.isfinite(number):
+        raise SettingsError(f"{name} must be a finite number, got {value!r}")
+    return number
 
 
 def _read_bool(env: Mapping[str, str], name: str, default: bool) -> bool:

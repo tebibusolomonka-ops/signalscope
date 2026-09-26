@@ -247,3 +247,39 @@ def test_reranking_batch_size_must_be_a_number() -> None:
 def test_reranking_device_must_not_be_blank() -> None:
     with pytest.raises(SettingsError, match="local_reranking_device"):
         Settings(local_reranking_device=" ")
+
+
+def test_local_entities_are_off_by_default() -> None:
+    settings = load_settings({})
+
+    assert settings.local_entities_enabled is False
+    assert (settings.local_entity_device, settings.local_entity_threshold) == ("cpu", 0.5)
+
+
+def test_load_local_entity_settings() -> None:
+    settings = load_settings(
+        {
+            "SIGNALSCOPE_LOCAL_ENTITIES_ENABLED": "on",
+            "SIGNALSCOPE_LOCAL_ENTITY_DEVICE": "cuda",
+            "SIGNALSCOPE_LOCAL_ENTITY_THRESHOLD": " 0.35 ",
+        }
+    )
+
+    assert settings.local_entities_enabled is True
+    assert (settings.local_entity_device, settings.local_entity_threshold) == ("cuda", 0.35)
+
+
+@pytest.mark.parametrize("value", ["0", "-0.2", "1.01"])
+def test_entity_threshold_bounds(value: str) -> None:
+    with pytest.raises(SettingsError, match="local_entity_threshold"):
+        load_settings({"SIGNALSCOPE_LOCAL_ENTITY_THRESHOLD": value})
+
+
+@pytest.mark.parametrize("value", ["high", "nan", "inf"])
+def test_entity_threshold_must_be_a_finite_number(value: str) -> None:
+    with pytest.raises(SettingsError, match="SIGNALSCOPE_LOCAL_ENTITY_THRESHOLD"):
+        load_settings({"SIGNALSCOPE_LOCAL_ENTITY_THRESHOLD": value})
+
+
+def test_entity_threshold_of_one_is_allowed() -> None:
+    assert load_settings({"SIGNALSCOPE_LOCAL_ENTITY_THRESHOLD": "1"}).local_entity_threshold == 1.0
