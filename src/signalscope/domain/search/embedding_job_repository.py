@@ -10,6 +10,9 @@ from signalscope.core.leases import DEFAULT_LEASE_POLICY, JobNotHeldError, Lease
 from signalscope.domain.search.embedding_job import EmbeddingJob, EmbeddingJobStatus
 from signalscope.embeddings.registry import ModelKey
 
+# Enough for a few model batches, small enough to keep the claim short.
+MAX_BATCH_CLAIM = 256
+
 
 class InvalidEmbeddingJobStatusChangeError(JobNotHeldError):
     default_message = "Embedding job cannot change to that status."
@@ -65,16 +68,45 @@ class EmbeddingJobRepository:
         job = result.one_or_none()
         if job is None:
             return None
-        job.status = EmbeddingJobStatus.RUNNING
-        job.claimed_at = now
-        job.heartbeat_at = now
-        job.lease_expires_at = lease.expires_at(now)
-        job.lease_token = uuid.uuid4()
-        job.finished_at = None
-        # The row is locked, so no other transaction can change the count meanwhile.
-        job.attempt_count += 1
+        _start(job, now, lease)
         await self.session.flush()
         return job
+
+    async def claim_batch(
+        self,
+        now: datetime,
+        provider: str,
+        model: str,
+        limit: int,
+        lease: LeasePolicy = DEFAULT_LEASE_POLICY,
+    ) -> list[EmbeddingJob]:
+        """Claim up to limit pending jobs of one model, available longest first.
+
+        One model can embed all of them in one call. Rows locked by another
+        transaction are skipped, so two workers never claim the same job. Each
+        job gets its own lease token. The caller should commit soon, because
+        the rows stay locked until then.
+        """
+        if not 1 <= limit <= MAX_BATCH_CLAIM:
+            raise ValueError(f"limit must be between 1 and {MAX_BATCH_CLAIM}")
+        result = await self.session.scalars(
+            select(EmbeddingJob)
+            .where(
+                EmbeddingJob.status == EmbeddingJobStatus.PENDING,
+                EmbeddingJob.available_at <= now,
+                EmbeddingJob.provider == provider,
+                EmbeddingJob.model == model,
+            )
+            .order_by(EmbeddingJob.available_at, EmbeddingJob.created_at, EmbeddingJob.id)
+            .limit(limit)
+            .with_for_update(skip_locked=True)
+            .execution_options(populate_existing=True)
+        )
+        jobs = list(result.all())
+        for job in jobs:
+            _start(job, now, lease)
+        await self.session.flush()
+        return jobs
 
     async def heartbeat(
         self,
@@ -182,3 +214,14 @@ class EmbeddingJobRepository:
         job.lease_token = None
         await self.session.flush()
         return job
+
+
+def _start(job: EmbeddingJob, now: datetime, lease: LeasePolicy) -> None:
+    job.status = EmbeddingJobStatus.RUNNING
+    job.claimed_at = now
+    job.heartbeat_at = now
+    job.lease_expires_at = lease.expires_at(now)
+    job.lease_token = uuid.uuid4()
+    job.finished_at = None
+    # The row is locked, so no other transaction can change the count meanwhile.
+    job.attempt_count += 1
