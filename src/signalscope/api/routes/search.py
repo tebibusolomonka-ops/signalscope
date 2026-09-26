@@ -4,13 +4,16 @@ from typing import Annotated
 from fastapi import APIRouter, Query
 from pydantic import StringConstraints
 
-from signalscope.api.dependencies import DatabaseSession, EmbeddingProviders
+from signalscope.api.dependencies import DatabaseSession, EmbeddingProviders, Rerankers
 from signalscope.domain.search.embedding_model import MODEL_MAX_LENGTH, PROVIDER_MAX_LENGTH
 from signalscope.domain.search.hybrid_service import HybridSearchService
 from signalscope.domain.search.repository import PUBLIC_SEARCH_LIMIT
+from signalscope.domain.search.reranked_service import RerankedSearchService
 from signalscope.domain.search.schemas import (
     HybridSearchResponse,
     HybridSearchResultRead,
+    RerankedSearchResponse,
+    RerankedSearchResultRead,
     SearchResponse,
     SearchResultRead,
     SemanticSearchResponse,
@@ -22,6 +25,8 @@ from signalscope.domain.search.service import (
     MAX_QUERY_LENGTH,
     SearchService,
 )
+from signalscope.embeddings.models import MULTILINGUAL_E5_SMALL
+from signalscope.reranking.models import MMARCO_MINILM
 
 router = APIRouter(prefix="/search", tags=["Search"])
 
@@ -99,4 +104,31 @@ async def hybrid_search(
     )
     return HybridSearchResponse(
         items=[HybridSearchResultRead.model_validate(result) for result in results]
+    )
+
+
+@router.get("/reranked")
+async def reranked_search(
+    q: SearchQuery,
+    session: DatabaseSession,
+    providers: EmbeddingProviders,
+    rerankers: Rerankers,
+    limit: SearchLimit = DEFAULT_SEARCH_LIMIT,
+    source_id: uuid.UUID | None = None,
+) -> RerankedSearchResponse:
+    """Hybrid search with the local E5 model, reordered by the local mMARCO reranker.
+
+    Answers 503 when local reranking or local embeddings are not enabled.
+    """
+    results = await RerankedSearchService(session, providers, rerankers).search(
+        q,
+        provider=MULTILINGUAL_E5_SMALL.provider,
+        model=MULTILINGUAL_E5_SMALL.model,
+        reranker_provider=MMARCO_MINILM.provider,
+        reranker_model=MMARCO_MINILM.model,
+        limit=limit,
+        source_id=source_id,
+    )
+    return RerankedSearchResponse(
+        items=[RerankedSearchResultRead.model_validate(result) for result in results]
     )

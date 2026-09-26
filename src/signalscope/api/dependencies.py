@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from signalscope.core.errors import ServiceUnavailableError
 from signalscope.db.session import get_session
 from signalscope.embeddings.registry import EmbeddingProviderRegistry
+from signalscope.reranking.registry import RerankerRegistry
 from signalscope.storage.blob import BlobStore
 from signalscope.storage.local import LocalBlobStore
 
@@ -56,3 +57,11 @@ def embedding_providers(request: Request) -> EmbeddingProviderRegistry:
 
 
 EmbeddingProviders = Annotated[EmbeddingProviderRegistry, Depends(embedding_providers)]
+
+
+def rerankers(request: Request) -> RerankerRegistry:
+    registry: RerankerRegistry = request.app.state.rerankers
+    return registry
+
+
+Rerankers = Annotated[RerankerRegistry, Depends(rerankers)]

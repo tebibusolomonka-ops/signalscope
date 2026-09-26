@@ -81,3 +81,26 @@ class EmbeddingCoverageRead(BaseModel):
     failed_count: int
     # embedded_count / chunk_count, or None when there are no chunks.
     coverage: float | None
+
+
+class RerankedSearchResultRead(BaseModel):
+    """One chunk, ordered by the reranker. The chunk text itself is left out."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    document_id: uuid.UUID
+    chunk_id: uuid.UUID
+    source_id: uuid.UUID
+    title: str | None
+    url: str | None
+    # Only set when full text search found the chunk.
+    excerpt: str | None
+    chunk_metadata: dict[str, Any]
+    # The Reciprocal Rank Fusion score from hybrid search.
+    hybrid_score: float
+    # Higher is more relevant. Only comparable within one search.
+    reranker_score: float
+
+
+class RerankedSearchResponse(BaseModel):
+    items: list[RerankedSearchResultRead]
