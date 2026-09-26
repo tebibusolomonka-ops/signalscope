@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from signalscope.domain.documents.chunking import TextChunk
 from signalscope.domain.search.embedding_model import ChunkEmbedding
+from signalscope.domain.search.hybrid_service import candidate_count, fuse
 from signalscope.domain.search.repository import (
     MAX_CANDIDATE_LIMIT,
     PUBLIC_SEARCH_LIMIT,
@@ -188,6 +189,49 @@ async def evaluate_semantic(
             elapsed = timer() - started
             ranked.add(index, corpus.keys_of([result.document_id for result in results]), elapsed)
     return ranked.report("semantic")
+
+
+async def evaluate_hybrid(
+    session_factory: async_sessionmaker[AsyncSession],
+    dataset: RetrievalDataset,
+    provider: EmbeddingProvider,
+    ks: Sequence[int] = DEFAULT_KS,
+    timer: Timer = time.perf_counter,
+) -> RetrievalReport:
+    """Score hybrid search, with the same candidates and fusion as the API.
+
+    Each query collects full text and vector candidates for the largest public
+    limit and merges them with the real Reciprocal Rank Fusion code. A document
+    counts at the place of its best chunk. The timings cover both searches and
+    the fusion, not the query embedding.
+    """
+    checked = check_ks(ks)
+    vectors = await prepare_vectors(provider, dataset)
+    ranked = RankedQueries(dataset, checked)
+    candidates = candidate_count(PUBLIC_SEARCH_LIMIT)
+    async with evaluation_corpus(session_factory, dataset, vectors.chunks) as (session, corpus):
+        await add_embeddings(session, corpus, vectors.chunks, vectors.passages, provider)
+        lexical = SearchRepository(session)
+        nearest = VectorSearchRepository(session)
+        for index, (query, query_vector) in enumerate(
+            zip(dataset.queries, vectors.queries, strict=True)
+        ):
+            started = timer()
+            lexical_results = await lexical.search(
+                query.text, limit=candidates, source_id=corpus.source_id
+            )
+            vector_results = await nearest.search(
+                query_vector,
+                provider=provider.provider_name,
+                model=provider.model_name,
+                dimensions=provider.dimensions,
+                limit=candidates,
+                source_id=corpus.source_id,
+            )
+            fused = fuse(lexical_results, vector_results, PUBLIC_SEARCH_LIMIT)
+            elapsed = timer() - started
+            ranked.add(index, corpus.keys_of([result.document_id for result in fused]), elapsed)
+    return ranked.report("hybrid")
 
 
 async def add_embeddings(
