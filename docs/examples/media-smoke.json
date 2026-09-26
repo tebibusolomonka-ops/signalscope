@@ -1,0 +1,57 @@
+{
+  "name": "media-smoke",
+  "documents": [
+    {
+      "key": "energy-1",
+      "title": "Offshore wind expansion",
+      "text": "Offshore wind farms in the North Sea doubled their output this year, and grid operators plan new cables to bring the power ashore.",
+      "language": "en"
+    },
+    {
+      "key": "energy-2",
+      "title": "Solar storage",
+      "text": "Home batteries are helping families store solar power for the evening, which lowers their electricity bills.",
+      "language": "en"
+    },
+    {
+      "key": "weather-1",
+      "title": "Harbour flooding",
+      "text": "Heavy rain flooded the harbour district overnight. Emergency crews pumped water from the streets until morning.",
+      "language": "en"
+    },
+    {
+      "key": "weather-2",
+      "title": "Inondations au port",
+      "text": "De fortes pluies ont inondé le quartier du port pendant la nuit. Les secours ont pompé l'eau jusqu'au matin.",
+      "language": "fr"
+    },
+    {
+      "key": "health-1",
+      "title": "Clinic opening hours",
+      "text": "The city clinic will open earlier on weekdays so that workers can see a doctor before their shift starts.",
+      "language": "en"
+    }
+  ],
+  "queries": [
+    {
+      "key": "q1",
+      "text": "offshore renewable energy",
+      "relevant_documents": ["energy-1"]
+    },
+    {
+      "key": "q2",
+      "text": "storing solar electricity at home",
+      "relevant_documents": ["energy-2"]
+    },
+    {
+      "key": "q3",
+      "text": "flooding in the harbour",
+      "relevant_documents": ["weather-1", "weather-2"]
+    },
+    {
+      "key": "q4",
+      "text": "when can I see a doctor",
+      "relevant_documents": ["health-1"]
+    }
+  ]
+}

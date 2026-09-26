@@ -1,6 +1,7 @@
 import argparse
 import asyncio
 import importlib.util
+import math
 import mimetypes
 import sys
 import uuid
@@ -42,8 +43,20 @@ from signalscope.domain.sources.model import SourceType
 from signalscope.domain.sources.repository import SourceRepository
 from signalscope.domain.sources.scheduling import utc_now
 from signalscope.embeddings.local import LocalEmbeddingsNotInstalledError
+from signalscope.embeddings.models import MULTILINGUAL_E5_SMALL
+from signalscope.embeddings.provider import EmbeddingInputRole, EmbeddingProvider, embed
 from signalscope.embeddings.registry import EmbeddingProviderRegistry
 from signalscope.embeddings.runtime import create_embedding_registry, local_embedding_target
+from signalscope.evaluation.dataset import EvaluationDataError
+from signalscope.evaluation.loader import load_dataset
+from signalscope.evaluation.report import format_reports
+from signalscope.evaluation.retrieval import (
+    DEFAULT_KS,
+    check_ks,
+    evaluate_hybrid,
+    evaluate_lexical,
+    evaluate_semantic,
+)
 from signalscope.ingestion.http import HttpFetcher
 from signalscope.ingestion.rss import RssIngestionAdapter
 from signalscope.ingestion.web import WebIngestionAdapter
@@ -61,6 +74,9 @@ NO_BLOB_DIR_ERROR = "Error: Blob directory is not configured. Set SIGNALSCOPE_BL
 RECOVERY_LIMIT = 10
 LEASE_LOST_MESSAGE = "Lease lost: another worker took the job over."
 STOPPING_MESSAGE = "Stopping after the current job."
+EVALUATION_MODES = ("lexical", "semantic", "hybrid")
+SMOKE_QUERY = "offshore wind energy"
+SMOKE_PASSAGE = "Offshore wind farms produced more electricity this year."
 LOCAL_EMBEDDINGS_DISABLED_ERROR = (
     "Error: Local embeddings are not enabled. Set SIGNALSCOPE_LOCAL_EMBEDDINGS_ENABLED=true."
 )
@@ -90,6 +106,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(import_file(args.source_id, args.path, settings, args.content_type))
     if args.command == "cleanup-blobs":
         return asyncio.run(cleanup_blobs(args.limit, settings))
+    if args.command == "evaluate-retrieval":
+        return asyncio.run(evaluate_retrieval(args.dataset, settings, mode=args.mode, ks=args.k))
+    if args.command == "check-embedding-model":
+        return asyncio.run(check_embedding_model(settings))
     if args.command == "queue-embeddings":
         return asyncio.run(
             queue_embeddings(settings, document_id=args.document_id, limit=args.limit)
@@ -154,6 +174,27 @@ def build_parser() -> argparse.ArgumentParser:
     )
     backlog.add_argument(
         "--limit", type=positive_int, default=None, help="most jobs to create (default: no limit)"
+    )
+
+    evaluation = commands.add_parser(
+        "evaluate-retrieval", help="score search on a local dataset file"
+    )
+    evaluation.add_argument("dataset", type=Path, help="the dataset JSON file")
+    evaluation.add_argument(
+        "--mode",
+        choices=[*EVALUATION_MODES, "all"],
+        default="all",
+        help="which search to score (default: all)",
+    )
+    evaluation.add_argument(
+        "--k",
+        type=evaluation_ks,
+        default=list(DEFAULT_KS),
+        help="comma-separated cut-offs (default: 1,5,10)",
+    )
+
+    commands.add_parser(
+        "check-embedding-model", help="load the local model and embed one query and one passage"
     )
 
     worker = commands.add_parser("run-worker", help="run queued ingestion jobs")
@@ -445,14 +486,9 @@ async def run_embedding_worker(
     out = sys.stdout if out is None else out
     err = sys.stderr if err is None else err
     if providers is None:
-        if not settings.local_embeddings_enabled:
-            print(LOCAL_EMBEDDINGS_DISABLED_ERROR, file=err)
+        providers = _local_embeddings(settings, err)
+        if providers is None:
             return 1
-        # Checked here, so jobs are not claimed only to fail on the import.
-        if importlib.util.find_spec("sentence_transformers") is None:
-            print(f"Error: {LocalEmbeddingsNotInstalledError()}", file=err)
-            return 1
-        providers = create_embedding_registry(settings)
     if settings.database_url is None:
         print(NO_DATABASE_ERROR, file=err)
         return 1
@@ -487,6 +523,126 @@ async def run_embedding_worker(
             poll_seconds=poll_seconds,
             max_jobs=max_jobs,
         )
+
+
+def _local_embeddings(settings: Settings, err: TextIO) -> EmbeddingProviderRegistry | None:
+    """The registry with the local model, or None after printing why it cannot be used.
+
+    Nothing is loaded here. The library is only looked up, so a missing extra is
+    reported before any work starts.
+    """
+    if not settings.local_embeddings_enabled:
+        print(LOCAL_EMBEDDINGS_DISABLED_ERROR, file=err)
+        return None
+    if importlib.util.find_spec("sentence_transformers") is None:
+        print(f"Error: {LocalEmbeddingsNotInstalledError()}", file=err)
+        return None
+    return create_embedding_registry(settings)
+
+
+def _local_provider(settings: Settings, err: TextIO) -> EmbeddingProvider | None:
+    registry = _local_embeddings(settings, err)
+    if registry is None:
+        return None
+    return registry.get(MULTILINGUAL_E5_SMALL.provider, MULTILINGUAL_E5_SMALL.model)
+
+
+async def evaluate_retrieval(
+    path: Path,
+    settings: Settings,
+    out: TextIO | None = None,
+    err: TextIO | None = None,
+    *,
+    mode: str = "all",
+    ks: Sequence[int] = DEFAULT_KS,
+    provider: EmbeddingProvider | None = None,
+) -> int:
+    """Score search on a dataset file and print the results. Returns the exit code.
+
+    Semantic and hybrid modes use provider, or the local model from settings.
+    The dataset is loaded into the database only for the run and rolled back.
+    """
+    out = sys.stdout if out is None else out
+    err = sys.stderr if err is None else err
+    try:
+        dataset = load_dataset(path)
+    except EvaluationDataError as error:
+        print(f"Error: {error}", file=err)
+        return 1
+    modes = EVALUATION_MODES if mode == "all" else (mode,)
+    if provider is None and modes != ("lexical",):
+        provider = _local_provider(settings, err)
+        if provider is None:
+            return 1
+    if settings.database_url is None:
+        print(NO_DATABASE_ERROR, file=err)
+        return 1
+
+    reports = []
+    async with _database(settings) as session_factory:
+        for name in modes:
+            if name == "lexical":
+                reports.append(await evaluate_lexical(session_factory, dataset, ks))
+                continue
+            # Only the lexical mode can run without a provider.
+            assert provider is not None
+            if name == "semantic":
+                reports.append(await evaluate_semantic(session_factory, dataset, provider, ks))
+            else:
+                reports.append(await evaluate_hybrid(session_factory, dataset, provider, ks))
+    out.write(format_reports(dataset.name, len(dataset.queries), reports))
+    return 0
+
+
+async def check_embedding_model(
+    settings: Settings,
+    out: TextIO | None = None,
+    err: TextIO | None = None,
+    *,
+    provider: EmbeddingProvider | None = None,
+) -> int:
+    """Load the local model, embed one query and one passage, and print a summary.
+
+    The first run downloads the model when it is not cached yet.
+    """
+    out = sys.stdout if out is None else out
+    err = sys.stderr if err is None else err
+    if provider is None:
+        provider = _local_provider(settings, err)
+        if provider is None:
+            return 1
+    try:
+        [query] = await embed(provider, [SMOKE_QUERY], EmbeddingInputRole.QUERY)
+        [passage] = await embed(provider, [SMOKE_PASSAGE], EmbeddingInputRole.PASSAGE)
+    except SignalScopeError as error:
+        print(f"Error: {error}", file=err)
+        return 1
+    print(f"Model: {provider.provider_name}/{provider.model_name}", file=out)
+    print(f"Dimensions: {provider.dimensions}", file=out)
+    print(f"Query vector: {len(query)} numbers", file=out)
+    print(f"Passage vector: {len(passage)} numbers", file=out)
+    print(f"Cosine similarity: {_cosine(query, passage):.3f}", file=out)
+    return 0
+
+
+def _cosine(first: Sequence[float], second: Sequence[float]) -> float:
+    dot = sum(a * b for a, b in zip(first, second, strict=True))
+    norms = math.sqrt(sum(a * a for a in first)) * math.sqrt(sum(b * b for b in second))
+    return dot / norms if norms else 0.0
+
+
+def evaluation_ks(value: str) -> list[int]:
+    """Parse a comma-separated list of k values, such as 1,5,10."""
+    try:
+        numbers = [int(part) for part in value.split(",")]
+    except ValueError:
+        raise argparse.ArgumentTypeError(
+            f"must be whole numbers such as 1,5,10: {value!r}"
+        ) from None
+    try:
+        return list(check_ks(numbers))
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(str(error)) from None
 
 
 async def _run_jobs(

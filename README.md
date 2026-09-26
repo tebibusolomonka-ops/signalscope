@@ -8,7 +8,8 @@ video, and turn it into structured information that can be searched and analyzed
 
 Early development. SignalScope can collect RSS feeds and web pages, import
 plain text, JSON, HTML, PDF and DOCX files, and search the collected text
-through an HTTP API. There is no user interface and no authentication yet.
+through an HTTP API, by words or, with local embeddings, by meaning. There is
+no user interface and no authentication yet.
 
 ## Development
 
@@ -189,42 +190,49 @@ one source.
 
 ### Semantic and hybrid search
 
-The database uses the pgvector extension, so `compose.yaml` and CI run the
-`pgvector/pgvector:pg17` image. Chunks can have embeddings: vectors that an
-embedding model makes from their text. Each embedding records its provider,
-model and number of dimensions, and searches only compare vectors from the
-same model. Search is exact, with no vector index yet.
+Semantic search compares meaning instead of words. It uses embeddings: vectors
+that an embedding model makes from each chunk. The database stores them with
+the pgvector extension, so `compose.yaml` and CI run the
+`pgvector/pgvector:pg17` image.
 
-Two endpoints use the embeddings:
+The model for now is `intfloat/multilingual-e5-small`. It handles many
+languages and makes vectors with 384 dimensions. E5 models expect `query: `
+before a search query and `passage: ` before stored text. SignalScope adds
+these itself when it calls the model. They are never stored in document or
+chunk text.
 
-```bash
-curl "http://localhost:8000/search/semantic?q=flood+risk&provider=<provider>&model=<model>"
-curl "http://localhost:8000/search/hybrid?q=flood+risk&provider=<provider>&model=<model>"
-```
+Each embedding records its provider, model and number of dimensions, and a
+search only compares vectors from the same model. The E5 vectors have an HNSW
+index, which keeps their search fast. Vectors from other models are compared
+one by one.
 
-`/search/semantic` embeds the query and returns the closest chunks with a
-`similarity` between -1 and 1. `/search/hybrid` runs full text search and
-vector search and merges both lists with Reciprocal Rank Fusion. Each result
-shows its `lexical_rank`, its `vector_similarity` and the fused
-`hybrid_score`. Chunks without embeddings can still be found by the full text
-part. Both take `limit` and `source_id` like `/search`.
+#### Turn it on
 
-Both endpoints answer 503 until local embeddings are turned on.
-
-### Local embeddings
-
-SignalScope can embed chunks on this machine with
-`intfloat/multilingual-e5-small`, which handles many languages. It is an
-optional extra, because it brings in sentence-transformers and PyTorch. Turn
-it on with:
+The model runs on this machine. It is an optional extra, because it brings in
+sentence-transformers and PyTorch. Install it and turn it on:
 
 ```bash
 pip install -e ".[local-embeddings]"
 export SIGNALSCOPE_LOCAL_EMBEDDINGS_ENABLED=true
 ```
 
-The processing worker then queues an embedding job for every new chunk.
-Chunks from before that have no job yet. Queue them with:
+The model is downloaded the first time it is used, not when SignalScope
+starts. Check that it loads and works:
+
+```bash
+signalscope check-embedding-model
+```
+
+It embeds one query and one passage and prints the model, the number of
+dimensions and how similar the two are. See
+[docs/configuration.md](docs/configuration.md) for the device, batch size and
+cache settings.
+
+#### Embed chunks
+
+The processing worker queues an embedding job for every new chunk. Chunks
+that were made before embeddings were turned on have no job yet. Queue them
+with:
 
 ```bash
 signalscope queue-embeddings --limit 1000
@@ -232,8 +240,7 @@ signalscope queue-embeddings --limit 1000
 
 It checks the chunks in a fixed order, skips those that already have a current
 embedding or a waiting job, and prints how many it checked and queued.
-`--document-id` limits it to one document. Run the embedding worker to work
-through the jobs:
+`--document-id` limits it to one document. Then run the embedding worker:
 
 ```bash
 signalscope run-embedding-worker --once
@@ -243,9 +250,57 @@ It embeds a batch of chunks in one model call and prints the model and how
 many jobs completed, failed or were taken over by another worker. Without
 `--once` it keeps running, with the same `--poll-seconds` and `--max-jobs`
 options as the other workers, where each batch counts as one job.
-`--batch-size` sets the most chunks per call. The model is downloaded the
-first time it is used. See [docs/configuration.md](docs/configuration.md) for
-the device, batch size and cache settings.
+`--batch-size` sets the most chunks per call.
+
+See how far embedding has got:
+
+```bash
+curl "http://localhost:8000/embeddings/coverage"
+curl "http://localhost:8000/embeddings/coverage?document_id=<document-id>"
+```
+
+It returns the number of chunks, how many have a current E5 embedding, how
+many are waiting or failed, and the share that is done. It reads the database
+only, so it works without the model installed.
+
+#### Search
+
+```bash
+curl "http://localhost:8000/search/semantic?q=flood+risk&provider=sentence_transformers&model=intfloat/multilingual-e5-small"
+curl "http://localhost:8000/search/hybrid?q=flood+risk&provider=sentence_transformers&model=intfloat/multilingual-e5-small"
+```
+
+`/search/semantic` embeds the query and returns the closest chunks with a
+`similarity` between -1 and 1. `/search/hybrid` runs full text search and
+vector search and merges both lists with Reciprocal Rank Fusion. Each result
+shows its `lexical_rank`, its `vector_similarity` and the fused
+`hybrid_score`. Chunks without embeddings can still be found by the full text
+part. Both take `limit` and `source_id` like `/search`. They answer 503 when
+local embeddings are off.
+
+### Retrieval evaluation
+
+A retrieval dataset is a JSON file with documents, queries, and the documents
+each query should find. [docs/examples/media-smoke.json](docs/examples/media-smoke.json)
+shows the format. Score the search methods on it:
+
+```bash
+signalscope evaluate-retrieval docs/examples/media-smoke.json
+signalscope evaluate-retrieval data.json --mode lexical --k 1,5,10
+```
+
+`--mode` is `lexical`, `semantic`, `hybrid` or `all` (the default). Lexical
+mode needs no model. The other modes need local embeddings. For each mode it
+prints Recall@k, MRR@k and nDCG@k, and the mean, median (p50) and p95 search
+time in milliseconds.
+
+The command needs `SIGNALSCOPE_DATABASE_URL`. It writes the dataset into the
+database in one transaction, searches it with the normal search code, and
+rolls the transaction back at the end, so nothing stays behind. Embeddings are
+made before that transaction starts.
+
+The scores describe one dataset. A small dataset, such as the example, only
+shows that the pieces work. It does not show which method is better.
 
 ## Docker
 
