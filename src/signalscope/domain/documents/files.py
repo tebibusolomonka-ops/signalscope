@@ -2,7 +2,7 @@ import hashlib
 import logging
 import re
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 
@@ -18,6 +18,9 @@ logger = logging.getLogger(__name__)
 
 # The same limit as the PDF and DOCX parsers.
 MAX_FILE_BYTES = 50 * 1024 * 1024
+
+# Called with the blob key and the reason when a blob could not be deleted.
+CleanupRecorder = Callable[[str, str], Awaitable[None]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,20 +77,36 @@ def new_blob_key() -> str:
 
 
 @asynccontextmanager
-async def stored_blob(blobs: BlobStore, data: bytes) -> AsyncIterator[str]:
+async def stored_blob(
+    blobs: BlobStore, data: bytes, on_delete_failed: CleanupRecorder | None = None
+) -> AsyncIterator[str]:
     """Store data under a new key and yield the key.
 
     When the block fails, for example because the database rejected the row
-    that points to the blob, the blob is deleted again.
+    that points to the blob, the blob is deleted again. If that delete fails
+    too, on_delete_failed is called with the key and the reason, so the file
+    can be deleted later.
     """
     key = new_blob_key()
     await blobs.put(key, data)
     try:
         yield key
     except BaseException:
-        try:
-            await blobs.delete(key)
-        except BlobStorageError:
-            # The original error matters more. The file is left for a later cleanup.
-            logger.exception("Could not delete blob %s after a failed save", key)
+        await _remove(blobs, key, on_delete_failed)
         raise
+
+
+async def _remove(blobs: BlobStore, key: str, on_delete_failed: CleanupRecorder | None) -> None:
+    """Delete a blob after a failed save. Never raises, so the original error stands."""
+    try:
+        await blobs.delete(key)
+        return
+    except BlobStorageError as error:
+        logger.warning("Could not delete blob %s after a failed save", key, exc_info=True)
+        reason = str(error)
+    if on_delete_failed is None:
+        return
+    try:
+        await on_delete_failed(key, reason)
+    except Exception:
+        logger.exception("Could not save a cleanup task for blob %s", key)
