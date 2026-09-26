@@ -3,7 +3,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from types import MappingProxyType
 
-from signalscope.parsing.types import MetadataValue
+from signalscope.parsing.types import SECTION_SEPARATOR, MetadataValue, ParsedDocument
 
 MAX_CHUNK_CHARS = 1200
 OVERLAP_CHARS = 200
@@ -106,3 +106,44 @@ def _chunk(position: int, text: str, start: int, end: int) -> TextChunk:
         end_char=end,
         text_hash=hashlib.sha256(chunk.encode()).hexdigest(),
     )
+
+
+def chunk_document(
+    document: ParsedDocument,
+    *,
+    max_chars: int = MAX_CHUNK_CHARS,
+    overlap_chars: int = OVERLAP_CHARS,
+    min_chars: int = MIN_CHUNK_CHARS,
+) -> list[TextChunk]:
+    """Split a parsed document into chunks that never cross a section.
+
+    Each section, such as a PDF page, is chunked on its own, and its chunks
+    carry where they came from, for example {"page_number": 3}. The offsets
+    still point into document.text, which becomes Document.content. A document
+    without sections is chunked as one text.
+    """
+    sizes = {"max_chars": max_chars, "overlap_chars": overlap_chars, "min_chars": min_chars}
+    if not document.sections:
+        return chunk_text(document.text, **sizes)
+    chunks: list[TextChunk] = []
+    # Sections are joined by SECTION_SEPARATOR in the text, which gives each one its start.
+    section_start = 0
+    for section in document.sections:
+        metadata: dict[str, MetadataValue] = {
+            **section.metadata,
+            "section_kind": section.kind,
+            "section_index": section.index,
+        }
+        for chunk in chunk_text(section.text, **sizes):
+            chunks.append(
+                TextChunk(
+                    position=len(chunks),
+                    text=chunk.text,
+                    start_char=section_start + chunk.start_char,
+                    end_char=section_start + chunk.end_char,
+                    text_hash=chunk.text_hash,
+                    metadata=metadata,
+                )
+            )
+        section_start += len(section.text) + len(SECTION_SEPARATOR)
+    return chunks

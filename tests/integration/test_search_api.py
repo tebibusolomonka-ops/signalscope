@@ -179,9 +179,14 @@ async def test_imported_pdf_goes_through_the_whole_pipeline(
     assert extraction is not None
     assert extraction.parser_name == "PdfDocumentParser"
     assert extraction.parser_metadata["page_count"] == 2
-    assert [chunk.text for chunk in chunks] == [document.content]
+    # One chunk per page, and each knows its page.
+    assert [chunk.text for chunk in chunks] == [
+        "Quarterly report on wind energy.",
+        "Offshore turbines doubled output.",
+    ]
+    assert [chunk.chunk_metadata["page_number"] for chunk in chunks] == [1, 2]
 
     [item] = await search(client, q="offshore turbines")
     assert item["document_id"] == str(imported.document.id)
-    assert item["chunk_id"] == str(chunks[0].id)
+    assert item["chunk_id"] == str(chunks[1].id)
     assert "Offshore turbines doubled output" in item["excerpt"]

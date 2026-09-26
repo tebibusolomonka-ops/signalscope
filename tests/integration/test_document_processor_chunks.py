@@ -10,7 +10,7 @@ from signalscope.domain.documents.asset import DocumentAsset
 from signalscope.domain.documents.asset_service import DocumentAssetService
 from signalscope.domain.documents.chunk import DocumentChunk
 from signalscope.domain.documents.chunk_repository import DocumentChunkRepository
-from signalscope.domain.documents.chunking import TextChunk, chunk_text
+from signalscope.domain.documents.chunking import TextChunk, chunk_document, chunk_text
 from signalscope.domain.documents.extraction import DocumentExtraction
 from signalscope.domain.documents.model import Document
 from signalscope.domain.processing.processor import DocumentProcessor
@@ -118,9 +118,13 @@ async def test_pdf_and_docx_get_chunks(
     await process(session_factory, blobs, asset.id)
 
     document, _, chunks = await stored(session_factory, asset.document_id)
-    assert document.content
-    assert as_tuples(chunks) == as_tuples(chunk_text(document.content))
-    assert [chunk.position for chunk in chunks] == [0]
+    parsed = (
+        create_default_parser_registry().get(content_type).parse(data, content_type=content_type)
+    )
+    assert document.content == parsed.text
+    assert as_tuples(chunks) == as_tuples(chunk_document(parsed))
+    for chunk in chunks:
+        assert document.content[chunk.start_char : chunk.end_char] == chunk.text
 
 
 async def test_empty_text_has_no_chunks(

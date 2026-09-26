@@ -11,7 +11,7 @@ from signalscope.db.errors import is_unique_violation
 from signalscope.domain.documents.asset import DocumentAsset
 from signalscope.domain.documents.asset_repository import DocumentAssetRepository
 from signalscope.domain.documents.chunk_repository import DocumentChunkRepository
-from signalscope.domain.documents.chunking import TextChunk, chunk_text
+from signalscope.domain.documents.chunking import TextChunk, chunk_document
 from signalscope.domain.documents.extraction import DocumentExtraction
 from signalscope.domain.documents.extraction_repository import DocumentExtractionRepository
 from signalscope.domain.documents.fingerprint import content_fingerprint
@@ -81,7 +81,7 @@ class DocumentProcessor:
             filename=asset.filename,
             source_url=document.url,
         )
-        chunks = await asyncio.to_thread(chunk_text, parsed.text)
+        chunks = await asyncio.to_thread(chunk_document, parsed)
         return await self._save(asset, type(parser).__name__, parsed, chunks)
 
     async def _load(self, asset_id: uuid.UUID) -> tuple[DocumentAsset, Document]:
