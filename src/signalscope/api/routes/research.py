@@ -1,9 +1,19 @@
 from fastapi import APIRouter
 
-from signalscope.api.dependencies import DatabaseSession, EmbeddingProviders, Rerankers
+from signalscope.api.dependencies import (
+    AnswerGenerators,
+    DatabaseSession,
+    EmbeddingProviders,
+    Rerankers,
+)
+from signalscope.research.answering import ResearchAnswerService
 from signalscope.research.context import context_text
-from signalscope.research.evidence import ResearchEvidenceService
+from signalscope.research.evidence import ResearchEvidence, ResearchEvidenceService
 from signalscope.research.schemas import (
+    CitationRead,
+    GeneratedAnswerRead,
+    ResearchAnswerRequest,
+    ResearchAnswerResponse,
     ResearchContextRequest,
     ResearchContextResponse,
     ResearchEvidenceRead,
@@ -31,19 +41,62 @@ async def research_context(
     return ResearchContextResponse(
         query=request.query,
         mode=request.mode,
-        evidence=[
-            ResearchEvidenceRead(
-                evidence_id=item.evidence_id,
+        evidence=[_evidence_read(item) for item in evidence],
+        context_text=context_text(evidence),
+    )
+
+
+@router.post("/answer")
+async def research_answer(
+    request: ResearchAnswerRequest,
+    session: DatabaseSession,
+    providers: EmbeddingProviders,
+    rerankers: Rerankers,
+    generators: AnswerGenerators,
+) -> ResearchAnswerResponse:
+    """Answer a question from retrieved evidence, with checked citations.
+
+    Answers 503 while no answer model is configured, which is the default. When
+    no evidence is found, the model is not asked and answer is null. An answer
+    whose citations do not match the evidence is never returned: the request
+    fails with 503 instead.
+    """
+    result = await ResearchAnswerService(session, providers, rerankers, generators).answer(
+        request.query, mode=request.mode, limit=request.limit, source_id=request.source_id
+    )
+    return ResearchAnswerResponse(
+        query=request.query,
+        mode=request.mode,
+        answer=None
+        if result.answer is None
+        else GeneratedAnswerRead(
+            text=result.answer.text, citation_ids=list(result.answer.citation_ids)
+        ),
+        citations=[
+            CitationRead(
+                citation_id=item.evidence_id,
                 document_id=item.document_id,
                 chunk_id=item.chunk_id,
                 source_id=item.source_id,
                 title=item.title,
                 url=item.url,
-                excerpt=item.excerpt,
                 chunk_metadata=item.chunk_metadata,
-                scores=item.scores,
             )
-            for item in evidence
+            for item in result.cited
         ],
-        context_text=context_text(evidence),
+        evidence=[_evidence_read(item) for item in result.evidence],
+    )
+
+
+def _evidence_read(item: ResearchEvidence) -> ResearchEvidenceRead:
+    return ResearchEvidenceRead(
+        evidence_id=item.evidence_id,
+        document_id=item.document_id,
+        chunk_id=item.chunk_id,
+        source_id=item.source_id,
+        title=item.title,
+        url=item.url,
+        excerpt=item.excerpt,
+        chunk_metadata=item.chunk_metadata,
+        scores=item.scores,
     )

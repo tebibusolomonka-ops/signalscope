@@ -330,6 +330,27 @@ Text: Water flooded the harbour district.
 The IDs only hold within one response. Reranked mode needs local reranking,
 and the other modes, except lexical, need local embeddings.
 
+### Research answers
+
+`POST /research/answer` takes the same body as `/research/context` and is the
+start of answers with citations. It collects the evidence, gives it to an
+answer model as structured items and as numbered text blocks, and checks the
+answer before returning it:
+
+- every ID in `citation_ids` must belong to the evidence the model was given,
+- the text must mark exactly those IDs, like `[E1]`,
+- no ID may appear twice.
+
+An answer that fails these checks is never returned; the request fails with
+503 instead. The response maps each cited ID to its document, chunk, title,
+URL and chunk metadata, such as the PDF page, so a reader never has to guess
+which source an ID means. When no evidence is found, the model is not asked
+and `answer` is `null`.
+
+No answer model is configured yet, so the endpoint answers 503 for now. The
+code for the checks and the flow is in place and tested with a fake model. A
+real model comes in a later step.
+
 ### Entities
 
 SignalScope can find people, organizations, places, countries, cities,

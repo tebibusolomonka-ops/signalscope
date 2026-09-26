@@ -9,6 +9,7 @@ from signalscope.core.errors import ServiceUnavailableError
 from signalscope.db.session import get_session
 from signalscope.embeddings.registry import EmbeddingProviderRegistry
 from signalscope.reranking.registry import RerankerRegistry
+from signalscope.research.generation import AnswerGeneratorRegistry
 from signalscope.storage.blob import BlobStore
 from signalscope.storage.local import LocalBlobStore
 
@@ -65,3 +66,11 @@ def rerankers(request: Request) -> RerankerRegistry:
 
 
 Rerankers = Annotated[RerankerRegistry, Depends(rerankers)]
+
+
+def answer_generators(request: Request) -> AnswerGeneratorRegistry:
+    registry: AnswerGeneratorRegistry = request.app.state.answer_generators
+    return registry
+
+
+AnswerGenerators = Annotated[AnswerGeneratorRegistry, Depends(answer_generators)]

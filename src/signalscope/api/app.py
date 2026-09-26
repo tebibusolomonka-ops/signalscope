@@ -19,6 +19,7 @@ from signalscope.core.settings import Settings, load_settings
 from signalscope.embeddings.runtime import create_embedding_registry
 from signalscope.entities.runtime import create_entity_extractor_registry
 from signalscope.reranking.runtime import create_reranker_registry
+from signalscope.research.generation import AnswerGeneratorRegistry
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -33,6 +34,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.rerankers = create_reranker_registry(settings)
     # Empty unless local entity extraction is enabled. Nothing is loaded here.
     app.state.entity_extractors = create_entity_extractor_registry(settings)
+    # No answer model is configured yet, so /research/answer answers 503.
+    app.state.answer_generators = AnswerGeneratorRegistry()
     add_error_handlers(app)
     # The last middleware added runs first, so the request ID is set before logging.
     app.add_middleware(RequestLoggingMiddleware)
