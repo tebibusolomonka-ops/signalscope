@@ -47,6 +47,11 @@ local-entities = [
 local-structured = [
     "gliner2[local]>=2.0,<3",
 ]
+# Runs the Qwen answer model on this machine. Brings in PyTorch and Transformers.
+local-answers = [
+    "transformers>=4.51,<5",
+    "torch",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/signalscope"]
@@ -81,6 +86,11 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 # Also an optional extra.
 module = ["gliner2", "gliner2.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# Also an optional extra.
+module = ["transformers", "transformers.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

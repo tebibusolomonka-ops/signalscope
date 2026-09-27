@@ -1,7 +1,7 @@
 """The interface for models that write answers from research evidence.
 
-SignalScope has no answer model yet. This module defines what one receives,
-what it must return, and checks the shape of what it returns.
+This module defines what an answer model receives, what it must return, and
+checks the shape of what it returns. research.local holds the local model.
 """
 
 import re
