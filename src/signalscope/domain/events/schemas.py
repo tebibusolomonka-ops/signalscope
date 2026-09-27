@@ -30,3 +30,18 @@ class EventDetailRead(BaseModel):
     event: EventRead
     # At most the first 100 evidence rows, in document order.
     evidence: list[EventEvidenceRead]
+
+
+class EventCoverageRead(BaseModel):
+    """How many chunks the local event model has read."""
+
+    provider: str
+    model: str
+    # Set when the numbers are for one document only.
+    document_id: uuid.UUID | None
+    chunk_count: int
+    extracted_count: int
+    pending_count: int
+    failed_count: int
+    # extracted_count / chunk_count, or None when there are no chunks.
+    coverage_ratio: float | None

@@ -414,7 +414,8 @@ evidence metadata, and the event has no time.
 
 `GET /events` lists events, with `event_type`, `occurred_from`,
 `occurred_to`, `limit` and `offset`. `GET /events/{id}` shows one event with
-its evidence.
+its evidence. `GET /events/coverage` counts how many chunks the model has
+read, optionally for one `document_id`, without loading the model.
 
 ### Retrieval evaluation
 
