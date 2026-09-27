@@ -87,8 +87,7 @@ class DuplicateAnswerGeneratorError(ValueError):
 class AnswerGeneratorRegistry:
     """The answer models this process can use, by provider and model name.
 
-    Models are only added by explicit registration. SignalScope has no answer
-    model yet, so a new registry is empty.
+    Models are only added by explicit registration, so a new registry is empty.
     """
 
     def __init__(self) -> None:

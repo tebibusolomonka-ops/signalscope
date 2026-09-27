@@ -305,3 +305,45 @@ def test_load_local_structured_settings() -> None:
 def test_structured_device_must_not_be_blank() -> None:
     with pytest.raises(SettingsError, match="local_structured_device"):
         Settings(local_structured_device=" ")
+
+
+def test_local_answers_are_off_by_default() -> None:
+    settings = load_settings({})
+
+    assert (
+        settings.local_answers_enabled,
+        settings.local_answer_device,
+        settings.local_answer_max_new_tokens,
+    ) == (False, "cpu", 512)
+
+
+def test_load_local_answer_settings() -> None:
+    settings = load_settings(
+        {
+            "SIGNALSCOPE_LOCAL_ANSWERS_ENABLED": "true",
+            "SIGNALSCOPE_LOCAL_ANSWER_DEVICE": "cuda",
+            "SIGNALSCOPE_LOCAL_ANSWER_MAX_NEW_TOKENS": "256",
+        }
+    )
+
+    assert (
+        settings.local_answers_enabled,
+        settings.local_answer_device,
+        settings.local_answer_max_new_tokens,
+    ) == (True, "cuda", 256)
+
+
+@pytest.mark.parametrize("value", ["0", "-5", "4097"])
+def test_answer_token_bounds(value: str) -> None:
+    with pytest.raises(SettingsError, match="local_answer_max_new_tokens"):
+        load_settings({"SIGNALSCOPE_LOCAL_ANSWER_MAX_NEW_TOKENS": value})
+
+
+def test_answer_tokens_must_be_a_number() -> None:
+    with pytest.raises(SettingsError, match="SIGNALSCOPE_LOCAL_ANSWER_MAX_NEW_TOKENS"):
+        load_settings({"SIGNALSCOPE_LOCAL_ANSWER_MAX_NEW_TOKENS": "many"})
+
+
+def test_answer_device_must_not_be_blank() -> None:
+    with pytest.raises(SettingsError, match="local_answer_device"):
+        Settings(local_answer_device=" ")

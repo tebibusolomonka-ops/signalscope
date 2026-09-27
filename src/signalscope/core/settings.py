@@ -10,6 +10,8 @@ from signalscope.core.errors import SignalScopeError
 TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
 FALSE_VALUES = frozenset({"0", "false", "no", "off"})
 DATABASE_URL_PREFIX = "postgresql+asyncpg://"
+# A cap on answer length, so a typo cannot ask for a very long, slow generation.
+MAX_ANSWER_TOKENS = 4096
 
 
 class SettingsError(SignalScopeError, ValueError):
@@ -63,6 +65,11 @@ class Settings:
     # the same reasons.
     local_structured_enabled: bool = False
     local_structured_device: str = "cpu"
+    # The local Qwen answer model. Off by default, for the same reasons.
+    local_answers_enabled: bool = False
+    local_answer_device: str = "cpu"
+    # The longest answer the model may write, in tokens.
+    local_answer_max_new_tokens: int = 512
 
     def __post_init__(self) -> None:
         if not self.app_name.strip():
@@ -81,6 +88,12 @@ class Settings:
             raise SettingsError("local_entity_threshold must be above 0 and at most 1")
         if not self.local_structured_device.strip():
             raise SettingsError("local_structured_device must not be empty")
+        if not self.local_answer_device.strip():
+            raise SettingsError("local_answer_device must not be empty")
+        if not 1 <= self.local_answer_max_new_tokens <= MAX_ANSWER_TOKENS:
+            raise SettingsError(
+                f"local_answer_max_new_tokens must be from 1 to {MAX_ANSWER_TOKENS}"
+            )
         if self.database_url is not None and not self.database_url.startswith(DATABASE_URL_PREFIX):
             raise SettingsError(f"Database URL must start with {DATABASE_URL_PREFIX}")
 
@@ -133,6 +146,17 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
         ),
         local_structured_device=_read_str(
             env, "SIGNALSCOPE_LOCAL_STRUCTURED_DEVICE", defaults.local_structured_device
+        ),
+        local_answers_enabled=_read_bool(
+            env, "SIGNALSCOPE_LOCAL_ANSWERS_ENABLED", defaults.local_answers_enabled
+        ),
+        local_answer_device=_read_str(
+            env, "SIGNALSCOPE_LOCAL_ANSWER_DEVICE", defaults.local_answer_device
+        ),
+        local_answer_max_new_tokens=_read_int(
+            env,
+            "SIGNALSCOPE_LOCAL_ANSWER_MAX_NEW_TOKENS",
+            defaults.local_answer_max_new_tokens,
         ),
     )
 

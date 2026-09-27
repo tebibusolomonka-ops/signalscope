@@ -24,6 +24,9 @@ empty, keeps its default value. An invalid value raises `SettingsError`.
 | `SIGNALSCOPE_LOCAL_ENTITY_THRESHOLD` | `0.5` | A number above 0 and at most 1 |
 | `SIGNALSCOPE_LOCAL_STRUCTURED_ENABLED` | `false` | `true`, `false`, `1`, `0`, `yes`, `no`, `on`, `off` |
 | `SIGNALSCOPE_LOCAL_STRUCTURED_DEVICE` | `cpu` | A device name, such as `cpu` or `cuda` |
+| `SIGNALSCOPE_LOCAL_ANSWERS_ENABLED` | `false` | `true`, `false`, `1`, `0`, `yes`, `no`, `on`, `off` |
+| `SIGNALSCOPE_LOCAL_ANSWER_DEVICE` | `cpu` | A device name, such as `cpu` or `cuda` |
+| `SIGNALSCOPE_LOCAL_ANSWER_MAX_NEW_TOKENS` | `512` | A whole number from 1 to 4096 |
 
 Values are not case-sensitive, except for the app name, the database URL,
 the device and the folders.
@@ -141,3 +144,20 @@ Turning it on does not load anything. The model is loaded, and downloaded the
 first time, only when it first reads a chunk. Its files go to
 `SIGNALSCOPE_LOCAL_EMBEDDING_CACHE_DIR` when that is set.
 `SIGNALSCOPE_LOCAL_STRUCTURED_DEVICE` picks where it runs.
+
+## Local answer generation
+
+`POST /research/answer` can write answers with `Qwen/Qwen3-4B-Instruct-2507`,
+run on this machine with Transformers. The model name is fixed. It is off by
+default, and the endpoint answers 503 until it is turned on:
+
+```bash
+pip install -e ".[local-answers]"
+export SIGNALSCOPE_LOCAL_ANSWERS_ENABLED=true
+```
+
+Turning it on does not load anything. The model is loaded, and downloaded the
+first time, only when it first answers. It is several gigabytes. Its files go
+to `SIGNALSCOPE_LOCAL_EMBEDDING_CACHE_DIR` when that is set.
+`SIGNALSCOPE_LOCAL_ANSWER_DEVICE` picks where it runs, and
+`SIGNALSCOPE_LOCAL_ANSWER_MAX_NEW_TOKENS` caps the length of an answer.

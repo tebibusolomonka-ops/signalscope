@@ -56,7 +56,7 @@ async def research_answer(
 ) -> ResearchAnswerResponse:
     """Answer a question from retrieved evidence, with checked citations.
 
-    Answers 503 while no answer model is configured, which is the default. When
+    Answers 503 unless local answers are enabled, which they are not by default. When
     no evidence is found, the model is not asked and answer is null. An answer
     whose citations do not match the evidence is never returned: the request
     fails with 503 instead.
