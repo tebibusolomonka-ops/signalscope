@@ -417,6 +417,23 @@ evidence metadata, and the event has no time.
 its evidence. `GET /events/coverage` counts how many chunks the model has
 read, optionally for one `document_id`, without loading the model.
 
+### Claims
+
+The same GLiNER2 model and switch read claims: statements a text makes, such
+as a statistic or a prediction. Each claim keeps the exact words it came from
+and where they are in the chunk. SignalScope does not judge whether a claim is
+true.
+
+```bash
+signalscope queue-claims --limit 1000
+```
+
+`queue-claims` works like `queue-events`, with `--document-id` and `--limit`,
+and does not load the model.
+
+`GET /claims` lists claims, with `query`, `claim_type`, `limit` and `offset`.
+`GET /claims/{id}` shows one claim with its evidence.
+
 ### Retrieval evaluation
 
 A retrieval dataset is a JSON file with documents, queries, and the documents

@@ -196,3 +196,19 @@ async def test_event_worker_needs_the_extra(monkeypatch: pytest.MonkeyPatch) -> 
 
     assert await run_event_worker(settings, out, err) == 1
     assert 'pip install -e ".[local-structured]"' in err.getvalue()
+
+
+def test_queue_claims_arguments() -> None:
+    args = build_parser().parse_args(["queue-claims", "--limit", "7"])
+
+    assert (args.command, args.document_id, args.limit) == ("queue-claims", None, 7)
+
+
+def test_queue_claims_needs_local_structured_extraction(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.delenv("SIGNALSCOPE_LOCAL_STRUCTURED_ENABLED", raising=False)
+    monkeypatch.setenv("SIGNALSCOPE_DATABASE_URL", FAKE_DATABASE_URL)
+
+    assert main(["queue-claims"]) == 1
+    assert "SIGNALSCOPE_LOCAL_STRUCTURED_ENABLED=true" in capsys.readouterr().err

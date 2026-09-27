@@ -18,6 +18,7 @@ from signalscope.core.settings import Settings, SettingsError, load_settings
 from signalscope.db.engine import create_database_engine
 from signalscope.db.session import create_session_factory
 from signalscope.domain.blobs.cleanup import BlobCleanupService
+from signalscope.domain.claims.queue import ClaimExtractionQueueService
 from signalscope.domain.documents.files import MAX_FILE_BYTES
 from signalscope.domain.entities.job import EntityExtractionJobStatus
 from signalscope.domain.entities.job_repository import EntityExtractionJobRepository
@@ -164,6 +165,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(queue_entities(settings, document_id=args.document_id, limit=args.limit))
     if args.command == "queue-events":
         return asyncio.run(queue_events(settings, document_id=args.document_id, limit=args.limit))
+    if args.command == "queue-claims":
+        return asyncio.run(queue_claims(settings, document_id=args.document_id, limit=args.limit))
     loop_options = {
         "once": args.once,
         "poll_seconds": args.poll_seconds,
@@ -247,6 +250,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--document-id", type=uuid.UUID, default=None, help="only this document (default: all)"
     )
     event_backlog.add_argument(
+        "--limit", type=positive_int, default=None, help="most jobs to create (default: no limit)"
+    )
+
+    claim_backlog = commands.add_parser(
+        "queue-claims", help="queue claim extraction jobs for chunks not read yet"
+    )
+    claim_backlog.add_argument(
+        "--document-id", type=uuid.UUID, default=None, help="only this document (default: all)"
+    )
+    claim_backlog.add_argument(
         "--limit", type=positive_int, default=None, help="most jobs to create (default: no limit)"
     )
 
@@ -499,6 +512,43 @@ async def queue_events(
     async with _database(settings) as session_factory:
         try:
             result = await EventExtractionQueueService(session_factory).queue_backlog(
+                *model, document_id=document_id, limit=limit
+            )
+        except NotFoundError as error:
+            print(f"Error: {error}", file=err)
+            return 1
+    print(f"Chunks checked: {result.chunks_seen}", file=out)
+    print(f"Jobs created: {result.jobs_created}", file=out)
+    print(f"Already extracted: {result.already_extracted}", file=out)
+    print(f"Already queued: {result.already_queued}", file=out)
+    return 0
+
+
+async def queue_claims(
+    settings: Settings,
+    out: TextIO | None = None,
+    err: TextIO | None = None,
+    *,
+    document_id: uuid.UUID | None = None,
+    limit: int | None = None,
+) -> int:
+    """Queue claim extraction jobs for existing chunks and print the counts.
+
+    Returns the exit code. Nothing is loaded: the model only runs in the worker.
+    """
+    out = sys.stdout if out is None else out
+    err = sys.stderr if err is None else err
+    model = local_structured_model(settings)
+    if model is None:
+        print(LOCAL_STRUCTURED_DISABLED_ERROR, file=err)
+        return 1
+    if settings.database_url is None:
+        print(NO_DATABASE_ERROR, file=err)
+        return 1
+
+    async with _database(settings) as session_factory:
+        try:
+            result = await ClaimExtractionQueueService(session_factory).queue_backlog(
                 *model, document_id=document_id, limit=limit
             )
         except NotFoundError as error:
