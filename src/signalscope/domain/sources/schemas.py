@@ -49,3 +49,26 @@ class SourceRead(BaseModel):
     next_ingestion_at: datetime | None
     created_at: datetime
     updated_at: datetime
+
+
+class SourceProvenanceRead(BaseModel):
+    """What SignalScope has observed about a source.
+
+    These are counts and dates, not a credibility score.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    source_id: uuid.UUID
+    document_count: int
+    first_document_at: datetime | None
+    last_document_at: datetime | None
+    first_published_at: datetime | None
+    last_published_at: datetime | None
+    entity_count: int
+    claim_count: int
+    event_count: int
+    event_cluster_count: int
+    # Clusters of its events that at least one other source also reports.
+    cross_source_event_cluster_count: int
+    revision_count: int

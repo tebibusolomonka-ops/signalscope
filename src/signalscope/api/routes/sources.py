@@ -5,8 +5,14 @@ from fastapi import APIRouter, Depends, status
 
 from signalscope.api.dependencies import DatabaseSession
 from signalscope.api.pagination import Page, Pagination
+from signalscope.domain.sources.provenance import SourceProvenanceService
 from signalscope.domain.sources.scheduling import SourceScheduleService
-from signalscope.domain.sources.schemas import SourceCreate, SourceRead, SourceScheduleUpdate
+from signalscope.domain.sources.schemas import (
+    SourceCreate,
+    SourceProvenanceRead,
+    SourceRead,
+    SourceScheduleUpdate,
+)
 from signalscope.domain.sources.service import SourceService
 
 router = APIRouter(prefix="/sources", tags=["Sources"])
@@ -45,6 +51,19 @@ async def list_sources(page: Pagination, sources: Sources) -> Page[SourceRead]:
 @router.get("/{source_id}")
 async def get_source(source_id: uuid.UUID, sources: Sources) -> SourceRead:
     return SourceRead.model_validate(await sources.get(source_id))
+
+
+@router.get("/{source_id}/provenance")
+async def source_provenance(source_id: uuid.UUID, session: DatabaseSession) -> SourceProvenanceRead:
+    """Counts and dates that SignalScope has observed for one source.
+
+    These are provenance signals: how many documents, entities, claims and
+    events came from the source, when, and how many of its events other
+    sources also report. They are not a credibility score, and sources are
+    not ranked against each other.
+    """
+    profile = await SourceProvenanceService(session).profile(source_id)
+    return SourceProvenanceRead.model_validate(profile)
 
 
 @router.delete("/{source_id}", status_code=status.HTTP_204_NO_CONTENT)

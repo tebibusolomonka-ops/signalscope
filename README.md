@@ -432,6 +432,18 @@ first with `order=oldest_first`. Clusters without a time come last. It takes
 sources and evidence rows back it, with the source names. The timeline only
 describes what was reported; it does not rank events by importance.
 
+### Source provenance
+
+`GET /sources/{id}/provenance` shows what SignalScope has observed about one
+source: how many documents it has, when they were stored and published, how
+many distinct entities, claims and events were found in them, how many event
+clusters those events belong to, how many of those clusters another source
+also reports, and how many document revisions were kept.
+
+These are observed provenance signals, not a credibility score. SignalScope
+does not rate sources as reliable or unreliable and does not rank them against
+each other. A high count only means more was observed.
+
 ### Claims
 
 The same GLiNER2 model and switch read claims: statements a text makes, such
