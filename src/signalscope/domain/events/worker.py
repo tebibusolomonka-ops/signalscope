@@ -3,7 +3,7 @@ import logging
 import uuid
 from dataclasses import dataclass
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from signalscope.core.errors import SignalScopeError
@@ -12,6 +12,7 @@ from signalscope.domain.documents.chunk import DocumentChunk
 from signalscope.domain.events.job import EventExtractionJob, EventExtractionJobStatus
 from signalscope.domain.events.job_repository import EventExtractionJobRepository
 from signalscope.domain.events.model import Event, EventEvidence
+from signalscope.domain.events.repository import EventRepository
 from signalscope.domain.sources.scheduling import Clock, utc_now
 from signalscope.events.provider import ExtractedEvent, extract_events
 from signalscope.events.registry import EventExtractorRegistry
@@ -43,8 +44,8 @@ class EventExtractionWorker:
 
     Events are not matched across chunks or documents yet. Each event the model
     finds becomes its own Event, with one EventEvidence row pointing to the
-    chunk. Reading a chunk again with the same model replaces those events.
-    When a chunk is deleted, its evidence goes with it, but the events stay.
+    chunk. Reading a chunk again with the same model replaces that evidence,
+    and events left with no evidence at all are deleted.
     """
 
     def __init__(
@@ -156,19 +157,18 @@ async def _replace_events(
     chunk: DocumentChunk,
     events: list[ExtractedEvent],
 ) -> None:
-    # Events from this chunk and model were made by an earlier run of this job.
-    # Deleting them deletes their evidence too.
-    await session.execute(
-        delete(Event).where(
-            Event.id.in_(
-                select(EventEvidence.event_id).where(
-                    EventEvidence.chunk_id == chunk.id,
-                    EventEvidence.provider == job.provider,
-                    EventEvidence.model == job.model,
-                )
-            )
+    # Evidence from this chunk and model was made by an earlier run of this job.
+    # Its events are deleted only when no other evidence points to them.
+    replaced = await session.scalars(
+        delete(EventEvidence)
+        .where(
+            EventEvidence.chunk_id == chunk.id,
+            EventEvidence.provider == job.provider,
+            EventEvidence.model == job.model,
         )
+        .returning(EventEvidence.event_id)
     )
+    await EventRepository(session).delete_orphaned_events(set(replaced.all()))
     for extracted in events:
         event = Event(
             event_type=extracted.event_type,

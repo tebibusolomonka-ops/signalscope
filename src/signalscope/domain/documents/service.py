@@ -12,6 +12,7 @@ from signalscope.domain.documents.extraction_repository import DocumentExtractio
 from signalscope.domain.documents.model import Document
 from signalscope.domain.documents.repository import DocumentFilters, DocumentRepository
 from signalscope.domain.documents.schemas import DocumentCreate
+from signalscope.domain.events.repository import EventRepository
 from signalscope.domain.processing.job_repository import DocumentProcessingJobRepository
 from signalscope.domain.processing.model import ProcessingJobStatus
 from signalscope.domain.sources.repository import SourceRepository
@@ -90,8 +91,9 @@ class DocumentService:
             await self.extractions.delete_for_document(document_id)
             if asset is not None:
                 await self.assets.delete(asset.id)
-            # Chunks are deleted with the document by the database.
+            # Chunks and their evidence are deleted with the document by the database.
             deleted = await self.documents.delete(document_id)
+            await EventRepository(self.session).delete_orphaned_events()
             await self.session.commit()
         except IntegrityError as error:
             await self.session.rollback()

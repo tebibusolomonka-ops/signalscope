@@ -39,8 +39,9 @@ class Event(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 class EventEvidence(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """A chunk that reports an event, as found by one model.
 
-    Evidence goes away with its chunk or its event. The event itself stays when
-    a chunk goes, because other chunks may still report it.
+    Evidence goes away with its chunk or its event. The database keeps the event
+    when a chunk goes, because other chunks may still report it. Code that
+    replaces or deletes chunks then deletes events left with no evidence.
     """
 
     __tablename__ = "event_evidence"

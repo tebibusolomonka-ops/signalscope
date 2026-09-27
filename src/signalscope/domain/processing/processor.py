@@ -18,6 +18,7 @@ from signalscope.domain.documents.fingerprint import content_fingerprint
 from signalscope.domain.documents.model import LANGUAGE_MAX_LENGTH, Document
 from signalscope.domain.documents.revision import DocumentRevision
 from signalscope.domain.documents.revision_repository import DocumentRevisionRepository
+from signalscope.domain.events.repository import EventRepository
 from signalscope.domain.search.embedding_queue import (
     EmbeddingQueue,
     EmbeddingQueueResult,
@@ -132,6 +133,8 @@ class DocumentProcessor:
                 )
                 # The chunk offsets point into the content saved above.
                 await DocumentChunkRepository(session).replace_for_document(document.id, chunks)
+                # Evidence went with the old chunks. Events it alone backed go too.
+                await EventRepository(session).delete_orphaned_events()
                 # Flush now, so a duplicate content hash shows up as a clear error.
                 await session.flush()
                 embeddings = None

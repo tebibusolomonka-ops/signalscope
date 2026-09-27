@@ -1,9 +1,10 @@
 import uuid
+from collections.abc import Collection
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import ColumnElement, func, select
+from sqlalchemy import ColumnElement, delete, exists, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from signalscope.domain.documents.chunk import DocumentChunk
@@ -31,7 +32,7 @@ class EvidenceWithChunk:
 
 
 class EventRepository:
-    """Read access to events and their evidence. It never commits."""
+    """Access to events and their evidence. It never commits."""
 
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
@@ -52,6 +53,20 @@ class EventRepository:
             select(func.count()).select_from(Event).where(*conditions)
         )
         return list(events), total or 0
+
+    async def delete_orphaned_events(self, event_ids: Collection[uuid.UUID] | None = None) -> int:
+        """Delete events that no evidence points to any more, and return how many.
+
+        Evidence goes away with its chunk, so this runs after chunks are
+        replaced or deleted. event_ids limits the check to those events.
+        """
+        statement = delete(Event).where(~exists().where(EventEvidence.event_id == Event.id))
+        if event_ids is not None:
+            if not event_ids:
+                return 0
+            statement = statement.where(Event.id.in_(event_ids))
+        result = await self.session.execute(statement.returning(Event.id))
+        return len(result.all())
 
     async def get(self, event_id: uuid.UUID) -> Event | None:
         return await self.session.get(Event, event_id)
