@@ -43,6 +43,10 @@ local-reranking = [
 local-entities = [
     "gliner>=0.2.29",
 ]
+# Runs the GLiNER2 model that reads events and claims on this machine.
+local-structured = [
+    "gliner2[local]>=2.0,<3",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/signalscope"]
@@ -72,6 +76,11 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 # Also an optional extra.
 module = ["gliner", "gliner.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# Also an optional extra.
+module = ["gliner2", "gliner2.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
