@@ -4,12 +4,19 @@ from typing import Annotated
 from fastapi import APIRouter, Query
 from pydantic import StringConstraints
 
-from signalscope.api.dependencies import DatabaseSession
+from signalscope.api.dependencies import DatabaseSession, DatabaseSessionFactory
 from signalscope.api.pagination import Page, Pagination
 from signalscope.core.errors import NotFoundError
+from signalscope.domain.claims.coverage import ClaimCoverageService
 from signalscope.domain.claims.model import CLAIM_TEXT_MAX_LENGTH, CLAIM_TYPE_MAX_LENGTH, Claim
 from signalscope.domain.claims.repository import ClaimRepository
-from signalscope.domain.claims.schemas import ClaimDetailRead, ClaimEvidenceRead, ClaimRead
+from signalscope.domain.claims.schemas import (
+    ClaimCoverageRead,
+    ClaimDetailRead,
+    ClaimEvidenceRead,
+    ClaimRead,
+)
+from signalscope.extraction.gliner2 import GLINER2_MODEL, GLINER2_PROVIDER
 
 router = APIRouter(prefix="/claims", tags=["Claims"])
 
@@ -44,6 +51,35 @@ async def list_claims(
         total=total,
         limit=page.limit,
         offset=page.offset,
+    )
+
+
+# Declared before /{claim_id}, so "coverage" is not read as a claim ID.
+@router.get("/coverage")
+async def claim_coverage(
+    session_factory: DatabaseSessionFactory, document_id: uuid.UUID | None = None
+) -> ClaimCoverageRead:
+    """Count the chunks the local GLiNER2 model has read for claims.
+
+    The numbers come from the database, so the model does not need to be
+    installed or loaded. document_id limits them to one document.
+    """
+    service = ClaimCoverageService(session_factory)
+    if document_id is None:
+        coverage = await service.overall(GLINER2_PROVIDER, GLINER2_MODEL)
+    else:
+        coverage = await service.for_document(document_id, GLINER2_PROVIDER, GLINER2_MODEL)
+    return ClaimCoverageRead(
+        provider=GLINER2_PROVIDER,
+        model=GLINER2_MODEL,
+        document_id=document_id,
+        chunk_count=coverage.chunk_count,
+        extracted_count=coverage.extracted_count,
+        pending_count=coverage.pending_count,
+        failed_count=coverage.failed_count,
+        coverage_ratio=(
+            coverage.extracted_count / coverage.chunk_count if coverage.chunk_count else None
+        ),
     )
 
 

@@ -434,7 +434,8 @@ signalscope run-claim-worker --once
 it found in each chunk.
 
 `GET /claims` lists claims, with `query`, `claim_type`, `limit` and `offset`.
-`GET /claims/{id}` shows one claim with its evidence.
+`GET /claims/{id}` shows one claim with its evidence. `GET /claims/coverage`
+counts how many chunks the model has read, like `GET /events/coverage`.
 
 ### Retrieval evaluation
 
