@@ -23,7 +23,10 @@ from signalscope.domain.entities.job import EntityExtractionJobStatus
 from signalscope.domain.entities.job_repository import EntityExtractionJobRepository
 from signalscope.domain.entities.queue import EntityExtractionQueueService
 from signalscope.domain.entities.worker import EntityExtractionWorker
+from signalscope.domain.events.job import EventExtractionJobStatus
+from signalscope.domain.events.job_repository import EventExtractionJobRepository
 from signalscope.domain.events.queue import EventExtractionQueueService
+from signalscope.domain.events.worker import EventExtractionWorker
 from signalscope.domain.ingestion.executor import IngestionExecutor
 from signalscope.domain.ingestion.model import (
     IngestionJob,
@@ -73,6 +76,9 @@ from signalscope.evaluation.retrieval import (
     evaluate_reranked,
     evaluate_semantic,
 )
+from signalscope.events.registry import EventExtractorRegistry
+from signalscope.events.runtime import create_event_extractor_registry
+from signalscope.extraction.gliner2 import LocalStructuredNotInstalledError
 from signalscope.extraction.runtime import local_structured_model
 from signalscope.ingestion.http import HttpFetcher
 from signalscope.ingestion.rss import RssIngestionAdapter
@@ -172,6 +178,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         if args.command == "run-entity-worker":
             return asyncio.run(run_entity_worker(settings, **loop_options))
+        if args.command == "run-event-worker":
+            return asyncio.run(run_event_worker(settings, **loop_options))
         return asyncio.run(run_processing_worker(settings, **loop_options))
     except KeyboardInterrupt:
         print("Stopped.", file=sys.stderr)
@@ -283,6 +291,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_worker_options(entity_worker)
 
+    event_worker = commands.add_parser(
+        "run-event-worker", help="find events in queued chunks with the local model"
+    )
+    _add_worker_options(event_worker)
+
     embedding = commands.add_parser(
         "run-embedding-worker", help="embed queued chunks with the local model"
     )
@@ -319,6 +332,7 @@ def _check_worker_options(parser: argparse.ArgumentParser, args: argparse.Namesp
         "run-processing-worker",
         "run-embedding-worker",
         "run-entity-worker",
+        "run-event-worker",
     )
     loop_option_given = is_worker and (args.poll_seconds is not None or args.max_jobs is not None)
     if loop_option_given and args.once:
@@ -739,6 +753,75 @@ async def run_entity_worker(
             poll_seconds=poll_seconds,
             max_jobs=max_jobs,
         )
+
+
+async def run_event_worker(
+    settings: Settings,
+    out: TextIO | None = None,
+    err: TextIO | None = None,
+    *,
+    extractors: EventExtractorRegistry | None = None,
+    once: bool = True,
+    poll_seconds: float | None = None,
+    max_jobs: int | None = None,
+) -> int:
+    """Find events in queued chunks and print each result. Returns the exit code.
+
+    Without extractors, the local GLiNER2 model from settings is used. It is
+    only loaded when a job needs it, so an empty queue never loads it.
+    """
+    out = sys.stdout if out is None else out
+    err = sys.stderr if err is None else err
+    if extractors is None:
+        if not _local_structured_ready(settings, err):
+            return 1
+        extractors = create_event_extractor_registry(settings)
+    if settings.database_url is None:
+        print(NO_DATABASE_ERROR, file=err)
+        return 1
+
+    async with _database(settings) as session_factory:
+        worker = EventExtractionWorker(session_factory, extractors)
+
+        async def work() -> bool | None:
+            async with session_factory() as session:
+                await EventExtractionJobRepository(session).recover_stale(utc_now(), RECOVERY_LIMIT)
+                await session.commit()
+            result = await worker.run_once()
+            if result.job is None:
+                return None
+            print(f"Job: {result.job.id}", file=out)
+            if result.lease_lost:
+                print(LEASE_LOST_MESSAGE, file=out)
+                return False
+            print(f"Status: {result.job.status}", file=out)
+            print(f"Events: {result.event_count}", file=out)
+            if result.job.last_error:
+                print(f"Error: {result.job.last_error}", file=out)
+            return result.job.status is EventExtractionJobStatus.COMPLETED
+
+        return await _run_jobs(
+            work,
+            "No event extraction job available.",
+            out,
+            once=once,
+            poll_seconds=poll_seconds,
+            max_jobs=max_jobs,
+        )
+
+
+def _local_structured_ready(settings: Settings, err: TextIO) -> bool:
+    """Whether the local GLiNER2 model can be used. Prints why not when it cannot.
+
+    Nothing is loaded here. The library is only looked up.
+    """
+    if not settings.local_structured_enabled:
+        print(LOCAL_STRUCTURED_DISABLED_ERROR, file=err)
+        return False
+    if importlib.util.find_spec("gliner2") is None:
+        print(f"Error: {LocalStructuredNotInstalledError()}", file=err)
+        return False
+    return True
 
 
 def _local_entities(settings: Settings, err: TextIO) -> EntityExtractorRegistry | None:

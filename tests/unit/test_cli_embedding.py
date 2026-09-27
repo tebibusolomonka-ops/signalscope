@@ -169,3 +169,30 @@ async def test_entity_worker_needs_the_extra(monkeypatch: pytest.MonkeyPatch) ->
 
     assert await run_entity_worker(settings, out, err) == 1
     assert 'pip install -e ".[local-entities]"' in err.getvalue()
+
+
+def test_event_worker_arguments() -> None:
+    args = build_parser().parse_args(["run-event-worker", "--poll-seconds", "2"])
+
+    assert (args.command, args.once, args.poll_seconds) == ("run-event-worker", False, 2)
+
+
+def test_event_worker_needs_local_structured_extraction(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.delenv("SIGNALSCOPE_LOCAL_STRUCTURED_ENABLED", raising=False)
+    monkeypatch.setenv("SIGNALSCOPE_DATABASE_URL", FAKE_DATABASE_URL)
+
+    assert main(["run-event-worker", "--once"]) == 1
+    assert "SIGNALSCOPE_LOCAL_STRUCTURED_ENABLED=true" in capsys.readouterr().err
+
+
+async def test_event_worker_needs_the_extra(monkeypatch: pytest.MonkeyPatch) -> None:
+    from signalscope.cli import run_event_worker
+
+    monkeypatch.setitem(sys.modules, "gliner2", None)
+    out, err = io.StringIO(), io.StringIO()
+    settings = Settings(database_url=FAKE_DATABASE_URL, local_structured_enabled=True)
+
+    assert await run_event_worker(settings, out, err) == 1
+    assert 'pip install -e ".[local-structured]"' in err.getvalue()

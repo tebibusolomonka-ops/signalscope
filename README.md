@@ -394,14 +394,19 @@ pip install -e ".[local-structured]"
 export SIGNALSCOPE_LOCAL_STRUCTURED_ENABLED=true
 ```
 
-Queue the existing chunks for it:
+Queue the existing chunks, then run the worker:
 
 ```bash
 signalscope queue-events --limit 1000
+signalscope run-event-worker --once
 ```
 
 `queue-events` checks chunks in a fixed order, skips those already read or
 waiting, and takes `--document-id` and `--limit`. It does not load the model.
+`run-event-worker` reads one chunk per job and prints the job, its status and
+how many events it found. Without `--once` it keeps running, with
+`--poll-seconds` and `--max-jobs`, and stops cleanly on Ctrl+C. The model is
+loaded, and downloaded the first time, only when a job needs it.
 
 A date is only stored when its meaning is certain, such as `2026-03-04` or
 `4 March 2026`. Other dates, such as `04/03/2026`, are kept as written in the
