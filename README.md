@@ -417,6 +417,21 @@ evidence metadata, and the event has no time.
 its evidence. `GET /events/coverage` counts how many chunks the model has
 read, optionally for one `document_id`, without loading the model.
 
+### Timeline
+
+Events from different documents that report the same thing can be linked
+into one cluster. This first linker is strict: the event type and the title
+must match after spaces and case are evened out, and when both events have a
+time, they must fall on the same UTC day. There is no fuzzy matching yet.
+Linking is done by `EventLinkingService` in code; no command runs it yet.
+
+`GET /timeline` lists the clusters in time order, newest first, or oldest
+first with `order=oldest_first`. Clusters without a time come last. It takes
+`occurred_from`, `occurred_to`, `event_type`, `source_id`, `limit` and
+`offset`. Each item gives the title, type, time, and how many events,
+sources and evidence rows back it, with the source names. The timeline only
+describes what was reported; it does not rank events by importance.
+
 ### Claims
 
 The same GLiNER2 model and switch read claims: statements a text makes, such

@@ -14,6 +14,7 @@ from signalscope.api.routes import (
     research,
     search,
     sources,
+    timeline,
 )
 from signalscope.core.settings import Settings, load_settings
 from signalscope.embeddings.runtime import create_embedding_registry
@@ -49,5 +50,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(entities.router)
     app.include_router(events.router)
     app.include_router(claims.router)
+    app.include_router(timeline.router)
     app.include_router(research.router)
     return app

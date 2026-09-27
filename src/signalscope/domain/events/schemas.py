@@ -45,3 +45,22 @@ class EventCoverageRead(BaseModel):
     failed_count: int
     # extracted_count / chunk_count, or None when there are no chunks.
     coverage_ratio: float | None
+
+
+class TimelineSourceRead(BaseModel):
+    source_id: uuid.UUID
+    name: str
+
+
+class TimelineItemRead(BaseModel):
+    """One cluster of linked events on the timeline."""
+
+    cluster_id: uuid.UUID
+    event_type: str
+    title: str
+    occurred_at: datetime | None
+    event_count: int
+    source_count: int
+    evidence_count: int
+    # The sources that report it, by name.
+    sources: list[TimelineSourceRead]
