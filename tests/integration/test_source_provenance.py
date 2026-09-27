@@ -71,7 +71,10 @@ async def add_mentions(
 
 
 async def add_claim(
-    session_factory: async_sessionmaker[AsyncSession], chunk: DocumentChunk, text: str
+    session_factory: async_sessionmaker[AsyncSession],
+    chunk: DocumentChunk,
+    text: str,
+    start: int = 0,
 ) -> None:
     async with session_factory() as session:
         claim = await session.scalar(select(Claim).where(Claim.normalized_text == text))
@@ -83,9 +86,9 @@ async def add_claim(
             ClaimEvidence(
                 claim_id=claim.id,
                 chunk_id=chunk.id,
-                surface_text=chunk.text[:4],
-                start_char=0,
-                end_char=4,
+                surface_text=chunk.text[start : start + 4],
+                start_char=start,
+                end_char=start + 4,
                 provider="test",
                 model="m",
             )
@@ -157,7 +160,7 @@ async def test_entities_claims_events_and_revisions(
     await add_mentions(session_factory, other_chunk, "madrid")
     await add_claim(session_factory, first, "prices rose")
     await add_claim(session_factory, third, "prices rose")
-    await add_claim(session_factory, third, "wages fell")
+    await add_claim(session_factory, third, "wages fell", start=5)
     await add_claim(session_factory, other_chunk, "rent rose")
     async with session_factory() as session:
         session.add_all(
