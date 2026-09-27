@@ -1,5 +1,6 @@
 import io
 import sys
+import uuid
 
 import pytest
 
@@ -124,6 +125,23 @@ def test_queue_entities_needs_local_entities(
 
     assert main(["queue-entities"]) == 1
     assert "SIGNALSCOPE_LOCAL_ENTITIES_ENABLED=true" in capsys.readouterr().err
+
+
+def test_queue_events_arguments() -> None:
+    document_id = uuid.uuid4()
+    args = build_parser().parse_args(["queue-events", "--document-id", str(document_id)])
+
+    assert (args.command, args.document_id, args.limit) == ("queue-events", document_id, None)
+
+
+def test_queue_events_needs_local_structured_extraction(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.delenv("SIGNALSCOPE_LOCAL_STRUCTURED_ENABLED", raising=False)
+    monkeypatch.setenv("SIGNALSCOPE_DATABASE_URL", FAKE_DATABASE_URL)
+
+    assert main(["queue-events"]) == 1
+    assert "SIGNALSCOPE_LOCAL_STRUCTURED_ENABLED=true" in capsys.readouterr().err
 
 
 def test_entity_worker_arguments() -> None:

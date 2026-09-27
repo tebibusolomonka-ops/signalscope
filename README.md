@@ -383,6 +383,34 @@ with its mentions. Types are stored in lower case. Entities are linked by
 normalized name and type only, so two people with the same name share one
 entity.
 
+### Events
+
+SignalScope can read events, such as floods or elections, out of chunks with
+`fastino/gliner2.5-multi-v1`, a multilingual GLiNER2 model that runs on this
+machine. It needs its own extra and switch:
+
+```bash
+pip install -e ".[local-structured]"
+export SIGNALSCOPE_LOCAL_STRUCTURED_ENABLED=true
+```
+
+Queue the existing chunks for it:
+
+```bash
+signalscope queue-events --limit 1000
+```
+
+`queue-events` checks chunks in a fixed order, skips those already read or
+waiting, and takes `--document-id` and `--limit`. It does not load the model.
+
+A date is only stored when its meaning is certain, such as `2026-03-04` or
+`4 March 2026`. Other dates, such as `04/03/2026`, are kept as written in the
+evidence metadata, and the event has no time.
+
+`GET /events` lists events, with `event_type`, `occurred_from`,
+`occurred_to`, `limit` and `offset`. `GET /events/{id}` shows one event with
+its evidence.
+
 ### Retrieval evaluation
 
 A retrieval dataset is a JSON file with documents, queries, and the documents
