@@ -57,6 +57,15 @@ def load_gliner2(model: str, device: str, cache_dir: Path | None) -> StructuredE
     return extractor
 
 
+class StructuredBackend(Protocol):
+    """What the event and claim providers need from a structured extraction model."""
+
+    provider_name: str
+    model_name: str
+
+    async def extract_json(self, text: str, schema: StructuredSchema) -> dict[str, Any]: ...
+
+
 def field_text(record: Mapping[str, Any], name: str) -> str | None:
     """Return a field of one extracted record as trimmed text, or None.
 

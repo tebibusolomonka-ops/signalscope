@@ -59,7 +59,7 @@ async def extract_claims(provider: ClaimExtractionProvider, text: str) -> list[E
     name = f"{provider.provider_name}/{provider.model_name}"
     checked = []
     for claim in claims:
-        problem = _problem(claim, text)
+        problem = claim_problem(claim, text)
         if problem is not None:
             raise InvalidExtractedClaimError(f"Claim extraction model {name} {problem}.")
         checked.append(
@@ -70,7 +70,8 @@ async def extract_claims(provider: ClaimExtractionProvider, text: str) -> list[E
     return checked
 
 
-def _problem(claim: ExtractedClaim, text: str) -> str | None:
+def claim_problem(claim: ExtractedClaim, text: str) -> str | None:
+    """Say what is wrong with an extracted claim, or return None when it fits the text."""
     if not isinstance(claim.text, str) or not claim.text.strip():
         return "returned a claim without text"
     if len(claim.text.strip()) > CLAIM_TEXT_MAX_LENGTH:

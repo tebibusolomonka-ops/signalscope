@@ -4,10 +4,10 @@ import logging
 import re
 from collections.abc import Mapping
 from datetime import UTC, date, datetime, time
-from typing import Any, Protocol
+from typing import Any
 
 from signalscope.events.provider import ExtractedEvent, InvalidExtractedEventError, event_problem
-from signalscope.extraction.gliner2 import StructuredSchema, field_text
+from signalscope.extraction.gliner2 import StructuredBackend, StructuredSchema, field_text
 
 logger = logging.getLogger(__name__)
 
@@ -43,13 +43,6 @@ MONTHS = {
 }
 DAY_MONTH_YEAR = re.compile(r"(\d{1,2}) ([a-z]+) (\d{4})")
 MONTH_DAY_YEAR = re.compile(r"([a-z]+) (\d{1,2}),? (\d{4})")
-
-
-class StructuredBackend(Protocol):
-    provider_name: str
-    model_name: str
-
-    async def extract_json(self, text: str, schema: StructuredSchema) -> dict[str, Any]: ...
 
 
 class Gliner2EventProvider:
