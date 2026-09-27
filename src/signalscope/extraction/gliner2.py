@@ -57,6 +57,21 @@ def load_gliner2(model: str, device: str, cache_dir: Path | None) -> StructuredE
     return extractor
 
 
+def field_text(record: Mapping[str, Any], name: str) -> str | None:
+    """Return a field of one extracted record as trimmed text, or None.
+
+    GLiNER2 gives a field as plain text, or as an object with the text when
+    it is asked for spans or scores. Anything else, such as a list, counts as
+    missing.
+    """
+    value = record.get(name)
+    if isinstance(value, Mapping):
+        value = value.get("text")
+    if not isinstance(value, str) or not value.strip():
+        return None
+    return value.strip()
+
+
 class Gliner2StructuredBackend:
     """fastino/gliner2.5-multi-v1, run locally. The event and claim providers share it.
 

@@ -53,7 +53,7 @@ async def extract_events(provider: EventExtractionProvider, text: str) -> list[E
     name = f"{provider.provider_name}/{provider.model_name}"
     checked = []
     for event in events:
-        problem = _problem(event)
+        problem = event_problem(event)
         if problem is not None:
             raise InvalidExtractedEventError(f"Event extraction model {name} {problem}.")
         checked.append(
@@ -62,7 +62,8 @@ async def extract_events(provider: EventExtractionProvider, text: str) -> list[E
     return checked
 
 
-def _problem(event: ExtractedEvent) -> str | None:
+def event_problem(event: ExtractedEvent) -> str | None:
+    """Say what is wrong with an extracted event, or return None when it can be stored."""
     if not isinstance(event.event_type, str) or not event.event_type.strip():
         return "returned an event without a type"
     if len(event.event_type.strip()) > EVENT_TYPE_MAX_LENGTH:
