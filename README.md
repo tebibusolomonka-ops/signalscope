@@ -347,9 +347,35 @@ URL and chunk metadata, such as the PDF page, so a reader never has to guess
 which source an ID means. When no evidence is found, the model is not asked
 and `answer` is `null`.
 
-No answer model is configured yet, so the endpoint answers 503 for now. The
-code for the checks and the flow is in place and tested with a fake model. A
-real model comes in a later step.
+The answer model is `Qwen/Qwen3-4B-Instruct-2507`, run on this machine with
+Transformers. It is optional and off by default, so the endpoint answers 503
+until it is turned on:
+
+```bash
+pip install -e ".[local-answers]"
+export SIGNALSCOPE_LOCAL_ANSWERS_ENABLED=true
+signalscope check-answer-model
+```
+
+`check-answer-model` loads the model, downloading it the first time (several
+gigabytes), answers one small question from one piece of evidence, runs the
+same citation checks, and prints the provider, the model and the cited IDs.
+`SIGNALSCOPE_LOCAL_ANSWER_DEVICE` picks where it runs, and
+`SIGNALSCOPE_LOCAL_ANSWER_MAX_NEW_TOKENS` (default 512) caps the answer
+length.
+
+Then ask a question:
+
+```bash
+curl -X POST localhost:8000/research/answer   -H "Content-Type: application/json"   -d '{"query": "What flooded the harbour?", "mode": "hybrid", "limit": 5}'
+```
+
+Answers stay tied to the evidence. The model is only shown the question and,
+for each piece of evidence, its ID, title and text. It is told to answer only
+from that evidence and to return JSON with the text and the IDs it cites.
+Generation is greedy, so the same evidence gives the same answer. Output that
+is not exactly that JSON is rejected, and every answer goes through the
+citation checks above before it is returned.
 
 ### Entities
 

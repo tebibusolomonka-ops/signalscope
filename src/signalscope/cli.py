@@ -95,6 +95,16 @@ from signalscope.reranking.local import LocalRerankingNotInstalledError
 from signalscope.reranking.models import MMARCO_MINILM
 from signalscope.reranking.provider import RerankerProvider
 from signalscope.reranking.runtime import create_reranker_registry
+from signalscope.research.citations import validate_citations
+from signalscope.research.context import context_text
+from signalscope.research.evidence import ResearchEvidence
+from signalscope.research.generation import (
+    AnswerRequest,
+    ResearchAnswerGenerator,
+    generate_answer,
+)
+from signalscope.research.local import LocalAnswersNotInstalledError
+from signalscope.research.runtime import create_answer_generator_registry
 from signalscope.storage.local import LocalBlobStore
 from signalscope.workers.runner import DEFAULT_POLL_SECONDS, WorkerLoop
 from signalscope.workers.shutdown import stop_on_signals
@@ -115,6 +125,10 @@ LOCAL_STRUCTURED_DISABLED_ERROR = (
     "Error: Local structured extraction is not enabled. "
     "Set SIGNALSCOPE_LOCAL_STRUCTURED_ENABLED=true."
 )
+LOCAL_ANSWERS_DISABLED_ERROR = (
+    "Error: Local answers are not enabled. Set SIGNALSCOPE_LOCAL_ANSWERS_ENABLED=true."
+)
+SMOKE_QUESTION = "How much electricity did offshore wind farms produce?"
 LOCAL_RERANKING_DISABLED = (
     "Local reranking is not enabled. Set SIGNALSCOPE_LOCAL_RERANKING_ENABLED=true."
 )
@@ -162,6 +176,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
     if args.command == "check-embedding-model":
         return asyncio.run(check_embedding_model(settings))
+    if args.command == "check-answer-model":
+        return asyncio.run(check_answer_model(settings))
     if args.command == "queue-embeddings":
         return asyncio.run(
             queue_embeddings(settings, document_id=args.document_id, limit=args.limit)
@@ -298,6 +314,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     commands.add_parser(
         "check-embedding-model", help="load the local model and embed one query and one passage"
+    )
+
+    commands.add_parser(
+        "check-answer-model", help="load the local answer model and answer one small question"
     )
 
     worker = commands.add_parser("run-worker", help="run queued ingestion jobs")
@@ -1131,6 +1151,57 @@ async def check_embedding_model(
     print(f"Query vector: {len(query)} numbers", file=out)
     print(f"Passage vector: {len(passage)} numbers", file=out)
     print(f"Cosine similarity: {_cosine(query, passage):.3f}", file=out)
+    return 0
+
+
+async def check_answer_model(
+    settings: Settings,
+    out: TextIO | None = None,
+    err: TextIO | None = None,
+    *,
+    generator: ResearchAnswerGenerator | None = None,
+) -> int:
+    """Load the local answer model, answer one question from one piece of evidence.
+
+    The answer goes through the same citation checks as the API. The first run
+    downloads the model when it is not cached yet. Prints a short summary.
+    """
+    out = sys.stdout if out is None else out
+    err = sys.stderr if err is None else err
+    if generator is None:
+        if not settings.local_answers_enabled:
+            print(LOCAL_ANSWERS_DISABLED_ERROR, file=err)
+            return 1
+        if any(importlib.util.find_spec(name) is None for name in ("transformers", "torch")):
+            print(f"Error: {LocalAnswersNotInstalledError()}", file=err)
+            return 1
+        generator = create_answer_generator_registry(settings).only()
+    evidence = [
+        ResearchEvidence(
+            evidence_id="E1",
+            document_id=uuid.uuid4(),
+            chunk_id=uuid.uuid4(),
+            source_id=uuid.uuid4(),
+            title="Energy report",
+            url=None,
+            excerpt=SMOKE_PASSAGE,
+            text=SMOKE_PASSAGE,
+            chunk_metadata={},
+            scores={},
+        )
+    ]
+    request = AnswerRequest(
+        question=SMOKE_QUESTION, evidence=tuple(evidence), context_text=context_text(evidence)
+    )
+    try:
+        answer = validate_citations(await generate_answer(generator, request), evidence)
+    except SignalScopeError as error:
+        print(f"Error: {error}", file=err)
+        return 1
+    print(f"Provider: {generator.provider_name}", file=out)
+    print(f"Model: {generator.model_name}", file=out)
+    print(f"Citations: {', '.join(answer.citation_ids)}", file=out)
+    print("Answer generated: yes", file=out)
     return 0
 
 
