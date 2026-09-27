@@ -212,3 +212,30 @@ def test_queue_claims_needs_local_structured_extraction(
 
     assert main(["queue-claims"]) == 1
     assert "SIGNALSCOPE_LOCAL_STRUCTURED_ENABLED=true" in capsys.readouterr().err
+
+
+def test_claim_worker_arguments() -> None:
+    args = build_parser().parse_args(["run-claim-worker", "--once"])
+
+    assert (args.command, args.once) == ("run-claim-worker", True)
+
+
+def test_claim_worker_needs_local_structured_extraction(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.delenv("SIGNALSCOPE_LOCAL_STRUCTURED_ENABLED", raising=False)
+    monkeypatch.setenv("SIGNALSCOPE_DATABASE_URL", FAKE_DATABASE_URL)
+
+    assert main(["run-claim-worker", "--once"]) == 1
+    assert "SIGNALSCOPE_LOCAL_STRUCTURED_ENABLED=true" in capsys.readouterr().err
+
+
+async def test_claim_worker_needs_the_extra(monkeypatch: pytest.MonkeyPatch) -> None:
+    from signalscope.cli import run_claim_worker
+
+    monkeypatch.setitem(sys.modules, "gliner2", None)
+    out, err = io.StringIO(), io.StringIO()
+    settings = Settings(database_url=FAKE_DATABASE_URL, local_structured_enabled=True)
+
+    assert await run_claim_worker(settings, out, err) == 1
+    assert 'pip install -e ".[local-structured]"' in err.getvalue()

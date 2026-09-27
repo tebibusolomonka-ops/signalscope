@@ -426,10 +426,12 @@ true.
 
 ```bash
 signalscope queue-claims --limit 1000
+signalscope run-claim-worker --once
 ```
 
-`queue-claims` works like `queue-events`, with `--document-id` and `--limit`,
-and does not load the model.
+`queue-claims` and `run-claim-worker` work like `queue-events` and
+`run-event-worker`, with the same options. The worker prints how many claims
+it found in each chunk.
 
 `GET /claims` lists claims, with `query`, `claim_type`, `limit` and `offset`.
 `GET /claims/{id}` shows one claim with its evidence.
