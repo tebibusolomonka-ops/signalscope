@@ -15,6 +15,7 @@ from signalscope.domain.documents.revision import DocumentRevision
 from signalscope.domain.entities.job import EntityExtractionJob
 from signalscope.domain.entities.mention import EntityMention
 from signalscope.domain.entities.model import Entity
+from signalscope.domain.events.cluster import EventCluster, EventClusterMember
 from signalscope.domain.events.job import EventExtractionJob
 from signalscope.domain.events.model import Event, EventEvidence
 from signalscope.domain.ingestion.model import IngestionJob, IngestionRun
@@ -41,6 +42,8 @@ __all__ = [
     "EntityExtractionJob",
     "EntityMention",
     "Event",
+    "EventCluster",
+    "EventClusterMember",
     "EventEvidence",
     "EventExtractionJob",
     "IngestionJob",
