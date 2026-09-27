@@ -59,6 +59,10 @@ class Settings:
     local_entity_device: str = "cpu"
     # Spans the model scores lower than this are left out.
     local_entity_threshold: float = 0.5
+    # The local GLiNER2 model that reads events and claims. Off by default, for
+    # the same reasons.
+    local_structured_enabled: bool = False
+    local_structured_device: str = "cpu"
 
     def __post_init__(self) -> None:
         if not self.app_name.strip():
@@ -75,6 +79,8 @@ class Settings:
             raise SettingsError("local_entity_device must not be empty")
         if not 0 < self.local_entity_threshold <= 1:
             raise SettingsError("local_entity_threshold must be above 0 and at most 1")
+        if not self.local_structured_device.strip():
+            raise SettingsError("local_structured_device must not be empty")
         if self.database_url is not None and not self.database_url.startswith(DATABASE_URL_PREFIX):
             raise SettingsError(f"Database URL must start with {DATABASE_URL_PREFIX}")
 
@@ -121,6 +127,12 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
         ),
         local_entity_threshold=_read_float(
             env, "SIGNALSCOPE_LOCAL_ENTITY_THRESHOLD", defaults.local_entity_threshold
+        ),
+        local_structured_enabled=_read_bool(
+            env, "SIGNALSCOPE_LOCAL_STRUCTURED_ENABLED", defaults.local_structured_enabled
+        ),
+        local_structured_device=_read_str(
+            env, "SIGNALSCOPE_LOCAL_STRUCTURED_DEVICE", defaults.local_structured_device
         ),
     )
 

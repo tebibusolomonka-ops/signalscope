@@ -283,3 +283,25 @@ def test_entity_threshold_must_be_a_finite_number(value: str) -> None:
 
 def test_entity_threshold_of_one_is_allowed() -> None:
     assert load_settings({"SIGNALSCOPE_LOCAL_ENTITY_THRESHOLD": "1"}).local_entity_threshold == 1.0
+
+
+def test_local_structured_extraction_is_off_by_default() -> None:
+    settings = load_settings({})
+
+    assert (settings.local_structured_enabled, settings.local_structured_device) == (False, "cpu")
+
+
+def test_load_local_structured_settings() -> None:
+    settings = load_settings(
+        {
+            "SIGNALSCOPE_LOCAL_STRUCTURED_ENABLED": "yes",
+            "SIGNALSCOPE_LOCAL_STRUCTURED_DEVICE": " cuda ",
+        }
+    )
+
+    assert (settings.local_structured_enabled, settings.local_structured_device) == (True, "cuda")
+
+
+def test_structured_device_must_not_be_blank() -> None:
+    with pytest.raises(SettingsError, match="local_structured_device"):
+        Settings(local_structured_device=" ")

@@ -22,6 +22,8 @@ empty, keeps its default value. An invalid value raises `SettingsError`.
 | `SIGNALSCOPE_LOCAL_ENTITIES_ENABLED` | `false` | `true`, `false`, `1`, `0`, `yes`, `no`, `on`, `off` |
 | `SIGNALSCOPE_LOCAL_ENTITY_DEVICE` | `cpu` | A device name, such as `cpu` or `cuda` |
 | `SIGNALSCOPE_LOCAL_ENTITY_THRESHOLD` | `0.5` | A number above 0 and at most 1 |
+| `SIGNALSCOPE_LOCAL_STRUCTURED_ENABLED` | `false` | `true`, `false`, `1`, `0`, `yes`, `no`, `on`, `off` |
+| `SIGNALSCOPE_LOCAL_STRUCTURED_DEVICE` | `cpu` | A device name, such as `cpu` or `cuda` |
 
 Values are not case-sensitive, except for the app name, the database URL,
 the device and the folders.
@@ -121,3 +123,21 @@ a chunk. Its files go to `SIGNALSCOPE_LOCAL_EMBEDDING_CACHE_DIR` when that is
 set. `SIGNALSCOPE_LOCAL_ENTITY_DEVICE` picks where it runs.
 `SIGNALSCOPE_LOCAL_ENTITY_THRESHOLD` is the lowest score a span needs to be
 kept. Higher values keep fewer, surer entities.
+
+## Local structured extraction
+
+SignalScope can read events and claims out of chunks with
+`fastino/gliner2.5-multi-v1`, a multilingual GLiNER2 model. One loaded copy of
+the model serves both. The model name is fixed.
+
+It is off by default and has its own extra and switch:
+
+```bash
+pip install -e ".[local-structured]"
+export SIGNALSCOPE_LOCAL_STRUCTURED_ENABLED=true
+```
+
+Turning it on does not load anything. The model is loaded, and downloaded the
+first time, only when it first reads a chunk. Its files go to
+`SIGNALSCOPE_LOCAL_EMBEDDING_CACHE_DIR` when that is set.
+`SIGNALSCOPE_LOCAL_STRUCTURED_DEVICE` picks where it runs.
