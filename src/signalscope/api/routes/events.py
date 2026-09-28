@@ -4,7 +4,11 @@ from typing import Annotated
 from fastapi import APIRouter, Query
 from pydantic import AwareDatetime, StringConstraints
 
-from signalscope.api.dependencies import DatabaseSession, DatabaseSessionFactory
+from signalscope.api.dependencies import (
+    DatabaseSession,
+    DatabaseSessionFactory,
+    EmbeddingProviders,
+)
 from signalscope.api.pagination import Page, Pagination
 from signalscope.core.errors import InvalidInputError, NotFoundError
 from signalscope.domain.events.coverage import EventCoverageService
@@ -14,11 +18,19 @@ from signalscope.domain.events.schemas import (
     EventCoverageRead,
     EventDetailRead,
     EventEvidenceRead,
+    EventLinkSuggestionRead,
     EventRead,
+)
+from signalscope.domain.events.suggestions import (
+    DEFAULT_SUGGESTION_LIMIT,
+    EventLinkSuggestionService,
 )
 from signalscope.extraction.gliner2 import GLINER2_MODEL, GLINER2_PROVIDER
 
 router = APIRouter(prefix="/events", tags=["Events"])
+
+# The most suggestions one request returns.
+MAX_SUGGESTIONS = 50
 
 TypeQuery = Annotated[
     str | None,
@@ -104,3 +116,30 @@ async def get_event(event_id: uuid.UUID, session: DatabaseSession) -> EventDetai
             for item in evidence
         ],
     )
+
+
+@router.get("/{event_id}/link-suggestions")
+async def event_link_suggestions(
+    event_id: uuid.UUID,
+    session: DatabaseSession,
+    providers: EmbeddingProviders,
+    limit: Annotated[int, Query(ge=1, le=MAX_SUGGESTIONS)] = DEFAULT_SUGGESTION_LIMIT,
+) -> list[EventLinkSuggestionRead]:
+    """Events of the same type that may report the same thing, most similar first.
+
+    These are suggestions for a person to review, ranked by the similarity of
+    the local E5 embeddings of the event texts. Nothing is linked or changed:
+    clusters are only formed by the exact linker. Answers 503 when local
+    embeddings are off.
+    """
+    suggestions = await EventLinkSuggestionService(session, providers).suggest(event_id, limit)
+    return [
+        EventLinkSuggestionRead(
+            candidate_event_id=item.candidate_event_id,
+            candidate_cluster_id=item.cluster_id,
+            title=item.title,
+            occurred_at=item.occurred_at,
+            similarity=item.similarity,
+        )
+        for item in suggestions
+    ]

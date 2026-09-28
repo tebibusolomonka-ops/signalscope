@@ -462,6 +462,12 @@ A date is only stored when its meaning is certain, such as `2026-03-04` or
 `4 March 2026`. Other dates, such as `04/03/2026`, are kept as written in the
 evidence metadata, and the event has no time.
 
+`GET /events/{id}/link-suggestions?limit=10` lists events of the same type
+that may report the same thing, ranked by the similarity of their local E5
+embeddings (it needs local embeddings). These are suggestions for a person to
+review, not links: the endpoint never changes clusters, and only the exact
+linker puts events together.
+
 `GET /events` lists events, with `event_type`, `occurred_from`,
 `occurred_to`, `limit` and `offset`. `GET /events/{id}` shows one event with
 its evidence. `GET /events/coverage` counts how many chunks the model has

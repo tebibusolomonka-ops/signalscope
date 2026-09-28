@@ -90,3 +90,33 @@ def test_coverage_is_not_read_as_an_event_id() -> None:
 
     assert status_code == 422
     assert body["error"]["details"][0]["loc"] == ["query", "document_id"]
+
+
+def test_link_suggestions_route_is_in_openapi(app: FastAPI) -> None:
+    paths = app.openapi()["paths"]
+    schema = app.openapi()["components"]["schemas"]["EventLinkSuggestionRead"]
+
+    get = paths["/events/{event_id}/link-suggestions"]
+    assert set(get) == {"get"}
+    assert [parameter["name"] for parameter in get["get"]["parameters"]] == ["event_id", "limit"]
+    assert set(schema["properties"]) == {
+        "candidate_event_id",
+        "candidate_cluster_id",
+        "title",
+        "occurred_at",
+        "similarity",
+    }
+
+
+@pytest.mark.parametrize("params", [{"limit": "0"}, {"limit": "51"}], ids=["zero", "too many"])
+def test_link_suggestions_limit(params: dict[str, str]) -> None:
+    status_code, body = get("/events/00000000-0000-0000-0000-000000000001/link-suggestions", params)
+
+    assert status_code == 422
+    assert body["error"]["details"][0]["loc"] == ["query", "limit"]
+
+
+def test_link_suggestions_bad_event_id() -> None:
+    status_code, _ = get("/events/not-a-uuid/link-suggestions")
+
+    assert status_code == 422

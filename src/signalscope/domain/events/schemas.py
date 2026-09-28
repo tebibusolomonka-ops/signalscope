@@ -64,3 +64,15 @@ class TimelineItemRead(BaseModel):
     evidence_count: int
     # The sources that report it, by name.
     sources: list[TimelineSourceRead]
+
+
+class EventLinkSuggestionRead(BaseModel):
+    """An event that may report the same thing. Advisory only: nothing is linked."""
+
+    candidate_event_id: uuid.UUID
+    # The cluster the candidate is in, if any.
+    candidate_cluster_id: uuid.UUID | None
+    title: str
+    occurred_at: datetime | None
+    # Cosine similarity of the two event texts, from -1 to 1. Not a probability.
+    similarity: float
