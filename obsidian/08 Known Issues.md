@@ -1,13 +1,14 @@
 # Known Issues
 
-Open problems as of commit 234. Remove an item when it is fixed.
+Open problems as of commit 239. Remove an item when it is fixed.
 
 ## Events
 
-- Nothing runs `EventLinkingService` automatically. Events stay unclustered,
-  and the timeline stays empty, until code calls it.
-- Event clusters whose member events are all deleted stay behind. The timeline
-  hides them because it joins on members.
+- Empty-cluster cleanup can race with linking: if an empty cluster is deleted
+  while a linker is adding an event to it, that link fails. The event stays
+  unclustered and `link-events` repairs it.
+- The linker only ever joins exact matches; near-duplicate titles stay in
+  separate clusters. Semantic suggestions show them but do not merge them.
 - Event date parsing is deliberately conservative: ISO dates and English month
   names only. Other dates are kept as text in evidence metadata.
 

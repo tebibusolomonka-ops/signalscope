@@ -38,5 +38,8 @@ already read when it has results or a completed job.
 
 ## Extraction workers
 
-A rerun of a chunk replaces that model's results for the chunk. Model errors
+A rerun of a chunk replaces that model's results for the chunk. The event
+worker links its new events into clusters after the job is committed; a
+linking failure is logged and the events stay unclustered for
+`link-events` to repair. Model errors
 are stored as safe messages. Unknown errors never store private details.

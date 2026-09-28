@@ -1,6 +1,6 @@
 # Current State
 
-Last updated at commit 234. Alembic head: `97ebc65e728c` (Create event clusters).
+Last updated at commit 239. Alembic head: `97ebc65e728c` (Create event clusters).
 
 ## Done
 
@@ -12,7 +12,15 @@ Last updated at commit 234. Alembic head: `97ebc65e728c` (Create event clusters)
 - Event and claim extraction (GLiNER2) with queues, workers, APIs and coverage.
 - Orphaned event cleanup after chunk replacement and document deletion.
 - Exact event linking (`EventLinkingService`) into event clusters, and the
-  timeline API over clusters.
+  timeline API over clusters. The event worker links new events right after
+  it commits them; `signalscope link-events` links any left over.
+- Empty event clusters are deleted whenever orphaned events are deleted
+  (reprocessing, document deletion, worker reruns).
+- Semantic event link suggestions (`EventLinkSuggestionService`, E5 cosine
+  similarity). Code only, no route yet. They never change clusters.
+- Source comparison service (`SourceComparisonService`): 2 to 10 sources side
+  by side with provenance counts, plus shared clusters, entities and claims.
+  Code only; the route comes next.
 - Source provenance profile (counts and dates, no score).
 - Research context and citation-checked research answers, with an optional
   local Qwen answer model and a smoke check command.

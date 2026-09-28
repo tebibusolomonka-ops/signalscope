@@ -19,8 +19,14 @@ Decisions that should hold unless there is a clear reason to change them.
   dates only. No trust, reliability or ranking of sources.
 - **Claims carry no truth judgement.**
 - **Exact event linking is authoritative.** Automatic linking uses exact
-  normalized type and title plus the same UTC day. Semantic linking, when it
-  comes, starts as suggestions only and never changes clusters by itself.
+  normalized type and title plus the same UTC day. It runs after the event
+  worker commits, never during the model call, and a linking failure never
+  fails a completed extraction job.
+- **Semantic event links are suggestions only.** E5 similarity ranks
+  candidates of the same type (and within 7 days when both are dated). There
+  is no similarity threshold, and suggestions never change cluster membership.
+- **Source comparison is descriptive.** Sources are shown in the order asked,
+  with observed counts and shared items. No score, winner or ranking.
 - **No persisted relation graph** until relation extraction has been
   evaluated on real data.
 - **Answers must cite given evidence.** Citations are validated before an
