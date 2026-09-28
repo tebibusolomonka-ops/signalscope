@@ -39,6 +39,8 @@ class StructuredExtractor(Protocol):
 
     def extract_json(self, text: str, schema: dict[str, list[str]]) -> Any: ...
 
+    def extract_relations(self, text: str, relation_types: dict[str, str]) -> Any: ...
+
 
 # Loads a model from its name, a device and an optional cache folder.
 ModelLoader = Callable[[str, str, Path | None], StructuredExtractor]
@@ -90,8 +92,9 @@ class Gliner2StructuredBackend:
     """fastino/gliner2.5-multi-v1, run locally. The event and claim providers share it.
 
     The model is loaded on first use, and runs in a worker thread, because it
-    is slow and would block the event loop. Only extract_json is exposed, so
-    the rest of SignalScope never works with the library objects directly.
+    is slow and would block the event loop. Only extract_json and
+    extract_relations are exposed, so the rest of SignalScope never works with
+    the library objects directly.
     """
 
     provider_name = GLINER2_PROVIDER
@@ -114,6 +117,19 @@ class Gliner2StructuredBackend:
         extractor = await self._load()
         request = {name: list(fields) for name, fields in schema.items()}
         output = await asyncio.to_thread(extractor.extract_json, text, request)
+        if not isinstance(output, Mapping):
+            raise InvalidStructuredOutputError()
+        return dict(output)
+
+    async def extract_relations(
+        self, text: str, relation_types: Mapping[str, str]
+    ) -> dict[str, Any]:
+        """Return the relations the model found, by relation type.
+
+        relation_types maps each type to a short description of it.
+        """
+        extractor = await self._load()
+        output = await asyncio.to_thread(extractor.extract_relations, text, dict(relation_types))
         if not isinstance(output, Mapping):
             raise InvalidStructuredOutputError()
         return dict(output)

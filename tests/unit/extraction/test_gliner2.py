@@ -39,6 +39,11 @@ class FakeAutoExtractor:
         self.threads.append(threading.current_thread().name)
         return self.output
 
+    def extract_relations(self, text: str, relation_types: dict[str, str]) -> Any:
+        self.calls.append((text, relation_types))
+        self.threads.append(threading.current_thread().name)
+        return self.output
+
 
 class FakeLoader:
     def __init__(self, extractor: FakeAutoExtractor) -> None:
@@ -210,3 +215,23 @@ async def test_backend_loads_lazily_through_the_loader(
     await backend.extract_json(TEXT, SCHEMA)
 
     assert libraries.loads == [("fastino/gliner2.5-multi-v1", {"map_location": "cpu"})]
+
+
+async def test_relations_are_forwarded_off_the_event_loop() -> None:
+    output = {"relation_extraction": {"works_for": [("Ana", "Acme")]}}
+    extractor = FakeAutoExtractor(output)
+    backend, loader = backend_with(extractor)
+
+    found = await backend.extract_relations("Ana works for Acme.", {"works_for": "Employment"})
+
+    assert found == output
+    assert extractor.calls == [("Ana works for Acme.", {"works_for": "Employment"})]
+    assert extractor.threads != [threading.current_thread().name]
+    assert len(loader.calls) == 1
+
+
+async def test_relation_output_that_is_not_an_object_is_rejected() -> None:
+    backend, _ = backend_with(FakeAutoExtractor(["works_for"]))
+
+    with pytest.raises(InvalidStructuredOutputError):
+        await backend.extract_relations("Ana works for Acme.", {"works_for": "Employment"})
