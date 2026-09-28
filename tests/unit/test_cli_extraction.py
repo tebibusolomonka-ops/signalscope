@@ -219,3 +219,76 @@ def test_main_needs_local_structured_extraction(
 
     assert main(["evaluate-extraction", str(dataset)]) == 1
     assert "SIGNALSCOPE_LOCAL_STRUCTURED_ENABLED=true" in capsys.readouterr().err
+
+
+def gates_file(tmp_path: Path, gates: Any) -> Path:
+    path = tmp_path / "gates.json"
+    path.write_text(json.dumps(gates), encoding="utf-8")
+    return path
+
+
+async def test_quality_gates_pass(dataset: Path, tmp_path: Path) -> None:
+    gates = gates_file(tmp_path, {"event": {"precision": 1.0, "f1": 0.9}})
+
+    code, out, _ = await run(dataset, mode="event", event_provider=events(), quality_gates=gates)
+
+    assert code == 0
+    assert out.endswith(
+        "Quality gates\n"
+        "Event precision: 1.000, minimum 1.000, passed\n"
+        "Event f1: 1.000, minimum 0.900, passed\n"
+        "Gates missed: 0 of 2\n"
+    )
+
+
+async def test_quality_gates_missed(dataset: Path, tmp_path: Path) -> None:
+    gates = gates_file(
+        tmp_path, {"claim": {"precision": 0.9, "recall": 0.5}, "relation": {"f1": 0.5}}
+    )
+
+    code, out, _ = await run(dataset, mode="claim", claim_provider=claims(), quality_gates=gates)
+
+    assert code == 1
+    assert "Claim precision: 0.500, minimum 0.900, missed\n" in out
+    assert "Claim recall: 1.000, minimum 0.500, passed\n" in out
+    # The relation mode did not run, so its gate cannot pass.
+    assert "Relation f1: not run, minimum 0.500, missed\n" in out
+    assert out.endswith("Gates missed: 2 of 3\n")
+    for word in ("good", "bad", "safe", "unsafe"):
+        assert word not in out.lower()
+
+
+async def test_undefined_metric_misses_its_gate(dataset: Path, tmp_path: Path) -> None:
+    gates = gates_file(tmp_path, {"event": {"precision": 0.0}})
+
+    code, out, _ = await run(
+        dataset, mode="event", event_provider=Scripted([]), quality_gates=gates
+    )
+
+    assert code == 1
+    assert "Event precision: undefined, minimum 0.000, missed\n" in out
+
+
+async def test_bad_gates_file_fails_before_any_model(dataset: Path, tmp_path: Path) -> None:
+    gates = gates_file(tmp_path, {"event": {"f1": 2}})
+    provider = Scripted([], error=AssertionError("the model must not run"))
+
+    code, out, err = await run(dataset, event_provider=provider, quality_gates=gates)
+
+    assert (code, out) == (1, "")
+    assert "between 0 and 1" in err
+
+
+async def test_without_gates_nothing_changes(dataset: Path) -> None:
+    code, out, _ = await run(dataset, mode="event", event_provider=events())
+
+    assert code == 0
+    assert "Quality gates" not in out
+
+
+def test_gates_argument() -> None:
+    args = build_parser().parse_args(
+        ["evaluate-extraction", "data.json", "--quality-gates", "gates.json"]
+    )
+
+    assert args.quality_gates == Path("gates.json")

@@ -562,6 +562,18 @@ relations by subject, type and object in the same direction. Each gold item
 can be matched once. The command prints precision, recall and F1 and sets no
 quality targets.
 
+`--quality-gates gates.json` checks the scores against minimums that you
+choose:
+
+```json
+{"event": {"precision": 0.7, "f1": 0.65}, "claim": {"f1": 0.7}}
+```
+
+Modes are `event`, `claim` and `relation`; metrics are `precision`, `recall`
+and `f1`. Each minimum is printed as passed or missed, with the measured
+value. A metric that is undefined, or a mode that did not run, counts as
+missed. The exit code is 1 when any minimum is missed.
+
 Relation extraction is experimental and for evaluation only. No relations are
 stored and there is no knowledge graph.
 

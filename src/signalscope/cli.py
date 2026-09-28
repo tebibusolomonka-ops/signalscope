@@ -70,6 +70,12 @@ from signalscope.entities.runtime import create_entity_extractor_registry, local
 from signalscope.evaluation.dataset import EvaluationDataError
 from signalscope.evaluation.extraction.claims import evaluate_claims
 from signalscope.evaluation.extraction.events import evaluate_events
+from signalscope.evaluation.extraction.gates import (
+    ExtractionGate,
+    check_extraction_gates,
+    format_extraction_gate_results,
+    load_extraction_gates,
+)
 from signalscope.evaluation.extraction.loader import load_extraction_dataset
 from signalscope.evaluation.extraction.relations import evaluate_relations
 from signalscope.evaluation.extraction.report import (
@@ -206,7 +212,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "evaluate-extraction":
         return asyncio.run(
             evaluate_extraction(
-                args.dataset, settings, mode=args.mode, json_output=args.json_output
+                args.dataset,
+                settings,
+                mode=args.mode,
+                json_output=args.json_output,
+                quality_gates=args.quality_gates,
             )
         )
     if args.command == "check-embedding-model":
@@ -373,6 +383,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     extraction.add_argument(
         "--json-output", type=Path, default=None, help="also write the results to this JSON file"
+    )
+    extraction.add_argument(
+        "--quality-gates",
+        type=Path,
+        default=None,
+        help="JSON file of minimum scores; the exit code is 1 when one is missed",
     )
 
     commands.add_parser(
@@ -1270,6 +1286,7 @@ async def evaluate_extraction(
     *,
     mode: str = "all",
     json_output: Path | None = None,
+    quality_gates: Path | None = None,
     event_provider: EventExtractionProvider | None = None,
     claim_provider: ClaimExtractionProvider | None = None,
     relation_provider: RelationExtractionProvider | None = None,
@@ -1279,13 +1296,18 @@ async def evaluate_extraction(
     Without providers, the local GLiNER2 model is used for all three, one
     loaded copy for all. It may be downloaded the first time. The relation
     provider is experimental and nothing it finds is stored. There are no
-    built-in quality targets. Returns the exit code.
+    built-in quality targets: with quality_gates, the exit code is 1 when a
+    minimum in that file is missed. Returns the exit code.
     """
     out = sys.stdout if out is None else out
     err = sys.stderr if err is None else err
     modes = EXTRACTION_MODES if mode == "all" else (mode,)
+    gates: list[ExtractionGate] = []
     try:
         dataset = load_extraction_dataset(path)
+        if quality_gates is not None:
+            # Read first, so a bad file fails before any model runs.
+            gates = load_extraction_gates(quality_gates)
     except EvaluationDataError as error:
         print(f"Error: {error}", file=err)
         return 1
@@ -1316,6 +1338,11 @@ async def evaluate_extraction(
     print(format_extraction_scores(dataset, scores), end="", file=out)
     if json_output is not None:
         write_json_report(json_output, extraction_report_data(dataset, scores))
+    if gates:
+        results = check_extraction_gates(gates, scores)
+        print(format_extraction_gate_results(results), end="", file=out)
+        if not all(result.passed for result in results):
+            return 1
     return 0
 
 
