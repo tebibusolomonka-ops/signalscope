@@ -453,7 +453,16 @@ Events from different documents that report the same thing can be linked
 into one cluster. This first linker is strict: the event type and the title
 must match after spaces and case are evened out, and when both events have a
 time, they must fall on the same UTC day. There is no fuzzy matching yet.
-Linking is done by `EventLinkingService` in code; no command runs it yet.
+The event worker links the events it finds right after it saves them. If
+linking fails, the events stay saved but unclustered. Link them, and any events
+from before automatic linking, with:
+
+```bash
+signalscope link-events --limit 1000
+```
+
+It prints how many events it checked and linked and how many clusters it
+created. Running it again when everything is linked changes nothing.
 
 `GET /timeline` lists the clusters in time order, newest first, or oldest
 first with `order=oldest_first`. Clusters without a time come last. It takes

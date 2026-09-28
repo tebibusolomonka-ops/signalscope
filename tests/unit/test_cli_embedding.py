@@ -239,3 +239,17 @@ async def test_claim_worker_needs_the_extra(monkeypatch: pytest.MonkeyPatch) -> 
 
     assert await run_claim_worker(settings, out, err) == 1
     assert 'pip install -e ".[local-structured]"' in err.getvalue()
+
+
+def test_link_events_arguments() -> None:
+    assert build_parser().parse_args(["link-events"]).limit == 1000
+    assert build_parser().parse_args(["link-events", "--limit", "5"]).limit == 5
+
+
+async def test_link_events_needs_a_database() -> None:
+    from signalscope.cli import link_events
+
+    out, err = io.StringIO(), io.StringIO()
+
+    assert await link_events(Settings(), out, err) == 1
+    assert "SIGNALSCOPE_DATABASE_URL" in err.getvalue()

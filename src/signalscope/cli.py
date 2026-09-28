@@ -31,6 +31,7 @@ from signalscope.domain.entities.queue import EntityExtractionQueueService
 from signalscope.domain.entities.worker import EntityExtractionWorker
 from signalscope.domain.events.job import EventExtractionJobStatus
 from signalscope.domain.events.job_repository import EventExtractionJobRepository
+from signalscope.domain.events.linking import EventLinkingResult, EventLinkingService
 from signalscope.domain.events.queue import EventExtractionQueueService
 from signalscope.domain.events.worker import EventExtractionWorker
 from signalscope.domain.ingestion.executor import IngestionExecutor
@@ -111,6 +112,9 @@ from signalscope.workers.shutdown import stop_on_signals
 
 DEFAULT_SCHEDULE_LIMIT = 100
 DEFAULT_CLEANUP_LIMIT = 100
+DEFAULT_LINK_EVENTS_LIMIT = 1000
+# Events linked per transaction batch by link-events.
+LINK_EVENTS_BATCH = 200
 NO_DATABASE_ERROR = "Error: Database URL is not configured. Set SIGNALSCOPE_DATABASE_URL."
 NO_BLOB_DIR_ERROR = "Error: Blob directory is not configured. Set SIGNALSCOPE_BLOB_DIR."
 # Stale jobs put back in the queue before each claim.
@@ -186,6 +190,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(queue_entities(settings, document_id=args.document_id, limit=args.limit))
     if args.command == "queue-events":
         return asyncio.run(queue_events(settings, document_id=args.document_id, limit=args.limit))
+    if args.command == "link-events":
+        return asyncio.run(link_events(settings, limit=args.limit))
     if args.command == "queue-claims":
         return asyncio.run(queue_claims(settings, document_id=args.document_id, limit=args.limit))
     loop_options = {
@@ -274,6 +280,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     event_backlog.add_argument(
         "--limit", type=positive_int, default=None, help="most jobs to create (default: no limit)"
+    )
+
+    linking = commands.add_parser(
+        "link-events", help="put events that are in no cluster yet into event clusters"
+    )
+    linking.add_argument(
+        "--limit",
+        type=positive_int,
+        default=DEFAULT_LINK_EVENTS_LIMIT,
+        help=f"most events to check (default: {DEFAULT_LINK_EVENTS_LIMIT})",
     )
 
     claim_backlog = commands.add_parser(
@@ -554,6 +570,46 @@ async def queue_events(
     print(f"Jobs created: {result.jobs_created}", file=out)
     print(f"Already extracted: {result.already_extracted}", file=out)
     print(f"Already queued: {result.already_queued}", file=out)
+    return 0
+
+
+async def link_events(
+    settings: Settings,
+    out: TextIO | None = None,
+    err: TextIO | None = None,
+    *,
+    limit: int = DEFAULT_LINK_EVENTS_LIMIT,
+) -> int:
+    """Link events that are in no cluster yet, and print the counts.
+
+    Repairs events made before automatic linking, or left unclustered when
+    linking failed. Checks at most limit events, oldest first, so one run is
+    always bounded. Returns the exit code.
+    """
+    out = sys.stdout if out is None else out
+    err = sys.stderr if err is None else err
+    if settings.database_url is None:
+        print(NO_DATABASE_ERROR, file=err)
+        return 1
+
+    total = EventLinkingResult()
+    async with _database(settings) as session_factory:
+        service = EventLinkingService(session_factory)
+        while total.events_checked < limit:
+            size = min(LINK_EVENTS_BATCH, limit - total.events_checked)
+            result = await service.link_unclustered(size)
+            total = EventLinkingResult(
+                events_checked=total.events_checked + result.events_checked,
+                events_linked=total.events_linked + result.events_linked,
+                clusters_created=total.clusters_created + result.clusters_created,
+            )
+            # A short batch means the backlog is empty. A batch that links nothing
+            # would only find the same events again.
+            if result.events_checked < size or result.events_linked == 0:
+                break
+    print(f"Events checked: {total.events_checked}", file=out)
+    print(f"Events linked: {total.events_linked}", file=out)
+    print(f"Clusters created: {total.clusters_created}", file=out)
     return 0
 
 
