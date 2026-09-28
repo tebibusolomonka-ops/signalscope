@@ -67,10 +67,11 @@ async def test_only_waiting_and_running_jobs_are_pending(
     await report_event(session_factory, source, "Harbour flood", evidence_count=4)
     async with session_factory() as session:
         chunks = list(await session.scalars(select(DocumentChunk.id)))
-        run = IngestionRun(source_id=source)
-        session.add(run)
-        await session.flush()
         for status in IngestionJobStatus:
+            # A run has at most one job.
+            run = IngestionRun(source_id=source)
+            session.add(run)
+            await session.flush()
             session.add(
                 IngestionJob(source_id=source, run_id=run.id, status=status, available_at=NOW)
             )
