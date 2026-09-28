@@ -29,3 +29,18 @@ def test_research_sessions_table() -> None:
 def test_hybrid_is_the_default_mode() -> None:
     column = ResearchSession.__table__.c.retrieval_mode
     assert column.default.arg is ResearchMode.HYBRID  # type: ignore[union-attr]
+
+
+def test_research_turns_table() -> None:
+    from signalscope.domain.research.turn import ResearchTurn
+
+    sql = str(CreateTable(ResearchTurn.__table__).compile(dialect=postgresql.dialect()))
+
+    assert "UNIQUE (session_id, sequence)" in sql
+    assert "CHECK (sequence > 0)" in sql
+    assert "citation_ids JSONB DEFAULT '[]'::jsonb NOT NULL" in sql
+    assert "evidence_snapshot JSONB DEFAULT '[]'::jsonb NOT NULL" in sql
+    assert "FOREIGN KEY(session_id) REFERENCES research_sessions (id) ON DELETE CASCADE" in sql
+    # Turns are history and are never changed, so there is no updated_at.
+    assert "updated_at" not in sql
+    assert Base.metadata.tables["research_turns"] is ResearchTurn.__table__
