@@ -122,3 +122,30 @@ async def test_unknown_session_and_source(client: httpx.AsyncClient) -> None:
 
     assert [response.status_code for response in responses] == [404, 404, 404, 404]
     assert responses[3].json()["error"]["message"] == "Source was not found."
+
+
+async def test_export(answering_client: httpx.AsyncClient, library: dict[str, uuid.UUID]) -> None:
+    research = await create(answering_client, title="Harbour")
+    await ask(answering_client, research["id"], "harbour flood")
+    path = f"/research/sessions/{research['id']}/export"
+
+    as_json = await answering_client.get(path)
+    as_markdown = await answering_client.get(path, params={"format": "markdown"})
+
+    assert as_json.status_code == 200, as_json.text
+    body = as_json.json()
+    assert body["session"]["title"] == "Harbour"
+    [turn] = body["turns"]
+    assert turn["citation_ids"] == ["E1"]
+    assert [item["title"] for item in turn["citations"]] == ["Harbour flood"]
+    assert [item["evidence_id"] for item in turn["evidence"]] == ["E1"]
+    assert as_markdown.status_code == 200
+    assert as_markdown.headers["content-type"].startswith("text/markdown")
+    assert as_markdown.text.startswith("# Harbour\n")
+    assert "- [E1] Harbour flood: " in as_markdown.text
+
+
+async def test_export_unknown_session(client: httpx.AsyncClient) -> None:
+    response = await client.get(f"/research/sessions/{uuid.uuid4()}/export")
+
+    assert response.status_code == 404

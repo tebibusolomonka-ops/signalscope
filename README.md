@@ -395,6 +395,15 @@ Each turn searches again for its own question with the session's mode and
 source, and is saved with its question, answer, citations and the evidence it
 was answered from. `GET /research/sessions/{id}/turns` lists them in order.
 
+`GET /research/sessions/{id}/export` returns the whole session: every turn
+with its question, answer, citations and the evidence it was answered from.
+It uses what each turn saved at the time and never searches again. Add
+`?format=markdown` for a Markdown report instead of JSON:
+
+```bash
+curl "localhost:8000/research/sessions/<id>/export?format=markdown"
+```
+
 Earlier turns are given to the answer model as conversation context, so a
 follow-up question can make sense. They are not evidence: their citation
 markers are removed, and every answer must cite the evidence found for its own

@@ -1,12 +1,18 @@
 import uuid
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Response, status
 
 from signalscope.api.dependencies import (
     AnswerGenerators,
     DatabaseSession,
     EmbeddingProviders,
     Rerankers,
+)
+from signalscope.core.exports import MARKDOWN_MEDIA_TYPE, ExportFormat
+from signalscope.domain.research.export import (
+    ResearchSessionExport,
+    ResearchSessionExportService,
+    session_markdown,
 )
 from signalscope.domain.research.schemas import (
     ResearchSessionCreate,
@@ -137,6 +143,26 @@ async def list_research_turns(
     """Every turn of a session, oldest first, with the evidence each was answered from."""
     service = ResearchSessionService(session, providers, rerankers, generators)
     return [ResearchTurnRead.from_turn(turn) for turn in await service.list_turns(session_id)]
+
+
+@router.get(
+    "/sessions/{session_id}/export",
+    response_model=ResearchSessionExport,
+    responses={200: {"content": {"text/markdown": {}}}},
+)
+async def export_research_session(
+    session_id: uuid.UUID, session: DatabaseSession, format: ExportFormat = ExportFormat.JSON
+) -> ResearchSessionExport | Response:
+    """The whole session: every turn with its answer, citations and the evidence it saw.
+
+    The evidence is what each turn saved at the time; nothing is searched again.
+    format=markdown returns the same content as Markdown text. Nothing is
+    written on the server.
+    """
+    export = await ResearchSessionExportService(session).export(session_id)
+    if format is ExportFormat.MARKDOWN:
+        return Response(session_markdown(export), media_type=MARKDOWN_MEDIA_TYPE)
+    return export
 
 
 @router.post("/sessions/{session_id}/turns", status_code=status.HTTP_201_CREATED)

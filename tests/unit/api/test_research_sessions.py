@@ -72,3 +72,21 @@ def test_bad_turn_request(body: dict[str, Any]) -> None:
 
 def test_needs_a_database(client: TestClient) -> None:
     assert client.post("/research/sessions", json={}).status_code == 503
+
+
+def test_export_route_is_in_openapi(app: FastAPI) -> None:
+    get = app.openapi()["paths"]["/research/sessions/{session_id}/export"]["get"]
+
+    assert [parameter["name"] for parameter in get["parameters"]] == ["session_id", "format"]
+    assert set(get["responses"]["200"]["content"]) == {"application/json", "text/markdown"}
+    schema = app.openapi()["components"]["schemas"]["ResearchSessionExport"]
+    assert set(schema["properties"]) == {"session", "turns"}
+
+
+def test_export_bad_format() -> None:
+    app = create_app(Settings(database_url=FAKE_DATABASE_URL))
+    with TestClient(app) as client:
+        response = client.get(f"/research/sessions/{uuid.uuid4()}/export", params={"format": "pdf"})
+
+    assert response.status_code == 422
+    assert response.json()["error"]["details"][0]["loc"] == ["query", "format"]
