@@ -508,6 +508,19 @@ sources) shows the same profiles side by side, in the order given, plus how
 many event clusters, entities and claims two or more of them have in common.
 The comparison is descriptive: there is no score, winner or ranking.
 
+Before trusting the model, check that it installs and runs on your machine.
+This is for manual developer use: it loads the model and downloads it the
+first time.
+
+```bash
+signalscope check-structured-model
+```
+
+It runs one structured extraction and one relation extraction on a short
+built-in sentence and prints the provider, the model and `ok` for each. It
+checks that the model loads and answers in the right shape, not that the
+answers are correct; use `evaluate-extraction` for that. Tests never run it.
+
 ### Claims
 
 The same GLiNER2 model and switch read claims: statements a text makes, such

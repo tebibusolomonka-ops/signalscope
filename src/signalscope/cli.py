@@ -5,7 +5,7 @@ import math
 import mimetypes
 import sys
 import uuid
-from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import TextIO
@@ -94,18 +94,25 @@ from signalscope.evaluation.retrieval import (
     evaluate_reranked,
     evaluate_semantic,
 )
-from signalscope.events.gliner2 import Gliner2EventProvider
+from signalscope.events.gliner2 import EVENT_RECORD, EVENT_SCHEMA, Gliner2EventProvider
 from signalscope.events.provider import EventExtractionProvider
 from signalscope.events.registry import EventExtractorRegistry
 from signalscope.events.runtime import create_event_extractor_registry
-from signalscope.extraction.gliner2 import LocalStructuredNotInstalledError
+from signalscope.extraction.gliner2 import (
+    Gliner2StructuredBackend,
+    LocalStructuredNotInstalledError,
+)
 from signalscope.extraction.runtime import create_structured_backend, local_structured_model
 from signalscope.ingestion.http import HttpFetcher
 from signalscope.ingestion.rss import RssIngestionAdapter
 from signalscope.ingestion.web import WebIngestionAdapter
 from signalscope.parsing.docx_document import DOCX_CONTENT_TYPE
 from signalscope.parsing.registry import create_default_parser_registry
-from signalscope.relations.gliner2 import Gliner2RelationProvider
+from signalscope.relations.gliner2 import (
+    RELATION_OUTPUT,
+    RELATION_TYPES,
+    Gliner2RelationProvider,
+)
 from signalscope.relations.provider import RelationExtractionProvider
 from signalscope.reranking.local import LocalRerankingNotInstalledError
 from signalscope.reranking.models import MMARCO_MINILM
@@ -149,6 +156,8 @@ LOCAL_ANSWERS_DISABLED_ERROR = (
     "Error: Local answers are not enabled. Set SIGNALSCOPE_LOCAL_ANSWERS_ENABLED=true."
 )
 SMOKE_QUESTION = "How much electricity did offshore wind farms produce?"
+# A neutral sentence for the structured model smoke check.
+STRUCTURED_SMOKE_TEXT = "Maria Lopes works for Northwind Energy, which opened a wind farm."
 LOCAL_RERANKING_DISABLED = (
     "Local reranking is not enabled. Set SIGNALSCOPE_LOCAL_RERANKING_ENABLED=true."
 )
@@ -202,6 +211,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
     if args.command == "check-embedding-model":
         return asyncio.run(check_embedding_model(settings))
+    if args.command == "check-structured-model":
+        return asyncio.run(check_structured_model(settings))
     if args.command == "check-answer-model":
         return asyncio.run(check_answer_model(settings))
     if args.command == "queue-embeddings":
@@ -366,6 +377,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     commands.add_parser(
         "check-embedding-model", help="load the local model and embed one query and one passage"
+    )
+
+    commands.add_parser(
+        "check-structured-model",
+        help="load the local GLiNER2 model and run one structured and one relation extraction",
     )
 
     commands.add_parser(
@@ -1300,6 +1316,43 @@ async def evaluate_extraction(
     print(format_extraction_scores(dataset, scores), end="", file=out)
     if json_output is not None:
         write_json_report(json_output, extraction_report_data(dataset, scores))
+    return 0
+
+
+async def check_structured_model(
+    settings: Settings,
+    out: TextIO | None = None,
+    err: TextIO | None = None,
+    *,
+    backend: Gliner2StructuredBackend | None = None,
+) -> int:
+    """Load the local GLiNER2 model and run one small extraction of each kind.
+
+    It checks that the model loads and answers in the expected shape, not that
+    the answers are right. The first run downloads the model when it is not
+    cached yet. Returns the exit code.
+    """
+    out = sys.stdout if out is None else out
+    err = sys.stderr if err is None else err
+    if backend is None:
+        if not _local_structured_ready(settings, err):
+            return 1
+        backend = create_structured_backend(settings)
+        assert backend is not None
+    try:
+        records = await backend.extract_json(STRUCTURED_SMOKE_TEXT, EVENT_SCHEMA)
+        if not isinstance(records.get(EVENT_RECORD), list):
+            raise SignalScopeError("Structured extraction returned no list of records.")
+        relations = await backend.extract_relations(STRUCTURED_SMOKE_TEXT, RELATION_TYPES)
+        if not isinstance(relations.get(RELATION_OUTPUT), Mapping):
+            raise SignalScopeError("Relation extraction returned no relations object.")
+    except SignalScopeError as error:
+        print(f"Error: {error}", file=err)
+        return 1
+    print(f"Provider: {backend.provider_name}", file=out)
+    print(f"Model: {backend.model_name}", file=out)
+    print("Structured extraction: ok", file=out)
+    print("Relation extraction: ok", file=out)
     return 0
 
 
