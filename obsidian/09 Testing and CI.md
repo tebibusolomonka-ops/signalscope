@@ -37,6 +37,11 @@ environment (for example SQLAlchemy 2.1 in CI and 2.0 locally, where `Select`
 typing differs). Run mypy in a fresh environment before pushing typing-heavy
 changes.
 
+A session rollback expires every loaded object, even with
+`expire_on_commit=False`. Do not read an ORM object after a failed call that
+rolled back; keep plain values such as IDs, or commit instead of rolling back
+when nothing failed.
+
 ## Workflow
 
 Work is done in groups of five commits. Each commit is checked with targeted

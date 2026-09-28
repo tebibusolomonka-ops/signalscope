@@ -1,6 +1,6 @@
 # Known Issues
 
-Open problems as of commit 260. Remove an item when it is fixed.
+Open problems as of commit 266. Remove an item when it is fixed.
 
 ## Events
 
@@ -38,8 +38,8 @@ Open problems as of commit 260. Remove an item when it is fixed.
 
 - Investigations are global and have no owner, because there is no
   authentication yet.
-- An item whose record was deleted keeps its snapshot, but nothing marks the
-  record as gone yet.
+- An item whose record was deleted keeps its snapshot. Exports mark it with
+  `current_reference_exists: false`; the item list itself does not.
 
 ## Code
 

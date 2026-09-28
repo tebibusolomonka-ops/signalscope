@@ -64,6 +64,10 @@ Decisions that should hold unless there is a clear reason to change them.
 - **Investigations have no owner yet.** There is no auth, so investigations
   are global and internal. Ownership and sharing wait for an auth and
   organization design.
+- **Exports replay history, not live data.** A research session export uses
+  each turn's saved evidence and never searches again. An investigation export
+  uses item snapshots; its only live value is whether a record still exists.
+  Exports are returned or written by the caller, never stored on the server.
 - **Closed investigations are read only** until reopened: no edits, no item
   changes, no delete.
 - **GLiNER2 cache folder.** gliner2 2.0 uses `cache_dir` for the config file

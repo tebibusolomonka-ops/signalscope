@@ -3,7 +3,9 @@ import asyncio
 import importlib.util
 import math
 import mimetypes
+import os
 import sys
+import tempfile
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
 from contextlib import asynccontextmanager
@@ -17,6 +19,7 @@ from signalscope.claims.provider import ClaimExtractionProvider
 from signalscope.claims.registry import ClaimExtractorRegistry
 from signalscope.claims.runtime import create_claim_extractor_registry
 from signalscope.core.errors import NotFoundError, SignalScopeError
+from signalscope.core.exports import ExportFormat
 from signalscope.core.logging import configure_logging
 from signalscope.core.settings import Settings, SettingsError, load_settings
 from signalscope.db.engine import create_database_engine
@@ -48,6 +51,10 @@ from signalscope.domain.ingestion.registry import AdapterRegistry, UnsupportedSo
 from signalscope.domain.ingestion.scheduler import IngestionScheduler
 from signalscope.domain.ingestion.service import IngestionRunService
 from signalscope.domain.ingestion.worker import IngestionWorker
+from signalscope.domain.investigations.export import (
+    InvestigationExportService,
+    investigation_markdown,
+)
 from signalscope.domain.processing.file_import import FileImportService
 from signalscope.domain.processing.job_repository import DocumentProcessingJobRepository
 from signalscope.domain.processing.model import DocumentProcessingJob, ProcessingJobStatus
@@ -233,6 +240,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(queue_entities(settings, document_id=args.document_id, limit=args.limit))
     if args.command == "queue-events":
         return asyncio.run(queue_events(settings, document_id=args.document_id, limit=args.limit))
+    if args.command == "export-investigation":
+        return asyncio.run(
+            export_investigation(
+                args.investigation_id,
+                settings,
+                export_format=args.format,
+                output=args.output,
+                overwrite=args.overwrite,
+            )
+        )
     if args.command == "link-events":
         return asyncio.run(link_events(settings, limit=args.limit))
     if args.command == "queue-claims":
@@ -323,6 +340,24 @@ def build_parser() -> argparse.ArgumentParser:
     )
     event_backlog.add_argument(
         "--limit", type=positive_int, default=None, help="most jobs to create (default: no limit)"
+    )
+
+    export_command = commands.add_parser(
+        "export-investigation", help="write a saved investigation as JSON or Markdown"
+    )
+    export_command.add_argument("investigation_id", type=uuid.UUID, help="ID of the investigation")
+    export_command.add_argument(
+        "--format",
+        type=ExportFormat,
+        choices=list(ExportFormat),
+        default=ExportFormat.JSON,
+        help="json or markdown (default: json)",
+    )
+    export_command.add_argument(
+        "--output", type=Path, default=None, help="write to this file (default: standard output)"
+    )
+    export_command.add_argument(
+        "--overwrite", action="store_true", help="replace the output file if it exists"
     )
 
     linking = commands.add_parser(
@@ -639,6 +674,64 @@ async def queue_events(
     print(f"Already extracted: {result.already_extracted}", file=out)
     print(f"Already queued: {result.already_queued}", file=out)
     return 0
+
+
+async def export_investigation(
+    investigation_id: uuid.UUID,
+    settings: Settings,
+    out: TextIO | None = None,
+    err: TextIO | None = None,
+    *,
+    export_format: ExportFormat = ExportFormat.JSON,
+    output: Path | None = None,
+    overwrite: bool = False,
+) -> int:
+    """Export a saved investigation to standard output or a file. Returns the exit code.
+
+    A file is written in full first and then moved into place, so it is never
+    left half written. An existing file is only replaced with overwrite.
+    """
+    out = sys.stdout if out is None else out
+    err = sys.stderr if err is None else err
+    if output is not None and output.exists() and not overwrite:
+        print(f"Error: {output} already exists. Use --overwrite to replace it.", file=err)
+        return 1
+    if settings.database_url is None:
+        print(NO_DATABASE_ERROR, file=err)
+        return 1
+
+    async with _database(settings) as session_factory, session_factory() as session:
+        try:
+            export = await InvestigationExportService(session).export(investigation_id)
+        except NotFoundError as error:
+            print(f"Error: {error}", file=err)
+            return 1
+    if export_format is ExportFormat.MARKDOWN:
+        text = investigation_markdown(export)
+    else:
+        text = export.model_dump_json(indent=2) + "\n"
+    if output is None:
+        print(text, end="", file=out)
+        return 0
+    try:
+        _write_atomically(output, text)
+    except OSError as error:
+        print(f"Error: Cannot write {output}: {error.strerror}", file=err)
+        return 1
+    print(f"Wrote {output}", file=out)
+    return 0
+
+
+def _write_atomically(path: Path, text: str) -> None:
+    """Write text to a temporary file next to path, then move it over path."""
+    handle, temporary = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
+    try:
+        with os.fdopen(handle, "w", encoding="utf-8", newline="") as file:
+            file.write(text)
+        os.replace(temporary, path)
+    except BaseException:
+        Path(temporary).unlink(missing_ok=True)
+        raise
 
 
 async def link_events(

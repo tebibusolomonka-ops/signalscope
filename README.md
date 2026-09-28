@@ -441,6 +441,16 @@ items grouped by type, as JSON or, with `?format=markdown`, as a Markdown
 report. It shows the saved snapshots, not live data, and says for each item
 whether the record still exists.
 
+The same export is available from the command line:
+
+```bash
+signalscope export-investigation <id> --format markdown --output report.md
+```
+
+Without `--output` it prints to standard output. An existing file is only
+replaced with `--overwrite`, and a file is written in full before it replaces
+anything.
+
 There are no users yet, so investigations are global: everyone who can reach
 the API sees all of them.
 

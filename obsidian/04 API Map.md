@@ -55,6 +55,8 @@ All read only. Coverage routes read the database and never load a model.
 - `GET /research/sessions/{id}/turns`, `POST /research/sessions/{id}/turns`:
   each turn has its question, answer (or null without a model), citations and
   evidence summaries. Prompts and chunk text are not returned.
+- `GET /research/sessions/{id}/export?format=json|markdown`: every turn with
+  its saved evidence; never searches again.
 
 ## Investigations
 
@@ -67,6 +69,8 @@ Global until users exist: everyone who can reach the API sees all of them.
   `DELETE /investigations/{id}/items/{item_id}`
 - `POST /investigations/{id}/research-sessions/{session_id}`: save a session
   once (201 new, 200 already saved)
+- `GET /investigations/{id}/export?format=json|markdown`: saved snapshots
+  grouped by type, with whether each record still exists.
 - A closed investigation answers 409 to changes until it is reopened.
 
 ## Not in the API

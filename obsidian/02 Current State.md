@@ -1,6 +1,6 @@
 # Current State
 
-Last updated at commit 260. Alembic head: `ca4da746adef` (Create investigation items).
+Last updated at commit 266 (265 planned plus one fix). Alembic head: `ca4da746adef` (Create investigation items).
 
 ## Done
 
@@ -27,6 +27,11 @@ Last updated at commit 260. Alembic head: `ca4da746adef` (Create investigation i
 - Saved investigations (`/investigations`): open or closed, with items that
   reference sources, documents, events, clusters, entities, claims and
   research sessions, each with a snapshot. Global, no owner.
+- Exports as JSON or Markdown: research sessions
+  (`GET /research/sessions/{id}/export`, from each turn's saved evidence) and
+  investigations (`GET /investigations/{id}/export`, from saved snapshots,
+  grouped by type), plus `signalscope export-investigation` with `--output`
+  and `--overwrite`. Nothing is written on the server.
 - Multi-turn research sessions: sessions and turns in the database, a service
   and routes under `/research/sessions`. Earlier turns are context for the
   answer model, never evidence.

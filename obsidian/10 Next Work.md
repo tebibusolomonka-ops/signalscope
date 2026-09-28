@@ -1,9 +1,9 @@
 # Next Work
 
 Current batch: commits 251 to 270. Done so far: the structured model smoke
-check, extraction quality gates, the suggestions route, cluster detail and
-saved investigations. Still to do in this batch: research session and
-investigation exports, and factual dashboard data.
+check, extraction quality gates, the suggestions route, cluster detail,
+saved investigations and exports. Still to do in this batch: factual
+dashboard data.
 
 ## After this batch
 
