@@ -19,6 +19,7 @@ from signalscope.domain.events.cluster import EventCluster, EventClusterMember
 from signalscope.domain.events.job import EventExtractionJob
 from signalscope.domain.events.model import Event, EventEvidence
 from signalscope.domain.ingestion.model import IngestionJob, IngestionRun
+from signalscope.domain.investigations.item import InvestigationItem
 from signalscope.domain.investigations.model import Investigation
 from signalscope.domain.processing.model import DocumentProcessingJob
 from signalscope.domain.research.session import ResearchSession
@@ -52,6 +53,7 @@ __all__ = [
     "IngestionJob",
     "IngestionRun",
     "Investigation",
+    "InvestigationItem",
     "ResearchSession",
     "ResearchTurn",
     "Source",
