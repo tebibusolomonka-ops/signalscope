@@ -5,6 +5,7 @@ from signalscope.api.lifespan import lifespan
 from signalscope.api.middleware import RequestIDMiddleware, RequestLoggingMiddleware
 from signalscope.api.routes import (
     claims,
+    dashboard,
     documents,
     embeddings,
     entities,
@@ -57,4 +58,5 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(event_clusters.router)
     app.include_router(research.router)
     app.include_router(investigations.router)
+    app.include_router(dashboard.router)
     return app
