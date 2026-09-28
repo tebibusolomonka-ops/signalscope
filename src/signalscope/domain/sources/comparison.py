@@ -1,9 +1,8 @@
 import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any
 
-from sqlalchemy import Select, func, select
+from sqlalchemy import SelectBase, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from signalscope.core.errors import InvalidInputError, NotFoundError
@@ -98,7 +97,7 @@ class SourceComparisonService:
             shared_claim_count=await self._shared(claims),
         )
 
-    async def _shared(self, pairs: Select[Any]) -> int:
+    async def _shared(self, pairs: SelectBase) -> int:
         """How many items appear with two or more different sources in (item, source) rows."""
         rows = pairs.subquery()
         shared = (
