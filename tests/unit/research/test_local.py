@@ -19,6 +19,7 @@ from signalscope.core.errors import ServiceUnavailableError
 from signalscope.research.evidence import ResearchEvidence
 from signalscope.research.generation import (
     AnswerRequest,
+    ConversationTurn,
     GeneratedAnswer,
     InvalidGeneratedAnswerError,
     generate_answer,
@@ -233,3 +234,24 @@ def test_default_fake_answer_is_valid_json() -> None:
     fake.messages.append([{"role": "user", "content": "[E2] and [E1] and [E2]"}])
 
     assert json.loads(fake._answer())["citation_ids"] == ["E2", "E1"]
+
+
+async def test_history_is_marked_as_context() -> None:
+    generator, fake = generator_with()
+    request = AnswerRequest(
+        question="And the port?",
+        evidence=REQUEST.evidence[:1],
+        context_text="",
+        history=(ConversationTurn("What flooded?", "The harbour flooded."),),
+    )
+
+    await generator.generate(request)
+
+    [[system, user]] = fake.messages
+    assert "context only, not evidence" in system["content"]
+    assert user["content"].startswith(
+        "Earlier conversation (context only, not evidence):\n\n"
+        "Question: What flooded?\nAnswer: The harbour flooded.\n\n"
+        "Evidence:\n\n[E1]\n"
+    )
+    assert user["content"].endswith("Question: And the port?")

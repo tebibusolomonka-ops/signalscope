@@ -14,6 +14,7 @@ from signalscope.research.evidence import ResearchEvidence
 
 # Evidence IDs look like E1, E2 and so on.
 CITATION_ID = re.compile(r"E[1-9][0-9]*")
+CITATION_MARKER = re.compile(r"\s*\[E[1-9][0-9]*\]")
 
 
 class AnswerGeneratorUnavailableError(ServiceUnavailableError):
@@ -30,12 +31,27 @@ class InvalidGeneratedAnswerError(ServiceUnavailableError):
 
 
 @dataclass(frozen=True, slots=True)
+class ConversationTurn:
+    """An earlier question in the same research session, and its answer if any.
+
+    This is conversation context, not evidence. Citation markers are removed
+    from the answer, because evidence IDs such as E1 only hold within one turn.
+    """
+
+    question: str
+    answer: str | None
+
+
+@dataclass(frozen=True, slots=True)
 class AnswerRequest:
     question: str
     # The evidence the answer may cite, in order, with IDs E1, E2 and so on.
     evidence: tuple[ResearchEvidence, ...]
     # The same evidence as numbered text blocks, for models that read text.
     context_text: str
+    # Earlier turns, oldest first. They may help follow-up questions make
+    # sense, but the answer can only cite the evidence above.
+    history: tuple[ConversationTurn, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -123,3 +139,8 @@ class AnswerGeneratorRegistry:
     def keys(self) -> list[tuple[str, str]]:
         """Return the (provider, model) pairs that are registered, sorted."""
         return sorted(self._generators)
+
+
+def strip_citation_markers(text: str) -> str:
+    """Remove markers such as [E1], so old answers cannot be read as citations."""
+    return CITATION_MARKER.sub("", text).strip()

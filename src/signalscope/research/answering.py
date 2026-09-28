@@ -1,5 +1,6 @@
 import logging
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,7 +19,9 @@ from signalscope.research.evidence import (
 from signalscope.research.generation import (
     AnswerGeneratorRegistry,
     AnswerRequest,
+    ConversationTurn,
     GeneratedAnswer,
+    ResearchAnswerGenerator,
     generate_answer,
 )
 
@@ -75,14 +78,31 @@ class ResearchAnswerService:
         evidence = await self.evidence.build(question, mode=mode, limit=limit, source_id=source_id)
         if not evidence:
             return ResearchAnswer(answer=None, evidence=())
-        request = AnswerRequest(
-            question=question, evidence=tuple(evidence), context_text=context_text(evidence)
-        )
-        try:
-            answer = await generate_answer(generator, request)
-        except SignalScopeError:
-            raise
-        except Exception as error:
-            logger.exception("Answer model %s failed", generator.model_name)
-            raise AnswerGenerationError() from error
-        return ResearchAnswer(answer=validate_citations(answer, evidence), evidence=tuple(evidence))
+        answer = await answer_from_evidence(generator, question, evidence)
+        return ResearchAnswer(answer=answer, evidence=tuple(evidence))
+
+
+async def answer_from_evidence(
+    generator: ResearchAnswerGenerator,
+    question: str,
+    evidence: Sequence[ResearchEvidence],
+    history: Sequence[ConversationTurn] = (),
+) -> GeneratedAnswer:
+    """Ask generator to answer from evidence, and return the answer only if its citations check.
+
+    history is conversation context. The answer can only cite evidence.
+    """
+    request = AnswerRequest(
+        question=question,
+        evidence=tuple(evidence),
+        context_text=context_text(evidence),
+        history=tuple(history),
+    )
+    try:
+        answer = await generate_answer(generator, request)
+    except SignalScopeError:
+        raise
+    except Exception as error:
+        logger.exception("Answer model %s failed", generator.model_name)
+        raise AnswerGenerationError() from error
+    return validate_citations(answer, evidence)

@@ -30,7 +30,9 @@ Rules:
 - If the evidence does not answer the question, say so, and cite the evidence you checked.
 - Return only a JSON object, with no other text and no markdown:
 {"text": "The answer, with citations like [E1].", "citation_ids": ["E1"]}
-- citation_ids lists every ID the text cites, once each, and no other IDs."""
+- citation_ids lists every ID the text cites, once each, and no other IDs.
+- An earlier conversation may be shown. It is context only, not evidence: never
+  cite it, and base factual statements only on the evidence."""
 
 
 class LocalAnswersNotInstalledError(AnswerGeneratorUnavailableError):
@@ -63,17 +65,25 @@ def load_qwen(model: str, device: str, cache_dir: Path | None) -> TokenizerAndMo
 def answer_messages(request: AnswerRequest) -> list[dict[str, str]]:
     """The chat messages for one question.
 
-    The model sees only the question and, for each piece of evidence, its ID,
-    title and text.
+    The model sees only the question, the earlier questions and answers of the
+    session marked as context, and, for each piece of evidence, its ID, title
+    and text.
     """
     blocks = [
         f"[{item.evidence_id}]\nTitle: {item.title or '(no title)'}\nText: {item.text}"
         for item in request.evidence
     ]
     evidence = "\n\n".join(blocks)
+    content = f"Evidence:\n\n{evidence}\n\nQuestion: {request.question}"
+    if request.history:
+        earlier = "\n\n".join(
+            f"Question: {turn.question}\nAnswer: {turn.answer or '(no answer)'}"
+            for turn in request.history
+        )
+        content = f"Earlier conversation (context only, not evidence):\n\n{earlier}\n\n{content}"
     return [
         {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": f"Evidence:\n\n{evidence}\n\nQuestion: {request.question}"},
+        {"role": "user", "content": content},
     ]
 
 
