@@ -23,6 +23,10 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
 ```
 
+The `obsidian/` folder is project knowledge for maintainers and coding agents:
+Markdown notes on the architecture, current state, decisions and known issues.
+The code and migrations stay the source of truth.
+
 Settings come from `SIGNALSCOPE_*` environment variables. See
 [docs/configuration.md](docs/configuration.md).
 

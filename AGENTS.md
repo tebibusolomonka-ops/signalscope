@@ -10,6 +10,14 @@ process articles, websites, RSS feeds, documents, audio and video.
 The project is built step by step. Only build what the current task asks for.
 Do not add future features, services or dependencies early.
 
+## Project notes
+
+`obsidian/` holds Markdown notes on the architecture, current state,
+decisions, known issues and next work. Read `00 Project Overview`,
+`01 Architecture`, `02 Current State`, `07 Decisions`, `08 Known Issues` and
+`10 Next Work` before larger changes, and update the notes when a change
+makes them wrong. The code and migrations are the source of truth.
+
 ## Writing
 
 - Use simple, plain English in code, comments, docstrings, docs, error

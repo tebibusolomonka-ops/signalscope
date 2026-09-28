@@ -1,0 +1,37 @@
+# Testing and CI
+
+## Checks
+
+```bash
+pip install -e ".[dev]"
+python scripts/check.py
+```
+
+This runs pytest, `ruff check`, `ruff format --check` and `mypy src` in order,
+stops at the first failure, and checks that Alembic has one head.
+
+## Tests
+
+- `tests/unit`: no database or other service.
+- `tests/integration`: database tests. They skip unless
+  `SIGNALSCOPE_TEST_DATABASE_URL` is set, and its database name must end with
+  `_test`.
+- Shared fakes and helpers live directly in `tests/` (for example
+  `fake_embeddings.py`, `fake_qwen.py`, `event_reports.py`).
+- No test downloads a model or uses the public network. Optional libraries are
+  replaced with fakes or made to fail on import.
+
+## CI
+
+GitHub Actions (`.github/workflows/ci.yml`) runs the same checks on Python
+3.12 with a PostgreSQL 17 + pgvector service, so all database tests run there.
+
+On the current developer machine there is no local PostgreSQL, so database
+tests only run in CI.
+
+## Workflow
+
+Work is done in groups of five commits. Each commit is checked with targeted
+tests and Ruff. After each group: `python scripts/check.py`, Alembic heads and
+history, one normal push, and one CI run. A red run gets the smallest
+corrective commit. History is never rewritten.

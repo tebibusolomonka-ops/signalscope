@@ -20,3 +20,6 @@ htmlcov/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Personal Obsidian app state. The notes in obsidian/ are tracked.
+obsidian/.obsidian/
