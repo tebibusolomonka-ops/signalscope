@@ -497,6 +497,12 @@ first with `order=oldest_first`. Clusters without a time come last. It takes
 sources and evidence rows back it, with the source names. The timeline only
 describes what was reported; it does not rank events by importance.
 
+Each timeline item has a `cluster_id`. `GET /event-clusters/{cluster_id}`
+shows that cluster in detail: its member events (dated ones first, oldest
+first) and, for each, where it was reported: document, chunk, source name,
+model and chunk metadata such as the PDF page. It is read only; clusters are
+formed by the exact linker and cannot be merged or split through the API.
+
 ### Source provenance
 
 `GET /sources/{id}/provenance` shows what SignalScope has observed about one

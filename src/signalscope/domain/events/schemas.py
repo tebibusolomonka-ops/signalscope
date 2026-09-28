@@ -76,3 +76,44 @@ class EventLinkSuggestionRead(BaseModel):
     occurred_at: datetime | None
     # Cosine similarity of the two event texts, from -1 to 1. Not a probability.
     similarity: float
+
+
+class ClusterEvidenceRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    document_id: uuid.UUID
+    chunk_id: uuid.UUID
+    source_id: uuid.UUID
+    source_name: str
+    confidence: float | None
+    provider: str
+    model: str
+    # Where the chunk came from, such as {"page_number": 3}.
+    chunk_metadata: dict[str, Any]
+
+
+class ClusterMemberRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    event_id: uuid.UUID
+    title: str
+    summary: str | None
+    occurred_at: datetime | None
+    created_at: datetime
+    evidence: list[ClusterEvidenceRead]
+
+
+class EventClusterDetailRead(BaseModel):
+    """One event cluster with its member events and where each was reported."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    cluster_id: uuid.UUID
+    event_type: str
+    title: str
+    occurred_at: datetime | None
+    event_count: int
+    source_count: int
+    # All evidence rows. The members list at most the first 500.
+    evidence_count: int
+    members: list[ClusterMemberRead]

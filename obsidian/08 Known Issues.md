@@ -1,6 +1,6 @@
 # Known Issues
 
-Open problems as of commit 250. Remove an item when it is fixed.
+Open problems as of commit 255. Remove an item when it is fixed.
 
 ## Events
 
@@ -22,7 +22,11 @@ Open problems as of commit 250. Remove an item when it is fixed.
 - The GLiNER2 calls (`extract_json`, `extract_relations`, loading) were checked
   against the gliner2 2.0 source, not by running the real model.
 - Real local models do not run in normal CI; only fakes do. The smoke check
-  commands are the way to try a real model.
+  commands (`check-embedding-model`, `check-structured-model`,
+  `check-answer-model`) are the way to try a real model, and none has been run
+  on a real install yet.
+- Relation edges are still not stored: no real relation benchmark exists to
+  justify them.
 - GLiNER2 extracts spans, so a claim's `text` usually repeats its quote.
 
 ## Research

@@ -47,7 +47,11 @@ Decisions that should hold unless there is a clear reason to change them.
   time, including the chunk text, so it can be inspected later even if the
   documents change. No vectors or model internals are stored.
 - **No quality targets without measurements.** Evaluation commands report
-  numbers; any gates are user defined.
+  numbers; any gates are user defined, and report only "passed" or "missed".
+  An undefined metric or a mode that did not run misses its gate.
+- **Clusters change only through the exact linker.** The cluster detail and
+  suggestion routes are read only. Merging or splitting would need a future
+  reviewed workflow.
 - **Extraction is scored by exact matching.** Events match on normalized type
   and title (and UTC day when both have a date), claims on exact offsets and
   type. Matching is one to one, so repeated predictions do not help. No

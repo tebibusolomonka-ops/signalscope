@@ -62,3 +62,30 @@ def test_bad_request(params: dict[str, Any], field: str) -> None:
 
 def test_needs_a_database(client: TestClient) -> None:
     assert client.get("/timeline").status_code == 503
+
+
+def test_cluster_detail_route_is_in_openapi(app: FastAPI) -> None:
+    paths = app.openapi()["paths"]
+    schemas = app.openapi()["components"]["schemas"]
+
+    # Read only: no merge or split.
+    assert set(paths["/event-clusters/{cluster_id}"]) == {"get"}
+    assert set(schemas["EventClusterDetailRead"]["properties"]) == {
+        "cluster_id",
+        "event_type",
+        "title",
+        "occurred_at",
+        "event_count",
+        "source_count",
+        "evidence_count",
+        "members",
+    }
+    assert "text" not in schemas["ClusterEvidenceRead"]["properties"]
+
+
+def test_cluster_detail_bad_id() -> None:
+    app = create_app(Settings(database_url=FAKE_DATABASE_URL))
+    with TestClient(app) as client:
+        response = client.get("/event-clusters/not-a-uuid")
+
+    assert response.status_code == 422

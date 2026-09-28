@@ -8,6 +8,7 @@ from signalscope.api.routes import (
     documents,
     embeddings,
     entities,
+    event_clusters,
     events,
     health,
     ingestion_runs,
@@ -52,5 +53,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(events.router)
     app.include_router(claims.router)
     app.include_router(timeline.router)
+    app.include_router(event_clusters.router)
     app.include_router(research.router)
     return app

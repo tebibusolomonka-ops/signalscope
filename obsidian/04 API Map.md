@@ -35,12 +35,16 @@ All read only. Coverage routes read the database and never load a model.
 
 - `GET /entities`, `GET /entities/coverage`, `GET /entities/{id}`
 - `GET /events`, `GET /events/coverage`, `GET /events/{id}`
+- `GET /events/{id}/link-suggestions`: advisory similar events (E5); changes
+  nothing; 503 without local embeddings
 - `GET /claims`, `GET /claims/coverage`, `GET /claims/{id}`
 
 ## Timeline
 
 - `GET /timeline`: event clusters in time order, with event, source and
   evidence counts.
+- `GET /event-clusters/{id}`: one cluster with its members and their evidence
+  (no document text). There is no merge or split route.
 
 ## Research
 
@@ -55,8 +59,7 @@ All read only. Coverage routes read the database and never load a model.
 ## Not in the API
 
 Relation extraction and extraction evaluation are command line only
-(`signalscope evaluate-extraction`). There is no relation route, because no
-relations are stored. Semantic event link suggestions exist as a service with
-no route yet.
+(`signalscope evaluate-extraction`, `signalscope check-structured-model`).
+There is no relation route, because no relations are stored.
 
 See [[06 Search and AI]] for the models behind these routes.

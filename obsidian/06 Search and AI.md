@@ -34,7 +34,9 @@ fakes.
   supports, opposes, announced, related_to). Pairs are (subject, object) and
   directional. Offsets only when the words appear once. Nothing is stored.
 - **Extraction evaluation**: `evaluate-extraction` reports precision, recall
-  and F1 for events, claims and relations with exact matching.
+  and F1 for events, claims and relations with exact matching, and checks
+  optional user-defined `--quality-gates`. `check-structured-model` is the
+  manual smoke check for the real GLiNER2 install.
 
 ## Research answers
 

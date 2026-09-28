@@ -1,6 +1,6 @@
 # Current State
 
-Last updated at commit 250 (the 20 planned commits of batch 230 to 249 plus one typing fix). Alembic head: `09376fcf43b6` (Create research turns).
+Last updated at commit 255. Alembic head: `09376fcf43b6` (Create research turns).
 
 ## Done
 
@@ -17,7 +17,10 @@ Last updated at commit 250 (the 20 planned commits of batch 230 to 249 plus one 
 - Empty event clusters are deleted whenever orphaned events are deleted
   (reprocessing, document deletion, worker reruns).
 - Semantic event link suggestions (`EventLinkSuggestionService`, E5 cosine
-  similarity). Code only, no route yet. They never change clusters.
+  similarity), exposed read-only at `GET /events/{id}/link-suggestions`. They
+  never change clusters.
+- Event cluster detail (`EventClusterDetailService`,
+  `GET /event-clusters/{id}`): members and where each was reported. Read only.
 - Source comparison service (`SourceComparisonService`): 2 to 10 sources side
   by side with provenance counts, plus shared clusters, entities and claims.
   Exposed as `POST /sources/compare`.
@@ -30,7 +33,10 @@ Last updated at commit 250 (the 20 planned commits of batch 230 to 249 plus one 
 - Extraction evaluation (`evaluation/extraction/`): a JSON dataset with gold
   events, claims and relations, exact one-to-one matching, and precision,
   recall and F1. `signalscope evaluate-extraction` runs it with the local
-  GLiNER2 model (`--mode`, `--json-output`). No quality targets.
+  GLiNER2 model (`--mode`, `--json-output`, and user-defined
+  `--quality-gates`). No built-in targets.
+- `signalscope check-structured-model` loads the real GLiNER2 model and runs
+  one structured and one relation extraction (developer use; may download).
 - Relation extraction interface (`relations/`) and an experimental GLiNER2
   relation provider. Evaluation only: no worker, no table, no graph.
 - The GLiNER2 loader matches gliner2 2.0: only `map_location` is passed, and a
