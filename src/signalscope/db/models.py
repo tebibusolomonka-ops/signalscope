@@ -20,6 +20,7 @@ from signalscope.domain.events.job import EventExtractionJob
 from signalscope.domain.events.model import Event, EventEvidence
 from signalscope.domain.ingestion.model import IngestionJob, IngestionRun
 from signalscope.domain.processing.model import DocumentProcessingJob
+from signalscope.domain.research.session import ResearchSession
 from signalscope.domain.search.embedding_job import EmbeddingJob
 from signalscope.domain.search.embedding_model import ChunkEmbedding
 from signalscope.domain.sources.model import Source
@@ -48,5 +49,6 @@ __all__ = [
     "EventExtractionJob",
     "IngestionJob",
     "IngestionRun",
+    "ResearchSession",
     "Source",
 ]

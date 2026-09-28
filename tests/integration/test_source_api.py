@@ -121,7 +121,9 @@ async def test_source_in_use_cannot_be_deleted(
     assert response.json() == {
         "error": {
             "code": "conflict",
-            "message": "Source has documents or ingestion runs and cannot be deleted.",
+            "message": (
+                "Source has documents, ingestion runs or research sessions and cannot be deleted."
+            ),
         },
     }
 
