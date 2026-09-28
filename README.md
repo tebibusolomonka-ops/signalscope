@@ -401,6 +401,25 @@ markers are removed, and every answer must cite the evidence found for its own
 turn, checked like any answer. Without an answer model, turns are still saved
 with their evidence and no answer.
 
+### Investigations
+
+An investigation is a named collection of saved references to sources,
+documents, events, event clusters, entities, claims and research sessions:
+
+```bash
+curl -X POST localhost:8000/investigations   -H "Content-Type: application/json" -d '{"title": "Harbour floods"}'
+curl -X POST localhost:8000/investigations/<id>/items   -H "Content-Type: application/json"   -d '{"item_type": "event", "reference_id": "<event id>", "label": "Key event"}'
+```
+
+Each item keeps a small snapshot of the record as it was when it was saved,
+such as a title, type and date, and never full document text. The snapshot is
+not updated later, so the item stays useful if the record changes or is
+deleted. `PATCH /investigations/{id}` changes the title, description or
+status. A closed investigation is read only until it is opened again.
+
+There are no users yet, so investigations are global: everyone who can reach
+the API sees all of them.
+
 ### Entities
 
 SignalScope can find people, organizations, places, countries, cities,
