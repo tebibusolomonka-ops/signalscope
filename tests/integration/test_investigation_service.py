@@ -127,7 +127,13 @@ async def test_every_item_type_gets_a_snapshot(
     assert snapshots["event_cluster"]["title"] == "Harbour flood"
     assert snapshots["entity"] == {"canonical_name": "Porto", "entity_type": "city"}
     assert snapshots["claim"] == {"text": "Prices rose 5%", "claim_type": "statistic"}
-    assert snapshots["research_session"] == {"title": "Floods", "retrieval_mode": "lexical"}
+    assert snapshots["research_session"] == {
+        "title": "Floods",
+        "retrieval_mode": "lexical",
+        "source_id": None,
+        "turn_count": 0,
+        "latest_turn_at": None,
+    }
     assert all(item.label == "note" for item in items)
     # Snapshots stay small: no document content.
     assert all("content" not in snapshot for snapshot in snapshots.values())

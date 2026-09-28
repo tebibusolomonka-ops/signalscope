@@ -56,6 +56,16 @@ Decisions that should hold unless there is a clear reason to change them.
   and title (and UTC day when both have a date), claims on exact offsets and
   type. Matching is one to one, so repeated predictions do not help. No
   similarity matching in evaluation.
+- **Investigation items are polymorphic saved references.** `reference_id`
+  has no foreign key because it can point at seven tables. The service checks
+  that the record exists when the item is saved, and stores a small snapshot
+  (names, titles, types, dates; no content, vectors, files or prompts). The
+  snapshot is never rewritten, so saved items keep their history.
+- **Investigations have no owner yet.** There is no auth, so investigations
+  are global and internal. Ownership and sharing wait for an auth and
+  organization design.
+- **Closed investigations are read only** until reopened: no edits, no item
+  changes, no delete.
 - **GLiNER2 cache folder.** gliner2 2.0 uses `cache_dir` for the config file
   only, so SignalScope downloads the model snapshot into the cache folder itself
   and loads from that folder.

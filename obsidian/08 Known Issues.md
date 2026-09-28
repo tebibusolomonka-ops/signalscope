@@ -1,6 +1,6 @@
 # Known Issues
 
-Open problems as of commit 255. Remove an item when it is fixed.
+Open problems as of commit 260. Remove an item when it is fixed.
 
 ## Events
 
@@ -33,6 +33,13 @@ Open problems as of commit 255. Remove an item when it is fixed.
 
 - Two turns asked at the same time in one session get different sequence
   numbers, but the later one may not see the earlier one in its history.
+
+## Investigations
+
+- Investigations are global and have no owner, because there is no
+  authentication yet.
+- An item whose record was deleted keeps its snapshot, but nothing marks the
+  record as gone yet.
 
 ## Code
 

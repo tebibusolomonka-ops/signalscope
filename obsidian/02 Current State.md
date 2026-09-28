@@ -1,6 +1,6 @@
 # Current State
 
-Last updated at commit 255. Alembic head: `09376fcf43b6` (Create research turns).
+Last updated at commit 260. Alembic head: `ca4da746adef` (Create investigation items).
 
 ## Done
 
@@ -24,6 +24,9 @@ Last updated at commit 255. Alembic head: `09376fcf43b6` (Create research turns)
 - Source comparison service (`SourceComparisonService`): 2 to 10 sources side
   by side with provenance counts, plus shared clusters, entities and claims.
   Exposed as `POST /sources/compare`.
+- Saved investigations (`/investigations`): open or closed, with items that
+  reference sources, documents, events, clusters, entities, claims and
+  research sessions, each with a snapshot. Global, no owner.
 - Multi-turn research sessions: sessions and turns in the database, a service
   and routes under `/research/sessions`. Earlier turns are context for the
   answer model, never evidence.

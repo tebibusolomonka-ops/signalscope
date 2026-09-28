@@ -99,3 +99,11 @@ def test_bad_status_filter() -> None:
 
 def test_needs_a_database(client: TestClient) -> None:
     assert client.get("/investigations").status_code == 503
+
+
+def test_save_research_session_route_is_in_openapi(app: FastAPI) -> None:
+    paths = app.openapi()["paths"]
+
+    assert set(paths["/investigations/{investigation_id}/research-sessions/{session_id}"]) == {
+        "post"
+    }

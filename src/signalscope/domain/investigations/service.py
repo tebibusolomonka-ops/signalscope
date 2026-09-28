@@ -17,6 +17,7 @@ from signalscope.domain.events.model import Event
 from signalscope.domain.investigations.item import InvestigationItem, InvestigationItemType
 from signalscope.domain.investigations.model import Investigation, InvestigationStatus
 from signalscope.domain.research.session import ResearchSession
+from signalscope.domain.research.turn import ResearchTurn
 from signalscope.domain.sources.model import Source
 
 CLOSED_ERROR = "Investigation is closed. Reopen it to change it."
@@ -140,6 +141,32 @@ class InvestigationService:
             raise
         return item
 
+    async def save_research_session(
+        self, investigation_id: uuid.UUID, session_id: uuid.UUID
+    ) -> tuple[InvestigationItem, bool]:
+        """Save a research session in an investigation, once.
+
+        Returns the item and whether it was saved now. Saving the same session
+        again returns the item saved before, with its first snapshot.
+        """
+        await self._open(investigation_id)
+        existing = await self.session.scalar(
+            select(InvestigationItem).where(
+                InvestigationItem.investigation_id == investigation_id,
+                InvestigationItem.item_type == InvestigationItemType.RESEARCH_SESSION,
+                InvestigationItem.reference_id == session_id,
+            )
+        )
+        if existing is not None:
+            await self.session.rollback()
+            return existing, False
+        # The investigation row stays locked, so a second save waits and then
+        # finds this item instead of adding another.
+        item = await self.add_item(
+            investigation_id, InvestigationItemType.RESEARCH_SESSION, session_id
+        )
+        return item, True
+
     async def remove_item(self, investigation_id: uuid.UUID, item_id: uuid.UUID) -> None:
         await self._open(investigation_id)
         item = await self.session.get(InvestigationItem, item_id)
@@ -256,7 +283,20 @@ async def _research_session(
     research = await session.get(ResearchSession, reference_id)
     if research is None:
         return None
-    return {"title": research.title, "retrieval_mode": research.retrieval_mode.value}
+    turn_count, latest_turn_at = (
+        await session.execute(
+            select(func.count(), func.max(ResearchTurn.created_at)).where(
+                ResearchTurn.session_id == reference_id
+            )
+        )
+    ).one()
+    return {
+        "title": research.title,
+        "retrieval_mode": research.retrieval_mode.value,
+        "source_id": None if research.source_id is None else str(research.source_id),
+        "turn_count": turn_count,
+        "latest_turn_at": _time(latest_turn_at),
+    }
 
 
 SNAPSHOT_READERS: dict[InvestigationItemType, SnapshotReader] = {

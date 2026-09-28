@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Response, status
 
 from signalscope.api.dependencies import DatabaseSession
 from signalscope.api.pagination import Page, Pagination
@@ -103,3 +103,19 @@ async def remove_investigation_item(
     investigation_id: uuid.UUID, item_id: uuid.UUID, session: DatabaseSession
 ) -> None:
     await InvestigationService(session).remove_item(investigation_id, item_id)
+
+
+@router.post("/{investigation_id}/research-sessions/{session_id}")
+async def save_research_session(
+    investigation_id: uuid.UUID, session_id: uuid.UUID, session: DatabaseSession, response: Response
+) -> InvestigationItemRead:
+    """Save a research session in the investigation, with its title, mode, scope and turns so far.
+
+    Answers 201 when it is saved now, and 200 with the earlier item when it was
+    saved before. The snapshot is not updated by saving again.
+    """
+    item, created = await InvestigationService(session).save_research_session(
+        investigation_id, session_id
+    )
+    response.status_code = status.HTTP_201_CREATED if created else status.HTTP_200_OK
+    return InvestigationItemRead.model_validate(item)

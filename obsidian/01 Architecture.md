@@ -31,6 +31,8 @@ One Python package, `src/signalscope`, with one PostgreSQL database. See
 - **Research** (`research/`): evidence retrieval, numbered context, answer
   generation behind a protocol, and citation validation. Research sessions
   (`domain/research/`) save each turn with the evidence it was answered from.
+- **Investigations** (`domain/investigations/`): saved collections of
+  references to records, each with a snapshot taken when it was saved.
 - **Relations** (`relations/`): relation extraction interface and an
   experimental GLiNER2 provider, used only by evaluation. Nothing is stored.
 - **Evaluation** (`evaluation/`): retrieval evaluation, and event, claim and

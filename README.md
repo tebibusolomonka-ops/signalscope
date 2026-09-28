@@ -417,6 +417,16 @@ not updated later, so the item stays useful if the record changes or is
 deleted. `PATCH /investigations/{id}` changes the title, description or
 status. A closed investigation is read only until it is opened again.
 
+To keep a research session with an investigation, save it in one call:
+
+```bash
+curl -X POST localhost:8000/investigations/<id>/research-sessions/<session id>
+```
+
+The snapshot keeps the session title, search mode, source scope, number of
+turns and time of the latest turn. Saving the same session again returns the
+item saved before.
+
 There are no users yet, so investigations are global: everyone who can reach
 the API sees all of them.
 

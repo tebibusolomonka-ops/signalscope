@@ -1,7 +1,7 @@
 # Database and Migrations
 
 PostgreSQL 17 with the pgvector extension. Current Alembic head:
-`09376fcf43b6` (Create research turns).
+`ca4da746adef` (Create investigation items).
 
 ## Rules
 
@@ -29,6 +29,10 @@ PostgreSQL 17 with the pgvector extension. Current Alembic head:
 - **Research**: `research_sessions` (mode as text with a check, optional
   source), `research_turns` (unique sequence per session, JSONB citation IDs
   and evidence snapshot, no `updated_at` because turns are history).
+- **Investigations**: `investigations` (status `open` or `closed` as text with
+  a check, no owner), `investigation_items` (item type as text with a check,
+  `reference_id` without a foreign key, JSONB snapshot, unique per
+  investigation, type and reference).
 
 ## Deletion behavior
 
@@ -38,5 +42,7 @@ PostgreSQL 17 with the pgvector extension. Current Alembic head:
 - Claims with evidence cannot be deleted. Sources with documents, ingestion
   runs or research sessions cannot be deleted.
 - Deleting a research session deletes its turns.
+- Deleting an investigation deletes its items, never the saved records.
+  Deleting a saved record leaves the item and its snapshot in place.
 
 See [[05 Workers and Queues]] for the job tables.

@@ -56,6 +56,19 @@ All read only. Coverage routes read the database and never load a model.
   each turn has its question, answer (or null without a model), citations and
   evidence summaries. Prompts and chunk text are not returned.
 
+## Investigations
+
+Global until users exist: everyone who can reach the API sees all of them.
+
+- `POST /investigations`, `GET /investigations` (`status` filter, paged),
+  `GET /investigations/{id}`, `PATCH /investigations/{id}`,
+  `DELETE /investigations/{id}`
+- `POST /investigations/{id}/items`, `GET /investigations/{id}/items`,
+  `DELETE /investigations/{id}/items/{item_id}`
+- `POST /investigations/{id}/research-sessions/{session_id}`: save a session
+  once (201 new, 200 already saved)
+- A closed investigation answers 409 to changes until it is reopened.
+
 ## Not in the API
 
 Relation extraction and extraction evaluation are command line only
