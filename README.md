@@ -483,6 +483,11 @@ These are observed provenance signals, not a credibility score. SignalScope
 does not rate sources as reliable or unreliable and does not rank them against
 each other. A high count only means more was observed.
 
+`POST /sources/compare` with `{"source_ids": [...]}` (2 to 10 different
+sources) shows the same profiles side by side, in the order given, plus how
+many event clusters, entities and claims two or more of them have in common.
+The comparison is descriptive: there is no score, winner or ranking.
+
 ### Claims
 
 The same GLiNER2 model and switch read claims: statements a text makes, such

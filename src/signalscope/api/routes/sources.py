@@ -5,9 +5,13 @@ from fastapi import APIRouter, Depends, status
 
 from signalscope.api.dependencies import DatabaseSession
 from signalscope.api.pagination import Page, Pagination
+from signalscope.domain.sources.comparison import SourceComparisonService
 from signalscope.domain.sources.provenance import SourceProvenanceService
 from signalscope.domain.sources.scheduling import SourceScheduleService
 from signalscope.domain.sources.schemas import (
+    ComparedSourceRead,
+    SourceComparisonRead,
+    SourceComparisonRequest,
     SourceCreate,
     SourceProvenanceRead,
     SourceRead,
@@ -45,6 +49,32 @@ async def list_sources(page: Pagination, sources: Sources) -> Page[SourceRead]:
         total=total,
         limit=page.limit,
         offset=page.offset,
+    )
+
+
+@router.post("/compare")
+async def compare_sources(
+    request: SourceComparisonRequest, session: DatabaseSession
+) -> SourceComparisonRead:
+    """Show 2 to 10 sources side by side, with what they have in common.
+
+    Each source gets the same observed counts and dates as its provenance
+    profile, in the order asked. The shared counts say how many event
+    clusters, entities and claims two or more of the sources have in common.
+    This is a description, not a judgement: sources are not scored or ranked.
+    """
+    comparison = await SourceComparisonService(session).compare(request.source_ids)
+    return SourceComparisonRead(
+        sources=[
+            ComparedSourceRead(
+                source=SourceRead.model_validate(item.source),
+                provenance=SourceProvenanceRead.model_validate(item.provenance),
+            )
+            for item in comparison.sources
+        ],
+        shared_event_cluster_count=comparison.shared_event_cluster_count,
+        shared_entity_count=comparison.shared_entity_count,
+        shared_claim_count=comparison.shared_claim_count,
     )
 
 

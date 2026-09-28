@@ -72,3 +72,33 @@ class SourceProvenanceRead(BaseModel):
     # Clusters of its events that at least one other source also reports.
     cross_source_event_cluster_count: int
     revision_count: int
+
+
+class SourceComparisonRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    # 2 to 10 different sources. The response keeps this order.
+    source_ids: list[uuid.UUID] = Field(min_length=2, max_length=10)
+
+    @model_validator(mode="after")
+    def check_unique(self) -> Self:
+        if len(set(self.source_ids)) != len(self.source_ids):
+            raise ValueError("each source can only be compared once")
+        return self
+
+
+class ComparedSourceRead(BaseModel):
+    source: SourceRead
+    provenance: SourceProvenanceRead
+
+
+class SourceComparisonRead(BaseModel):
+    """Observed facts about each source, side by side. Nothing is scored or ranked."""
+
+    sources: list[ComparedSourceRead]
+    # Event clusters that two or more of the sources report.
+    shared_event_cluster_count: int
+    # Entities found in two or more of the sources.
+    shared_entity_count: int
+    # Claims, by normalized text and type, found in two or more of the sources.
+    shared_claim_count: int

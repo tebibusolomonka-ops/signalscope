@@ -1,5 +1,6 @@
 import uuid
 
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -52,3 +53,49 @@ def test_bad_source_id() -> None:
 
 def test_needs_a_database(client: TestClient) -> None:
     assert client.get(f"/sources/{uuid.uuid4()}/provenance").status_code == 503
+
+
+def test_compare_route_is_in_openapi(app: FastAPI) -> None:
+    paths = app.openapi()["paths"]
+    schemas = app.openapi()["components"]["schemas"]
+
+    assert set(paths["/sources/compare"]) == {"post"}
+    assert set(schemas["SourceComparisonRead"]["properties"]) == {
+        "sources",
+        "shared_event_cluster_count",
+        "shared_entity_count",
+        "shared_claim_count",
+    }
+    assert set(schemas["ComparedSourceRead"]["properties"]) == {"source", "provenance"}
+    words = ("better", "worse", "trust", "reliab", "score", "rank", "winner", "best")
+    for name in ("SourceComparisonRead", "ComparedSourceRead", "SourceComparisonRequest"):
+        fields = " ".join(schemas[name]["properties"]).lower()
+        assert not any(word in fields for word in words), name
+
+
+@pytest.mark.parametrize(
+    "source_ids",
+    [
+        [],
+        [str(uuid.uuid4())],
+        [str(uuid.uuid4()) for _ in range(11)],
+        ["not-a-uuid", str(uuid.uuid4())],
+    ],
+    ids=["none", "too few", "too many", "bad id"],
+)
+def test_compare_bad_request(source_ids: list[str]) -> None:
+    app = create_app(Settings(database_url=FAKE_DATABASE_URL))
+    with TestClient(app) as client:
+        response = client.post("/sources/compare", json={"source_ids": source_ids})
+
+    assert response.status_code == 422
+
+
+def test_compare_duplicates_are_rejected() -> None:
+    same = str(uuid.uuid4())
+    app = create_app(Settings(database_url=FAKE_DATABASE_URL))
+    with TestClient(app) as client:
+        response = client.post("/sources/compare", json={"source_ids": [same, same]})
+
+    assert response.status_code == 422
+    assert "only be compared once" in response.text
