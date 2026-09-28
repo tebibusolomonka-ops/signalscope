@@ -36,7 +36,10 @@ fakes.
 - **Extraction evaluation**: `evaluate-extraction` reports precision, recall
   and F1 for events, claims and relations with exact matching, and checks
   optional user-defined `--quality-gates`. `check-structured-model` is the
-  manual smoke check for the real GLiNER2 install.
+  manual smoke check for the real GLiNER2 install. Neither has been run with
+  the real model yet, so there are no real numbers.
+- **Semantic event links stay advisory**: `GET /events/{id}/link-suggestions`
+  ranks candidates; only the exact linker changes clusters.
 
 ## Research answers
 

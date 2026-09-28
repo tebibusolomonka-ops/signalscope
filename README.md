@@ -454,6 +454,23 @@ anything.
 There are no users yet, so investigations are global: everyone who can reach
 the API sees all of them.
 
+### Dashboard
+
+Aggregate numbers for a future dashboard. They are counts only: no scores,
+rankings or judgements of sources or events.
+
+- `GET /dashboard/overview`: how many sources, documents, chunks, entities,
+  claims, events, event clusters, research sessions and investigations exist,
+  and how many ingestion, processing, embedding, entity, event and claim jobs
+  are waiting or running.
+- `GET /dashboard/sources?days=30&source_id=...`: documents stored and
+  documents published per UTC day.
+- `GET /dashboard/events?days=30&event_type=...&source_id=...`: events,
+  event clusters, and clusters that two or more sources report, per UTC day
+  by when they happened. Undated events are not counted.
+
+`days` is 1 to 365. Every day is listed, with 0 for quiet days.
+
 ### Entities
 
 SignalScope can find people, organizations, places, countries, cities,

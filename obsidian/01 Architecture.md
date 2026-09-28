@@ -33,6 +33,8 @@ One Python package, `src/signalscope`, with one PostgreSQL database. See
   (`domain/research/`) save each turn with the evidence it was answered from.
 - **Investigations** (`domain/investigations/`): saved collections of
   references to records, each with a snapshot taken when it was saved.
+- **Dashboard** (`dashboard/`): aggregate counts and zero-filled UTC daily
+  series, built with SQL aggregates.
 - **Relations** (`relations/`): relation extraction interface and an
   experimental GLiNER2 provider, used only by evaluation. Nothing is stored.
 - **Evaluation** (`evaluation/`): retrieval evaluation, and event, claim and

@@ -73,10 +73,22 @@ Global until users exist: everyone who can reach the API sees all of them.
   grouped by type, with whether each record still exists.
 - A closed investigation answers 409 to changes until it is reopened.
 
+## Dashboard
+
+Aggregates only; no record lists, scores or rankings.
+
+- `GET /dashboard/overview`: record counts and waiting or running jobs
+- `GET /dashboard/sources?days=&source_id=`: documents stored and published
+  per UTC day
+- `GET /dashboard/events?days=&event_type=&source_id=`: events, clusters and
+  cross-source clusters per UTC day
+- `days` is 1 to 365; every day is listed.
+
 ## Not in the API
 
 Relation extraction and extraction evaluation are command line only
 (`signalscope evaluate-extraction`, `signalscope check-structured-model`).
+Investigations can also be exported with `signalscope export-investigation`.
 There is no relation route, because no relations are stored.
 
 See [[06 Search and AI]] for the models behind these routes.

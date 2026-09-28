@@ -17,7 +17,11 @@ follow the code and fix the note.
 - Find entities, events and claims in the text, and see which chunks back them.
 - Link reports of the same event across documents and read them as a timeline.
 - See what has been observed about a source, as counts and dates.
-- Ask a research question and get an answer that cites the evidence it used.
+- Ask a research question and get an answer that cites the evidence it used,
+  also as a multi-turn session.
+- Save sources, events, claims and research sessions into investigations,
+  and export sessions and investigations as JSON or Markdown.
+- Read factual dashboard aggregates: counts and daily activity.
 
 ## Data flow
 

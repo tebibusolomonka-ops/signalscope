@@ -1,18 +1,17 @@
 # Next Work
 
-Current batch: commits 251 to 270. Done so far: the structured model smoke
-check, extraction quality gates, the suggestions route, cluster detail,
-saved investigations and exports. Still to do in this batch: factual
-dashboard data.
+Batch 251 to 270 is done; see [[02 Current State]]. Nothing below is built yet.
 
-## After this batch
+## Next batch
 
-1. Build a small reference extraction dataset and run `evaluate-extraction`
-   with the real GLiNER2 model. Record the numbers here and in
-   [[08 Known Issues]].
-2. Use those results to decide whether relation extraction is good enough to
-   store. Only then consider entity-to-entity graph foundations.
-3. A frontend or admin view over the dashboard data.
+1. Run the real structured-extraction and answer-model smoke checks
+   (`check-structured-model`, `check-answer-model`) on a suitable machine.
+2. Build a small reference dataset, run `evaluate-extraction` with the real
+   GLiNER2 model, and record the numbers here and in [[08 Known Issues]].
+3. Decide from those numbers whether relation quality justifies storing
+   knowledge-graph edges. No numbers, no edges.
+4. Investigation collaboration only after an auth and organization design.
+5. A frontend or admin dashboard over the aggregate APIs.
 
 ## Open follow-ups
 

@@ -1,6 +1,6 @@
 # Current State
 
-Last updated at commit 266 (265 planned plus one fix). Alembic head: `ca4da746adef` (Create investigation items).
+Last updated at commit 271 (270 planned plus one fix). Alembic head: `ca4da746adef` (Create investigation items).
 
 ## Done
 
@@ -32,6 +32,11 @@ Last updated at commit 266 (265 planned plus one fix). Alembic head: `ca4da746ad
   investigations (`GET /investigations/{id}/export`, from saved snapshots,
   grouped by type), plus `signalscope export-investigation` with `--output`
   and `--overwrite`. Nothing is written on the server.
+- Dashboard aggregates (`/dashboard/overview`, `/dashboard/sources`,
+  `/dashboard/events`): record counts, open jobs, and daily source and event
+  activity. Counts only.
+- Knowledge-graph edges are not stored. The relation provider is an evaluated
+  candidate only, and no real benchmark has been run.
 - Multi-turn research sessions: sessions and turns in the database, a service
   and routes under `/research/sessions`. Earlier turns are context for the
   answer model, never evidence.

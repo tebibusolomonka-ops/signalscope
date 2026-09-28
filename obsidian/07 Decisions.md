@@ -68,6 +68,11 @@ Decisions that should hold unless there is a clear reason to change them.
   each turn's saved evidence and never searches again. An investigation export
   uses item snapshots; its only live value is whether a record still exists.
   Exports are returned or written by the caller, never stored on the server.
+- **Dashboards are factual aggregates.** Counts and zero-filled UTC daily
+  series from SQL aggregates. No credibility, trust, importance or political
+  scores, and no source rankings.
+- **No knowledge-graph edges yet.** Still deferred: the relation provider and
+  evaluation exist, but no real benchmark result justifies storing edges.
 - **Closed investigations are read only** until reopened: no edits, no item
   changes, no delete.
 - **GLiNER2 cache folder.** gliner2 2.0 uses `cache_dir` for the config file

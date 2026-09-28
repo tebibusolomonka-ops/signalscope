@@ -20,6 +20,9 @@ stops at the first failure, and checks that Alembic has one head.
   `fake_embeddings.py`, `fake_qwen.py`, `event_reports.py`).
 - No test downloads a model or uses the public network. Optional libraries are
   replaced with fakes or made to fail on import.
+- `tests/integration/test_dashboard_end_to_end.py` checks that the dashboard,
+  source comparison, timeline, research export and investigation export agree
+  on one dataset.
 - Extraction quality is measured with `signalscope evaluate-extraction` on a
   local dataset, by hand, with the real model. It is not part of CI, and there
   are no built-in thresholds.

@@ -139,5 +139,5 @@ def _describe(item_type: InvestigationItemType, snapshot: dict[str, Any]) -> str
         case InvestigationItemType.RESEARCH_SESSION:
             title = snapshot.get("title") or "Research session"
             turns = snapshot.get("turn_count")
-            count = "" if turns is None else f", {turns} turns"
+            count = "" if turns is None else f", {turns} turn{'' if turns == 1 else 's'}"
             return f"{title} ({snapshot.get('retrieval_mode')}{count})"

@@ -1,6 +1,6 @@
 # Known Issues
 
-Open problems as of commit 266. Remove an item when it is fixed.
+Open problems as of commit 271. Remove an item when it is fixed.
 
 ## Events
 
@@ -40,6 +40,12 @@ Open problems as of commit 266. Remove an item when it is fixed.
   authentication yet.
 - An item whose record was deleted keeps its snapshot. Exports mark it with
   `current_reference_exists: false`; the item list itself does not.
+
+## Dashboard
+
+- "Pending" job counts include running jobs; stale running jobs whose lease
+  expired are counted until a worker recovers them.
+- Daily series use UTC days only; there is no local time zone option.
 
 ## Code
 
