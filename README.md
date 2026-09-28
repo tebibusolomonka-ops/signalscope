@@ -436,6 +436,11 @@ The snapshot keeps the session title, search mode, source scope, number of
 turns and time of the latest turn. Saving the same session again returns the
 item saved before.
 
+`GET /investigations/{id}/export` returns the investigation with all its
+items grouped by type, as JSON or, with `?format=markdown`, as a Markdown
+report. It shows the saved snapshots, not live data, and says for each item
+whether the record still exists.
+
 There are no users yet, so investigations are global: everyone who can reach
 the API sees all of them.
 

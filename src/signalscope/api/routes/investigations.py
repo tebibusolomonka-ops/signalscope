@@ -4,6 +4,12 @@ from fastapi import APIRouter, Response, status
 
 from signalscope.api.dependencies import DatabaseSession
 from signalscope.api.pagination import Page, Pagination
+from signalscope.core.exports import MARKDOWN_MEDIA_TYPE, ExportFormat
+from signalscope.domain.investigations.export import (
+    InvestigationExport,
+    InvestigationExportService,
+    investigation_markdown,
+)
 from signalscope.domain.investigations.model import InvestigationStatus
 from signalscope.domain.investigations.schemas import (
     InvestigationCreate,
@@ -51,6 +57,26 @@ async def get_investigation(
     return InvestigationRead.model_validate(
         await InvestigationService(session).get(investigation_id)
     )
+
+
+@router.get(
+    "/{investigation_id}/export",
+    response_model=InvestigationExport,
+    responses={200: {"content": {"text/markdown": {}}}},
+)
+async def export_investigation(
+    investigation_id: uuid.UUID, session: DatabaseSession, format: ExportFormat = ExportFormat.JSON
+) -> InvestigationExport | Response:
+    """The investigation with every saved item, grouped by type.
+
+    Items show the snapshot taken when they were saved, not live data, and say
+    whether the record still exists. format=markdown returns a Markdown report.
+    Nothing is written on the server.
+    """
+    export = await InvestigationExportService(session).export(investigation_id)
+    if format is ExportFormat.MARKDOWN:
+        return Response(investigation_markdown(export), media_type=MARKDOWN_MEDIA_TYPE)
+    return export
 
 
 @router.patch("/{investigation_id}")

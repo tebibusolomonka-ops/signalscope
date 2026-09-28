@@ -123,3 +123,34 @@ async def test_unknown_investigation(client: httpx.AsyncClient) -> None:
     ]
 
     assert [response.status_code for response in responses] == [404, 404, 404, 404]
+
+
+async def test_export(
+    client: httpx.AsyncClient, session_factory: async_sessionmaker[AsyncSession]
+) -> None:
+    source = await create_source(session_factory, "Wire")
+    event = await report_event(session_factory, source, "Harbour flood")
+    investigation = await create(client, title="Harbour")
+    items_path = f"/investigations/{investigation['id']}/items"
+    await client.post(items_path, json={"item_type": "event", "reference_id": str(event)})
+    await client.post(items_path, json={"item_type": "source", "reference_id": str(source)})
+    path = f"/investigations/{investigation['id']}/export"
+
+    as_json = await client.get(path)
+    as_markdown = await client.get(path, params={"format": "markdown"})
+
+    assert as_json.status_code == 200, as_json.text
+    body = as_json.json()
+    assert body["investigation"]["title"] == "Harbour"
+    assert [item["item_type"] for item in body["items"]] == ["source", "event"]
+    assert all(item["current_reference_exists"] for item in body["items"])
+    assert body["items"][1]["snapshot"]["title"] == "Harbour flood"
+    assert as_markdown.headers["content-type"].startswith("text/markdown")
+    assert as_markdown.text.startswith("# Harbour\n\nStatus: open\n")
+    assert "## Events\n\n- Harbour flood (flood, date unknown)." in as_markdown.text
+
+
+async def test_export_unknown(client: httpx.AsyncClient) -> None:
+    response = await client.get(f"/investigations/{uuid.uuid4()}/export")
+
+    assert response.status_code == 404

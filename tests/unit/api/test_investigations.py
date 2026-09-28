@@ -107,3 +107,19 @@ def test_save_research_session_route_is_in_openapi(app: FastAPI) -> None:
     assert set(paths["/investigations/{investigation_id}/research-sessions/{session_id}"]) == {
         "post"
     }
+
+
+def test_export_route_is_in_openapi(app: FastAPI) -> None:
+    get = app.openapi()["paths"]["/investigations/{investigation_id}/export"]["get"]
+
+    assert [parameter["name"] for parameter in get["parameters"]] == ["investigation_id", "format"]
+    assert set(get["responses"]["200"]["content"]) == {"application/json", "text/markdown"}
+    schema = app.openapi()["components"]["schemas"]["ExportedItem"]
+    assert "current_reference_exists" in schema["properties"]
+
+
+def test_export_bad_format() -> None:
+    status_code, result = send("GET", f"/investigations/{uuid.uuid4()}/export?format=pdf")
+
+    assert status_code == 422
+    assert result["error"]["details"][0]["loc"] == ["query", "format"]
