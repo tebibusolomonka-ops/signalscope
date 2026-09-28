@@ -45,15 +45,20 @@ ModelLoader = Callable[[str, str, Path | None], StructuredExtractor]
 
 
 def load_gliner2(model: str, device: str, cache_dir: Path | None) -> StructuredExtractor:
-    """Load a model, downloading it into the cache on first use."""
+    """Load a model, downloading it into the cache on first use.
+
+    In gliner2 2.0, AutoExtractor.from_pretrained uses cache_dir only for the
+    config file, not for the weights. So with a cache folder, the whole model
+    is downloaded there first with huggingface_hub, which gliner2 depends on,
+    and then loaded from that local folder.
+    """
     try:
         from gliner2 import AutoExtractor
+        from huggingface_hub import snapshot_download
     except ImportError as error:
         raise LocalStructuredNotInstalledError() from error
-    options: dict[str, Any] = {"map_location": device}
-    if cache_dir is not None:
-        options["cache_dir"] = cache_dir
-    extractor: StructuredExtractor = AutoExtractor.from_pretrained(model, **options)
+    source = model if cache_dir is None else snapshot_download(model, cache_dir=str(cache_dir))
+    extractor: StructuredExtractor = AutoExtractor.from_pretrained(source, map_location=device)
     return extractor
 
 

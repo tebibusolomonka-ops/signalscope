@@ -15,8 +15,6 @@ Open problems as of commit 230. Remove an item when it is fixed.
 
 - Real extraction quality (GLiNER, GLiNER2) has not been measured.
 - GLiNER2 relation extraction has not been evaluated.
-- The GLiNER2 loader passes `cache_dir` to `AutoExtractor.from_pretrained`
-  without having been checked against the library.
 - Real local models do not run in normal CI; only fakes do. The smoke check
   commands are the way to try a real model.
 - GLiNER2 extracts spans, so a claim's `text` usually repeats its quote.

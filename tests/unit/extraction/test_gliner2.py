@@ -117,24 +117,96 @@ async def test_missing_library_surfaces_on_first_use(monkeypatch: pytest.MonkeyP
         await Gliner2StructuredBackend().extract_json(TEXT, SCHEMA)
 
 
-def test_loader_uses_auto_extractor(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    calls: list[tuple[str, dict[str, Any]]] = []
+# The options AutoExtractor.from_pretrained accepts in gliner2 2.0. It raises
+# TypeError for any other keyword.
+GLINER2_LOAD_OPTIONS = {
+    "cache_dir",
+    "force_download",
+    "local_files_only",
+    "token",
+    "revision",
+    "subfolder",
+    "proxies",
+    "quantize",
+    "compile",
+    "map_location",
+    "use_flashdeberta",
+    "word_splitter",
+}
 
-    class AutoExtractor:
-        @staticmethod
-        def from_pretrained(model: str, **options: Any) -> FakeAutoExtractor:
-            calls.append((model, options))
-            return FakeAutoExtractor()
 
-    # A stand-in for the library, so nothing is downloaded.
-    module = types.ModuleType("gliner2")
-    module.AutoExtractor = AutoExtractor  # type: ignore[attr-defined]
-    monkeypatch.setitem(sys.modules, "gliner2", module)
+class FakeLibraries:
+    """Stand-ins for gliner2 and huggingface_hub that record calls. Nothing is downloaded."""
 
-    load_gliner2("fastino/gliner2.5-multi-v1", "cpu", None)
-    load_gliner2("fastino/gliner2.5-multi-v1", "cuda", tmp_path)
+    def __init__(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+        self.loads: list[tuple[str, dict[str, Any]]] = []
+        self.snapshots: list[tuple[str, dict[str, Any]]] = []
+        self.snapshot_dir = str(tmp_path / "snapshot")
+        libraries = self
 
-    assert calls == [
-        ("fastino/gliner2.5-multi-v1", {"map_location": "cpu"}),
-        ("fastino/gliner2.5-multi-v1", {"map_location": "cuda", "cache_dir": tmp_path}),
+        class AutoExtractor:
+            @staticmethod
+            def from_pretrained(model: str, *args: Any, **options: Any) -> FakeAutoExtractor:
+                unknown = set(options) - GLINER2_LOAD_OPTIONS
+                if args or unknown:
+                    raise TypeError(f"from_pretrained does not accept {sorted(unknown)}")
+                libraries.loads.append((model, options))
+                return FakeAutoExtractor()
+
+        def snapshot_download(repo_id: str, **options: Any) -> str:
+            libraries.snapshots.append((repo_id, options))
+            return libraries.snapshot_dir
+
+        gliner2 = types.ModuleType("gliner2")
+        gliner2.AutoExtractor = AutoExtractor  # type: ignore[attr-defined]
+        hub = types.ModuleType("huggingface_hub")
+        hub.snapshot_download = snapshot_download  # type: ignore[attr-defined]
+        monkeypatch.setitem(sys.modules, "gliner2", gliner2)
+        monkeypatch.setitem(sys.modules, "huggingface_hub", hub)
+
+
+def test_loader_forwards_only_the_device(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    libraries = FakeLibraries(monkeypatch, tmp_path)
+
+    load_gliner2("fastino/gliner2.5-multi-v1", "cuda", None)
+
+    assert libraries.loads == [("fastino/gliner2.5-multi-v1", {"map_location": "cuda"})]
+    assert libraries.snapshots == []
+
+
+def test_cache_folder_holds_the_whole_model(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    libraries = FakeLibraries(monkeypatch, tmp_path)
+
+    load_gliner2("fastino/gliner2.5-multi-v1", "cpu", tmp_path / "models")
+
+    # AutoExtractor would use cache_dir for the config file only, so the model is
+    # downloaded into the cache first and loaded from there.
+    assert libraries.snapshots == [
+        ("fastino/gliner2.5-multi-v1", {"cache_dir": str(tmp_path / "models")})
     ]
+    assert libraries.loads == [(libraries.snapshot_dir, {"map_location": "cpu"})]
+
+
+def test_missing_hub_library_gives_a_clear_error(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    FakeLibraries(monkeypatch, tmp_path)
+    monkeypatch.setitem(sys.modules, "huggingface_hub", None)
+
+    with pytest.raises(LocalStructuredNotInstalledError):
+        load_gliner2("fastino/gliner2.5-multi-v1", "cpu", None)
+
+
+async def test_backend_loads_lazily_through_the_loader(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    libraries = FakeLibraries(monkeypatch, tmp_path)
+    backend = Gliner2StructuredBackend(device="cpu")
+
+    assert libraries.loads == []
+    await backend.extract_json(TEXT, SCHEMA)
+    await backend.extract_json(TEXT, SCHEMA)
+
+    assert libraries.loads == [("fastino/gliner2.5-multi-v1", {"map_location": "cpu"})]

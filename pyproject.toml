@@ -85,7 +85,7 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 # Also an optional extra.
-module = ["gliner2", "gliner2.*"]
+module = ["gliner2", "gliner2.*", "huggingface_hub", "huggingface_hub.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
