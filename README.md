@@ -381,6 +381,26 @@ Generation is greedy, so the same evidence gives the same answer. Output that
 is not exactly that JSON is rejected, and every answer goes through the
 citation checks above before it is returned.
 
+### Research sessions
+
+A research session keeps a line of questions together. Create one with an
+optional `title`, `retrieval_mode` (default `hybrid`) and `source_id`:
+
+```bash
+curl -X POST localhost:8000/research/sessions   -H "Content-Type: application/json" -d '{"title": "Harbour", "retrieval_mode": "hybrid"}'
+curl -X POST localhost:8000/research/sessions/<id>/turns   -H "Content-Type: application/json" -d '{"question": "What flooded the harbour?"}'
+```
+
+Each turn searches again for its own question with the session's mode and
+source, and is saved with its question, answer, citations and the evidence it
+was answered from. `GET /research/sessions/{id}/turns` lists them in order.
+
+Earlier turns are given to the answer model as conversation context, so a
+follow-up question can make sense. They are not evidence: their citation
+markers are removed, and every answer must cite the evidence found for its own
+turn, checked like any answer. Without an answer model, turns are still saved
+with their evidence and no answer.
+
 ### Entities
 
 SignalScope can find people, organizations, places, countries, cities,

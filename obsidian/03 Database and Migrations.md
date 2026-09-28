@@ -1,7 +1,7 @@
 # Database and Migrations
 
 PostgreSQL 17 with the pgvector extension. Current Alembic head:
-`97ebc65e728c` (Create event clusters).
+`09376fcf43b6` (Create research turns).
 
 ## Rules
 
@@ -26,13 +26,17 @@ PostgreSQL 17 with the pgvector extension. Current Alembic head:
   cluster per event).
 - **Claims**: `claims` (unique on normalized text and type), `claim_evidence`
   (exact offsets into the chunk), `claim_extraction_jobs`.
+- **Research**: `research_sessions` (mode as text with a check, optional
+  source), `research_turns` (unique sequence per session, JSONB citation IDs
+  and evidence snapshot, no `updated_at` because turns are history).
 
 ## Deletion behavior
 
 - Deleting a chunk deletes its embeddings, mentions, evidence and jobs.
 - The database keeps an event when its evidence goes; code then deletes
   events left with no evidence.
-- Claims with evidence cannot be deleted. Sources with documents cannot be
-  deleted.
+- Claims with evidence cannot be deleted. Sources with documents, ingestion
+  runs or research sessions cannot be deleted.
+- Deleting a research session deletes its turns.
 
 See [[05 Workers and Queues]] for the job tables.

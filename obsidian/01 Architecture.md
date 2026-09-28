@@ -29,7 +29,8 @@ One Python package, `src/signalscope`, with one PostgreSQL database. See
   protocols, registries and local model wrappers. Every provider result goes
   through a shared validation function before it is stored.
 - **Research** (`research/`): evidence retrieval, numbered context, answer
-  generation behind a protocol, and citation validation.
+  generation behind a protocol, and citation validation. Research sessions
+  (`domain/research/`) save each turn with the evidence it was answered from.
 - **Evaluation** (`evaluation/`): retrieval evaluation against local datasets.
 
 ## Patterns

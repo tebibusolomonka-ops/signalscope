@@ -31,6 +31,15 @@ Decisions that should hold unless there is a clear reason to change them.
   evaluated on real data.
 - **Answers must cite given evidence.** Citations are validated before an
   answer is returned; an answer that fails is not shown.
+- **Conversation history is not evidence.** In research sessions, earlier
+  questions and answers are context only, with their citation markers removed.
+  Current factual answers still cite the evidence retrieved for the current
+  turn.
+- **Sessions work without a model.** A turn without an answer model is saved
+  with its evidence and a null answer, instead of failing.
+- **Turns are history.** Each turn stores the evidence the model saw at that
+  time, including the chunk text, so it can be inspected later even if the
+  documents change. No vectors or model internals are stored.
 - **No quality targets without measurements.** Evaluation commands report
   numbers; any gates are user defined.
 - **Extraction is scored by exact matching.** Events match on normalized type

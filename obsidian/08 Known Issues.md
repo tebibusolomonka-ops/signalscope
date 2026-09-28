@@ -1,6 +1,6 @@
 # Known Issues
 
-Open problems as of commit 239. Remove an item when it is fixed.
+Open problems as of commit 244. Remove an item when it is fixed.
 
 ## Events
 
@@ -21,6 +21,11 @@ Open problems as of commit 239. Remove an item when it is fixed.
 - Real local models do not run in normal CI; only fakes do. The smoke check
   commands are the way to try a real model.
 - GLiNER2 extracts spans, so a claim's `text` usually repeats its quote.
+
+## Research
+
+- Two turns asked at the same time in one session get different sequence
+  numbers, but the later one may not see the earlier one in its history.
 
 ## Code
 

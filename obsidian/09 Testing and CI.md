@@ -29,6 +29,11 @@ GitHub Actions (`.github/workflows/ci.yml`) runs the same checks on Python
 On the current developer machine there is no local PostgreSQL, so database
 tests only run in CI.
 
+CI installs the newest allowed packages, which can be newer than a local
+environment (for example SQLAlchemy 2.1 in CI and 2.0 locally, where `Select`
+typing differs). Run mypy in a fresh environment before pushing typing-heavy
+changes.
+
 ## Workflow
 
 Work is done in groups of five commits. Each commit is checked with targeted

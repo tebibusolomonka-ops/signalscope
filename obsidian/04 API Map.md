@@ -13,6 +13,8 @@ model answer 503 when it is off. Lists are paged with `limit` and `offset`.
 - `POST /sources`, `GET /sources`, `GET /sources/{id}`, `DELETE /sources/{id}`
 - `PUT /sources/{id}/schedule`, `DELETE /sources/{id}/schedule`
 - `GET /sources/{id}/provenance`: observed counts and dates, no score
+- `POST /sources/compare`: 2 to 10 sources side by side, with shared clusters,
+  entities and claims; no score or ranking
 - `POST /ingestion-runs`, `GET /ingestion-runs`, `GET /ingestion-runs/{id}`
 
 ## Documents
@@ -45,5 +47,9 @@ All read only. Coverage routes read the database and never load a model.
 - `POST /research/context`: numbered evidence, no answer.
 - `POST /research/answer`: answer with checked citations. 503 unless local
   answers are enabled.
+- `POST /research/sessions`, `GET /research/sessions/{id}`
+- `GET /research/sessions/{id}/turns`, `POST /research/sessions/{id}/turns`:
+  each turn has its question, answer (or null without a model), citations and
+  evidence summaries. Prompts and chunk text are not returned.
 
 See [[06 Search and AI]] for the models behind these routes.

@@ -1,11 +1,8 @@
 # Next Work
 
 Planned for the current batch (commits 230 to 249). None of this is done
-unless [[02 Current State]] says so. Done so far: the vault, the loader check,
-event and claim scoring, automatic linking with a repair command and cluster
-cleanup, suggestion and comparison services. Still to do: the comparison
-route, research sessions, relation extraction and the extraction benchmark
-command.
+unless [[02 Current State]] says so. Done so far: items 1 to 7. Still to do:
+relation extraction (item 8) and the extraction benchmark command.
 
 1. Keep this vault as project memory, updated at each checkpoint.
 2. Check the GLiNER2 loader arguments against the library.

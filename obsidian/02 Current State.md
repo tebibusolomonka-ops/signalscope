@@ -1,6 +1,6 @@
 # Current State
 
-Last updated at commit 239. Alembic head: `97ebc65e728c` (Create event clusters).
+Last updated at commit 244. Alembic head: `09376fcf43b6` (Create research turns).
 
 ## Done
 
@@ -20,7 +20,10 @@ Last updated at commit 239. Alembic head: `97ebc65e728c` (Create event clusters)
   similarity). Code only, no route yet. They never change clusters.
 - Source comparison service (`SourceComparisonService`): 2 to 10 sources side
   by side with provenance counts, plus shared clusters, entities and claims.
-  Code only; the route comes next.
+  Exposed as `POST /sources/compare`.
+- Multi-turn research sessions: sessions and turns in the database, a service
+  and routes under `/research/sessions`. Earlier turns are context for the
+  answer model, never evidence.
 - Source provenance profile (counts and dates, no score).
 - Research context and citation-checked research answers, with an optional
   local Qwen answer model and a smoke check command.

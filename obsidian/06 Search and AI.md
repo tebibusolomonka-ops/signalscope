@@ -37,5 +37,8 @@ fakes.
 - The model must return JSON `{text, citation_ids}`. Every answer is checked:
   cited IDs must be given, marked in the text, and not repeated. A failed check
   is a 503 without the model text.
+- **Sessions**: the last 5 turns go to the model as "earlier conversation
+  (context only, not evidence)", with citation markers removed. The current
+  answer must cite the current turn's evidence.
 
 Decisions behind this: [[07 Decisions]].
