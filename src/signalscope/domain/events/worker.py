@@ -11,6 +11,7 @@ from signalscope.core.leases import DEFAULT_LEASE_POLICY, LeasePolicy
 from signalscope.domain.documents.chunk import DocumentChunk
 from signalscope.domain.events.job import EventExtractionJob, EventExtractionJobStatus
 from signalscope.domain.events.job_repository import EventExtractionJobRepository
+from signalscope.domain.events.linking import EventLinkingService
 from signalscope.domain.events.model import Event, EventEvidence
 from signalscope.domain.events.repository import EventRepository
 from signalscope.domain.sources.scheduling import Clock, utc_now
@@ -34,6 +35,8 @@ class EventWorkerResult:
     job: EventExtractionJob | None
     event_count: int = 0
     lease_lost: bool = False
+    # New events put in a cluster after the job was saved.
+    linked_count: int = 0
 
 
 class EventExtractionWorker:
@@ -46,6 +49,10 @@ class EventExtractionWorker:
     finds becomes its own Event, with one EventEvidence row pointing to the
     chunk. Reading a chunk again with the same model replaces that evidence,
     and events left with no evidence at all are deleted.
+
+    After the job is saved, the new events are linked into event clusters. A
+    linking failure is only logged: the events stay saved but unclustered, and
+    the link-events command can link them later.
     """
 
     def __init__(
@@ -55,9 +62,11 @@ class EventExtractionWorker:
         clock: Clock = utc_now,
         lease: LeasePolicy = DEFAULT_LEASE_POLICY,
         sleep: Sleep = asyncio.sleep,
+        linker: EventLinkingService | None = None,
     ) -> None:
         self.session_factory = session_factory
         self.extractors = extractors
+        self.linker = EventLinkingService(session_factory) if linker is None else linker
         self.clock = clock
         self.lease = lease
         self.sleep = sleep
@@ -77,11 +86,26 @@ class EventExtractionWorker:
             lambda: self._heartbeat(job.id, token), self.lease, self.sleep
         ) as keeper:
             events, error = await self._extract(job, chunk)
-        finished = None if keeper.lost else await self._finish(job, token, chunk, events, error)
-        if finished is None:
+        saved = None if keeper.lost else await self._finish(job, token, chunk, events, error)
+        if saved is None:
             logger.warning("Event extraction job %s was taken over by another worker", job.id)
             return EventWorkerResult(job=job, lease_lost=True)
-        return EventWorkerResult(job=finished, event_count=0 if error else len(events))
+        finished, created = saved
+        # The job and its events are committed. Linking runs after, outside the model call.
+        linked = await self._link(created)
+        return EventWorkerResult(
+            job=finished, event_count=0 if error else len(events), linked_count=linked
+        )
+
+    async def _link(self, event_ids: list[uuid.UUID]) -> int:
+        linked = 0
+        for event_id in event_ids:
+            try:
+                if await self.linker.link_event(event_id) is not None:
+                    linked += 1
+            except Exception:
+                logger.exception("Linking event %s failed; it stays unclustered", event_id)
+        return linked
 
     async def _extract(
         self, job: EventExtractionJob, chunk: DocumentChunk
@@ -124,8 +148,11 @@ class EventExtractionWorker:
         chunk: DocumentChunk,
         events: list[ExtractedEvent],
         error: str | None,
-    ) -> EventExtractionJob | None:
-        """Save the outcome, or return None when this worker no longer holds the job."""
+    ) -> tuple[EventExtractionJob, list[uuid.UUID]] | None:
+        """Save the outcome and return the job and the new event IDs.
+
+        Returns None when this worker no longer holds the job.
+        """
         async with self.session_factory() as session:
             try:
                 current = await session.get(
@@ -139,16 +166,17 @@ class EventExtractionWorker:
                     await session.rollback()
                     return None
                 jobs = EventExtractionJobRepository(session)
+                created: list[uuid.UUID] = []
                 if error is not None:
                     finished = await jobs.mark_failed(job.id, token, self.clock(), error)
                 else:
-                    await _replace_events(session, job, chunk, events)
+                    created = await _replace_events(session, job, chunk, events)
                     finished = await jobs.mark_completed(job.id, token, self.clock())
                 await session.commit()
             except Exception:
                 await session.rollback()
                 raise
-        return finished
+        return finished, created
 
 
 async def _replace_events(
@@ -156,7 +184,8 @@ async def _replace_events(
     job: EventExtractionJob,
     chunk: DocumentChunk,
     events: list[ExtractedEvent],
-) -> None:
+) -> list[uuid.UUID]:
+    """Replace this chunk's events from the job's model and return the new event IDs."""
     # Evidence from this chunk and model was made by an earlier run of this job.
     # Its events are deleted only when no other evidence points to them.
     replaced = await session.scalars(
@@ -169,6 +198,7 @@ async def _replace_events(
         .returning(EventEvidence.event_id)
     )
     await EventRepository(session).delete_orphaned_events(set(replaced.all()))
+    created = []
     for extracted in events:
         event = Event(
             event_type=extracted.event_type,
@@ -188,4 +218,6 @@ async def _replace_events(
                 evidence_metadata=dict(extracted.metadata),
             )
         )
+        created.append(event.id)
     await session.flush()
+    return created
