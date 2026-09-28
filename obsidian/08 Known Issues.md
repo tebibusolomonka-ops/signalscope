@@ -1,6 +1,6 @@
 # Known Issues
 
-Open problems as of commit 230. Remove an item when it is fixed.
+Open problems as of commit 234. Remove an item when it is fixed.
 
 ## Events
 
@@ -13,7 +13,9 @@ Open problems as of commit 230. Remove an item when it is fixed.
 
 ## Models
 
-- Real extraction quality (GLiNER, GLiNER2) has not been measured.
+- Real extraction quality (GLiNER, GLiNER2) has not been measured. Event and
+  claim evaluation code exists, but there is no command to run it on a real
+  model yet, and no reference dataset.
 - GLiNER2 relation extraction has not been evaluated.
 - Real local models do not run in normal CI; only fakes do. The smoke check
   commands are the way to try a real model.

@@ -1,6 +1,6 @@
 # Current State
 
-Last updated at commit 230. Alembic head: `97ebc65e728c` (Create event clusters).
+Last updated at commit 234. Alembic head: `97ebc65e728c` (Create event clusters).
 
 ## Done
 
@@ -16,6 +16,12 @@ Last updated at commit 230. Alembic head: `97ebc65e728c` (Create event clusters)
 - Source provenance profile (counts and dates, no score).
 - Research context and citation-checked research answers, with an optional
   local Qwen answer model and a smoke check command.
+- Extraction evaluation in code (`evaluation/extraction/`): a dataset type
+  with gold events and claims, and precision, recall and F1 for any event or
+  claim provider. No command runs it yet.
+- The GLiNER2 loader matches gliner2 2.0: only `map_location` is passed, and a
+  cache folder is filled with `huggingface_hub.snapshot_download` first.
+- This vault (`obsidian/`).
 
 ## Models and providers
 

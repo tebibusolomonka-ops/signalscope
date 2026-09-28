@@ -27,4 +27,13 @@ Decisions that should hold unless there is a clear reason to change them.
   answer is returned; an answer that fails is not shown.
 - **No quality targets without measurements.** Evaluation commands report
   numbers; any gates are user defined.
+- **Extraction is scored by exact matching.** Events match on normalized type
+  and title (and UTC day when both have a date), claims on exact offsets and
+  type. Matching is one to one, so repeated predictions do not help. No
+  similarity matching in evaluation.
+- **GLiNER2 cache folder.** gliner2 2.0 uses `cache_dir` for the config file
+  only, so SignalScope downloads the model snapshot into the cache folder itself
+  and loads from that folder.
+- **This vault is project memory**, updated at each five-commit checkpoint.
+  The code wins when they disagree.
 - **Simple English, no AI attribution** in code, docs and commits (AGENTS.md).

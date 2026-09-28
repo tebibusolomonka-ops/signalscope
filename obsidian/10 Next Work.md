@@ -1,7 +1,8 @@
 # Next Work
 
 Planned for the current batch (commits 230 to 249). None of this is done
-unless [[02 Current State]] says so.
+unless [[02 Current State]] says so. Items 1 to 3 are partly done: the vault,
+the loader check, and event and claim scoring exist.
 
 1. Keep this vault as project memory, updated at each checkpoint.
 2. Check the GLiNER2 loader arguments against the library.
