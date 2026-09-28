@@ -1,4 +1,4 @@
-"""Extraction test sets: documents and the events and claims they contain."""
+"""Extraction test sets: documents and the events, claims and relations they contain."""
 
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -56,17 +56,43 @@ class GoldClaim:
 
 
 @dataclass(frozen=True, slots=True)
+class GoldRelation:
+    """A directed relation a good model finds: subject, relation type, object.
+
+    Subject and object are words from the text, not entity IDs, because this
+    measures extraction, not entity resolution. Offsets are optional; when
+    given, they come in pairs and must point at the words.
+    """
+
+    document_key: str
+    subject_text: str
+    relation_type: str
+    object_text: str
+    subject_start: int | None = None
+    subject_end: int | None = None
+    object_start: int | None = None
+    object_end: int | None = None
+
+    def __post_init__(self) -> None:
+        _require_text(self.subject_text, f"Relation subject in {self.document_key!r}")
+        _require_text(self.relation_type, f"Relation type in {self.document_key!r}")
+        _require_text(self.object_text, f"Relation object in {self.document_key!r}")
+
+
+@dataclass(frozen=True, slots=True)
 class ExtractionDataset:
     name: str
     documents: tuple[ExtractionDocument, ...]
     events: tuple[GoldEvent, ...] = ()
     claims: tuple[GoldClaim, ...] = ()
+    relations: tuple[GoldRelation, ...] = ()
 
     def __post_init__(self) -> None:
         _require_text(self.name, "Dataset name")
         object.__setattr__(self, "documents", tuple(self.documents))
         object.__setattr__(self, "events", tuple(self.events))
         object.__setattr__(self, "claims", tuple(self.claims))
+        object.__setattr__(self, "relations", tuple(self.relations))
         if not self.documents:
             raise EvaluationDataError(f"Dataset {self.name!r} has no documents.")
         _require_unique((document.key for document in self.documents), self.name)
@@ -85,6 +111,22 @@ class ExtractionDataset:
                 raise EvaluationDataError(
                     f"Claim text in {claim.document_key!r} is not at offsets {start}:{end}."
                 )
+        for relation in self.relations:
+            text = self._require_document(relation.document_key, texts)
+            _check_span(
+                relation.subject_text,
+                relation.subject_start,
+                relation.subject_end,
+                text,
+                f"Relation subject in {relation.document_key!r}",
+            )
+            _check_span(
+                relation.object_text,
+                relation.object_start,
+                relation.object_end,
+                text,
+                f"Relation object in {relation.document_key!r}",
+            )
 
     def document(self, key: str) -> ExtractionDocument:
         [found] = [document for document in self.documents if document.key == key]
@@ -107,3 +149,12 @@ def _require_unique(keys: Iterable[str], dataset: str) -> None:
         if key in seen:
             raise EvaluationDataError(f"Dataset {dataset!r} has the document key {key!r} twice.")
         seen.add(key)
+
+
+def _check_span(words: str, start: int | None, end: int | None, text: str, what: str) -> None:
+    if start is None and end is None:
+        return
+    if start is None or end is None:
+        raise EvaluationDataError(f"{what} needs both offsets or neither.")
+    if not 0 <= start < end <= len(text) or text[start:end] != words:
+        raise EvaluationDataError(f"{what} is not at offsets {start}:{end}.")
