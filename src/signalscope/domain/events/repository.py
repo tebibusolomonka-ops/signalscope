@@ -8,6 +8,7 @@ from sqlalchemy import ColumnElement, delete, exists, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from signalscope.domain.documents.chunk import DocumentChunk
+from signalscope.domain.events.cluster import EventCluster, EventClusterMember
 from signalscope.domain.events.model import Event, EventEvidence
 
 # The most evidence rows an event detail shows.
@@ -58,14 +59,26 @@ class EventRepository:
         """Delete events that no evidence points to any more, and return how many.
 
         Evidence goes away with its chunk, so this runs after chunks are
-        replaced or deleted. event_ids limits the check to those events.
+        replaced or deleted. event_ids limits the check to those events. When
+        events are deleted, clusters left without members are deleted too.
         """
         statement = delete(Event).where(~exists().where(EventEvidence.event_id == Event.id))
         if event_ids is not None:
             if not event_ids:
                 return 0
             statement = statement.where(Event.id.in_(event_ids))
-        result = await self.session.execute(statement.returning(Event.id))
+        deleted = len((await self.session.execute(statement.returning(Event.id))).all())
+        if deleted:
+            await self.delete_empty_clusters()
+        return deleted
+
+    async def delete_empty_clusters(self) -> int:
+        """Delete event clusters that no event belongs to any more, and return how many."""
+        result = await self.session.execute(
+            delete(EventCluster)
+            .where(~exists().where(EventClusterMember.cluster_id == EventCluster.id))
+            .returning(EventCluster.id)
+        )
         return len(result.all())
 
     async def get(self, event_id: uuid.UUID) -> Event | None:
