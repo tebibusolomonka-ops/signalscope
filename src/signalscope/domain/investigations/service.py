@@ -158,7 +158,9 @@ class InvestigationService:
             )
         )
         if existing is not None:
-            await self.session.rollback()
+            # Commit, not roll back, to release the lock: a rollback would expire
+            # the loaded item, and it could not be read outside the session.
+            await self.session.commit()
             return existing, False
         # The investigation row stays locked, so a second save waits and then
         # finds this item instead of adding another.

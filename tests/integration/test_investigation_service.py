@@ -165,9 +165,11 @@ async def test_remove_item(session_factory: async_sessionmaker[AsyncSession]) ->
     async with session_factory() as session:
         service = InvestigationService(session)
         item = await service.add_item(investigation_id, InvestigationItemType.SOURCE, source)
+        # A failed call rolls back, which expires loaded objects, so keep the ID.
+        item_id = item.id
         with pytest.raises(NotFoundError):
-            await service.remove_item(other, item.id)
-        await service.remove_item(investigation_id, item.id)
+            await service.remove_item(other, item_id)
+        await service.remove_item(investigation_id, item_id)
         assert await service.list_items(investigation_id) == []
 
 
