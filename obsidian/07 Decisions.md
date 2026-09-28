@@ -28,7 +28,13 @@ Decisions that should hold unless there is a clear reason to change them.
 - **Source comparison is descriptive.** Sources are shown in the order asked,
   with observed counts and shared items. No score, winner or ranking.
 - **No persisted relation graph** until relation extraction has been
-  evaluated on real data.
+  evaluated on real data. The GLiNER2 relation provider is an evaluated
+  candidate only: no worker runs it, no table stores relations, and no graph
+  is built. The next decision on a graph must use real benchmark results from
+  `evaluate-extraction`.
+- **Relations are directional and matched exactly.** Subject, type and object
+  must match in order after case and space normalization. No entity
+  resolution in relation evaluation.
 - **Answers must cite given evidence.** Citations are validated before an
   answer is returned; an answer that fails is not shown.
 - **Conversation history is not evidence.** In research sessions, earlier

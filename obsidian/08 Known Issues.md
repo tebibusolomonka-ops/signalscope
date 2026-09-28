@@ -1,6 +1,6 @@
 # Known Issues
 
-Open problems as of commit 244. Remove an item when it is fixed.
+Open problems as of commit 250. Remove an item when it is fixed.
 
 ## Events
 
@@ -14,10 +14,13 @@ Open problems as of commit 244. Remove an item when it is fixed.
 
 ## Models
 
-- Real extraction quality (GLiNER, GLiNER2) has not been measured. Event and
-  claim evaluation code exists, but there is no command to run it on a real
-  model yet, and no reference dataset.
-- GLiNER2 relation extraction has not been evaluated.
+- Real extraction quality (GLiNER, GLiNER2) has not been measured. The
+  `evaluate-extraction` command exists, but there is no reference dataset yet
+  and it has not been run with the real model.
+- GLiNER2 relation extraction has an experimental provider but no real
+  measurements. Its relation type list is a first guess.
+- The GLiNER2 calls (`extract_json`, `extract_relations`, loading) were checked
+  against the gliner2 2.0 source, not by running the real model.
 - Real local models do not run in normal CI; only fakes do. The smoke check
   commands are the way to try a real model.
 - GLiNER2 extracts spans, so a claim's `text` usually repeats its quote.

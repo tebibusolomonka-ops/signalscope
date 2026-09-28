@@ -52,4 +52,11 @@ All read only. Coverage routes read the database and never load a model.
   each turn has its question, answer (or null without a model), citations and
   evidence summaries. Prompts and chunk text are not returned.
 
+## Not in the API
+
+Relation extraction and extraction evaluation are command line only
+(`signalscope evaluate-extraction`). There is no relation route, because no
+relations are stored. Semantic event link suggestions exist as a service with
+no route yet.
+
 See [[06 Search and AI]] for the models behind these routes.

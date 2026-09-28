@@ -26,7 +26,15 @@ fakes.
   Events keep a date only when it is certain. Claims keep exact quote offsets.
   Claims are statements; no truth judgement.
 - **Event linking**: exact normalized type and title, same UTC day when both
-  have a date. No fuzzy matching.
+  have a date. No fuzzy matching. Runs after the event worker commits;
+  `link-events` repairs. Semantic suggestions (E5, same type, 7-day window)
+  are for review only.
+- **Relations (experimental)**: GLiNER2 native relation extraction over ten
+  relation types (works_for, located_in, owns, acquired, founded, member_of,
+  supports, opposes, announced, related_to). Pairs are (subject, object) and
+  directional. Offsets only when the words appear once. Nothing is stored.
+- **Extraction evaluation**: `evaluate-extraction` reports precision, recall
+  and F1 for events, claims and relations with exact matching.
 
 ## Research answers
 

@@ -1,21 +1,20 @@
 # Next Work
 
-Planned for the current batch (commits 230 to 249). None of this is done
-unless [[02 Current State]] says so. Done so far: items 1 to 7. Still to do:
-relation extraction (item 8) and the extraction benchmark command.
+Batch 230 to 249 is done; see [[02 Current State]]. Nothing below is built yet.
 
-1. Keep this vault as project memory, updated at each checkpoint.
-2. Check the GLiNER2 loader arguments against the library.
-3. Extraction evaluation: datasets and precision, recall and F1 for events,
-   claims and later relations. No quality targets.
-4. Run exact event linking after event extraction, add a repair command, and
-   delete empty event clusters.
-5. Semantic event link suggestions with embeddings. Suggestions only; they
-   never change clusters.
-6. Factual side-by-side source comparison. No scores or rankings.
-7. Multi-turn research sessions. Earlier answers are conversation context,
-   not evidence; each answer cites current evidence.
-8. Relation extraction interface, an experimental GLiNER2 relation provider
-   and its evaluation. No relations are stored.
+## Next batch
+
+1. Build a small reference extraction dataset and run `evaluate-extraction`
+   with the real GLiNER2 model. Record the numbers here and in
+   [[08 Known Issues]].
+2. Use those results to decide whether relation extraction is good enough to
+   store. Only then consider entity-to-entity graph foundations.
+3. Research session exports and saved investigations.
+4. Source and event dashboards.
+
+## Open follow-ups
+
+- A route for semantic event link suggestions, for review by people.
+- Reduce the copied queue and worker code for entities, events and claims.
 
 Rules for this work: [[07 Decisions]].

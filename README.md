@@ -528,6 +528,30 @@ it found in each chunk.
 `GET /claims/{id}` shows one claim with its evidence. `GET /claims/coverage`
 counts how many chunks the model has read, like `GET /events/coverage`.
 
+### Extraction evaluation
+
+`signalscope evaluate-extraction data.json` scores event, claim and relation
+extraction on a dataset of documents with hand-made answers, with the local
+GLiNER2 model (it needs local structured extraction turned on and may download
+the model the first time). `--mode` is `event`, `claim`, `relation` or `all`,
+and `--json-output report.json` also writes the scores and, per document, what
+was missed or extra.
+
+A dataset file has `name`, `documents` (`key`, `text`, optional `language`),
+and any of `events` (`document_key`, `event_type`, `title`, optional
+`occurred_at`), `claims` (`document_key`, `claim_type`, `surface_text`,
+`start_char`, `end_char`) and `relations` (`document_key`, `subject_text`,
+`relation_type`, `object_text`, optional offsets).
+
+Matching is exact, after normalizing case and spaces: events by type and title
+(and UTC day when both have a date), claims by type and exact offsets,
+relations by subject, type and object in the same direction. Each gold item
+can be matched once. The command prints precision, recall and F1 and sets no
+quality targets.
+
+Relation extraction is experimental and for evaluation only. No relations are
+stored and there is no knowledge graph.
+
 ### Retrieval evaluation
 
 A retrieval dataset is a JSON file with documents, queries, and the documents

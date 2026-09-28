@@ -1,6 +1,6 @@
 # Current State
 
-Last updated at commit 244. Alembic head: `09376fcf43b6` (Create research turns).
+Last updated at commit 250 (the 20 planned commits of batch 230 to 249 plus one typing fix). Alembic head: `09376fcf43b6` (Create research turns).
 
 ## Done
 
@@ -27,9 +27,12 @@ Last updated at commit 244. Alembic head: `09376fcf43b6` (Create research turns)
 - Source provenance profile (counts and dates, no score).
 - Research context and citation-checked research answers, with an optional
   local Qwen answer model and a smoke check command.
-- Extraction evaluation in code (`evaluation/extraction/`): a dataset type
-  with gold events and claims, and precision, recall and F1 for any event or
-  claim provider. No command runs it yet.
+- Extraction evaluation (`evaluation/extraction/`): a JSON dataset with gold
+  events, claims and relations, exact one-to-one matching, and precision,
+  recall and F1. `signalscope evaluate-extraction` runs it with the local
+  GLiNER2 model (`--mode`, `--json-output`). No quality targets.
+- Relation extraction interface (`relations/`) and an experimental GLiNER2
+  relation provider. Evaluation only: no worker, no table, no graph.
 - The GLiNER2 loader matches gliner2 2.0: only `map_location` is passed, and a
   cache folder is filled with `huggingface_hub.snapshot_download` first.
 - This vault (`obsidian/`).
@@ -42,6 +45,7 @@ Last updated at commit 244. Alembic head: `09376fcf43b6` (Create research turns)
 | Reranking | `sentence_transformers` / mMARCO MiniLM cross-encoder | off |
 | Entities | `gliner` / `urchade/gliner_multi-v2.1` | off |
 | Events, claims | `gliner2` / `fastino/gliner2.5-multi-v1` | off |
+| Relations (evaluation only) | `gliner2` / `fastino/gliner2.5-multi-v1` | off |
 | Answers | `transformers` / `Qwen/Qwen3-4B-Instruct-2507` | off |
 
 Details: [[06 Search and AI]]. Open problems: [[08 Known Issues]].

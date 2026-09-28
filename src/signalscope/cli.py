@@ -12,6 +12,8 @@ from typing import TextIO
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from signalscope.claims.gliner2 import Gliner2ClaimProvider
+from signalscope.claims.provider import ClaimExtractionProvider
 from signalscope.claims.registry import ClaimExtractorRegistry
 from signalscope.claims.runtime import create_claim_extractor_registry
 from signalscope.core.errors import NotFoundError, SignalScopeError
@@ -66,6 +68,15 @@ from signalscope.entities.local import LocalEntitiesNotInstalledError
 from signalscope.entities.registry import EntityExtractorRegistry
 from signalscope.entities.runtime import create_entity_extractor_registry, local_entity_model
 from signalscope.evaluation.dataset import EvaluationDataError
+from signalscope.evaluation.extraction.claims import evaluate_claims
+from signalscope.evaluation.extraction.events import evaluate_events
+from signalscope.evaluation.extraction.loader import load_extraction_dataset
+from signalscope.evaluation.extraction.relations import evaluate_relations
+from signalscope.evaluation.extraction.report import (
+    extraction_report_data,
+    format_extraction_scores,
+)
+from signalscope.evaluation.extraction.scoring import ExtractionScore
 from signalscope.evaluation.gates import (
     QualityGate,
     check_gates,
@@ -83,15 +94,19 @@ from signalscope.evaluation.retrieval import (
     evaluate_reranked,
     evaluate_semantic,
 )
+from signalscope.events.gliner2 import Gliner2EventProvider
+from signalscope.events.provider import EventExtractionProvider
 from signalscope.events.registry import EventExtractorRegistry
 from signalscope.events.runtime import create_event_extractor_registry
 from signalscope.extraction.gliner2 import LocalStructuredNotInstalledError
-from signalscope.extraction.runtime import local_structured_model
+from signalscope.extraction.runtime import create_structured_backend, local_structured_model
 from signalscope.ingestion.http import HttpFetcher
 from signalscope.ingestion.rss import RssIngestionAdapter
 from signalscope.ingestion.web import WebIngestionAdapter
 from signalscope.parsing.docx_document import DOCX_CONTENT_TYPE
 from signalscope.parsing.registry import create_default_parser_registry
+from signalscope.relations.gliner2 import Gliner2RelationProvider
+from signalscope.relations.provider import RelationExtractionProvider
 from signalscope.reranking.local import LocalRerankingNotInstalledError
 from signalscope.reranking.models import MMARCO_MINILM
 from signalscope.reranking.provider import RerankerProvider
@@ -122,6 +137,7 @@ RECOVERY_LIMIT = 10
 LEASE_LOST_MESSAGE = "Lease lost: another worker took the job over."
 STOPPING_MESSAGE = "Stopping after the current job."
 EVALUATION_MODES = ("lexical", "semantic", "hybrid", "reranked")
+EXTRACTION_MODES = ("event", "claim", "relation")
 LOCAL_ENTITIES_DISABLED_ERROR = (
     "Error: Local entity extraction is not enabled. Set SIGNALSCOPE_LOCAL_ENTITIES_ENABLED=true."
 )
@@ -176,6 +192,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                 ks=args.k,
                 json_output=args.json_output,
                 quality_gates=args.quality_gates,
+            )
+        )
+    if args.command == "evaluate-extraction":
+        return asyncio.run(
+            evaluate_extraction(
+                args.dataset, settings, mode=args.mode, json_output=args.json_output
             )
         )
     if args.command == "check-embedding-model":
@@ -326,6 +348,20 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=None,
         help="JSON file of minimum scores; the exit code is 1 when one is missed",
+    )
+
+    extraction = commands.add_parser(
+        "evaluate-extraction", help="score event, claim and relation extraction on a dataset file"
+    )
+    extraction.add_argument("dataset", type=Path, help="the dataset JSON file")
+    extraction.add_argument(
+        "--mode",
+        choices=[*EXTRACTION_MODES, "all"],
+        default="all",
+        help="what to score (default: all)",
+    )
+    extraction.add_argument(
+        "--json-output", type=Path, default=None, help="also write the results to this JSON file"
     )
 
     commands.add_parser(
@@ -1207,6 +1243,63 @@ async def check_embedding_model(
     print(f"Query vector: {len(query)} numbers", file=out)
     print(f"Passage vector: {len(passage)} numbers", file=out)
     print(f"Cosine similarity: {_cosine(query, passage):.3f}", file=out)
+    return 0
+
+
+async def evaluate_extraction(
+    path: Path,
+    settings: Settings,
+    out: TextIO | None = None,
+    err: TextIO | None = None,
+    *,
+    mode: str = "all",
+    json_output: Path | None = None,
+    event_provider: EventExtractionProvider | None = None,
+    claim_provider: ClaimExtractionProvider | None = None,
+    relation_provider: RelationExtractionProvider | None = None,
+) -> int:
+    """Score extraction models on a local dataset and print precision, recall and F1.
+
+    Without providers, the local GLiNER2 model is used for all three, one
+    loaded copy for all. It may be downloaded the first time. The relation
+    provider is experimental and nothing it finds is stored. There are no
+    built-in quality targets. Returns the exit code.
+    """
+    out = sys.stdout if out is None else out
+    err = sys.stderr if err is None else err
+    modes = EXTRACTION_MODES if mode == "all" else (mode,)
+    try:
+        dataset = load_extraction_dataset(path)
+    except EvaluationDataError as error:
+        print(f"Error: {error}", file=err)
+        return 1
+    needs_model = (
+        ("event" in modes and event_provider is None)
+        or ("claim" in modes and claim_provider is None)
+        or ("relation" in modes and relation_provider is None)
+    )
+    if needs_model:
+        if not _local_structured_ready(settings, err):
+            return 1
+        backend = create_structured_backend(settings)
+        assert backend is not None
+        event_provider = event_provider or Gliner2EventProvider(backend)
+        claim_provider = claim_provider or Gliner2ClaimProvider(backend)
+        relation_provider = relation_provider or Gliner2RelationProvider(backend)
+    scores: list[ExtractionScore] = []
+    try:
+        if "event" in modes and event_provider is not None:
+            scores.append(await evaluate_events(dataset, event_provider))
+        if "claim" in modes and claim_provider is not None:
+            scores.append(await evaluate_claims(dataset, claim_provider))
+        if "relation" in modes and relation_provider is not None:
+            scores.append(await evaluate_relations(dataset, relation_provider))
+    except SignalScopeError as error:
+        print(f"Error: {error}", file=err)
+        return 1
+    print(format_extraction_scores(dataset, scores), end="", file=out)
+    if json_output is not None:
+        write_json_report(json_output, extraction_report_data(dataset, scores))
     return 0
 
 
