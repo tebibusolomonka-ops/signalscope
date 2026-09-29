@@ -81,6 +81,7 @@ async def test_upgrade_from_empty_database(
         "investigations",
         "investigation_items",
         "users",
+        "user_password_credentials",
     }
     head = ScriptDirectory.from_config(migration_config).get_current_head()
     assert await current_revision(database_engine) == head
