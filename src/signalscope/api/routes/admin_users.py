@@ -6,8 +6,15 @@ from fastapi import APIRouter, Depends, Query, Request, status
 from signalscope.api.auth import CurrentSession
 from signalscope.api.dependencies import DatabaseSession
 from signalscope.api.pagination import Page, Pagination
+from signalscope.domain.sources.scheduling import utc_now
 from signalscope.domain.users.administration import UserAdministrationService
-from signalscope.domain.users.schemas import AdminUserCreate, AdminUserRead, UserStatusUpdate
+from signalscope.domain.users.schemas import (
+    AdminSessionRead,
+    AdminUserCreate,
+    AdminUserRead,
+    RevokedSessions,
+    UserStatusUpdate,
+)
 
 router = APIRouter(prefix="/admin/users", tags=["User administration"])
 
@@ -78,3 +85,34 @@ async def change_user_status(
     else:
         user = await service.deactivate_user(user_id)
     return AdminUserRead.model_validate(user)
+
+
+@router.get("/{user_id}/sessions")
+async def list_user_sessions(user_id: uuid.UUID, service: Administration) -> list[AdminSessionRead]:
+    """The user's sessions, newest first, at most 100."""
+    now = utc_now()
+    return [
+        AdminSessionRead(
+            session_id=stored.id,
+            created_at=stored.created_at,
+            expires_at=stored.expires_at,
+            last_seen_at=stored.last_seen_at,
+            revoked_at=stored.revoked_at,
+            active=stored.revoked_at is None and stored.expires_at > now,
+        )
+        for stored in await service.list_user_sessions(user_id)
+    ]
+
+
+@router.delete("/{user_id}/sessions/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def revoke_user_session(
+    user_id: uuid.UUID, session_id: uuid.UUID, service: Administration
+) -> None:
+    """Revoke one of the user's sessions. A session of another user answers 404."""
+    await service.revoke_user_session(user_id, session_id)
+
+
+@router.post("/{user_id}/revoke-sessions")
+async def revoke_user_sessions(user_id: uuid.UUID, service: Administration) -> RevokedSessions:
+    """Revoke every active session of the user. The account stays active."""
+    return RevokedSessions(revoked_sessions=await service.revoke_user_sessions(user_id))

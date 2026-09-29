@@ -20,6 +20,8 @@ class AuditAction(StrEnum):
     LOGOUT = "auth.logout"
     LOGOUT_ALL = "auth.logout_all"
     PASSWORD_CHANGED = "auth.password_changed"
+    ADMIN_SESSION_REVOKED = "admin.session_revoked"
+    ADMIN_SESSIONS_REVOKED = "admin.sessions_revoked"
     ORGANIZATION_CREATED = "organization.created"
     MEMBER_ADDED = "organization.member_added"
     MEMBER_ROLE_CHANGED = "organization.member_role_changed"

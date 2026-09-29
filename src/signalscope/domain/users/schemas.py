@@ -90,3 +90,19 @@ class PasswordChange(BaseModel):
     ]
     # The policy (12 to 1024 characters) is checked by the service.
     new_password: Annotated[str, StringConstraints(min_length=1, max_length=PASSWORD_MAX_LENGTH)]
+
+
+class AdminSessionRead(BaseModel):
+    """Another user's session, for system admins. Never the token or its hash."""
+
+    session_id: uuid.UUID
+    created_at: datetime
+    expires_at: datetime
+    last_seen_at: datetime
+    revoked_at: datetime | None
+    # Not revoked and not expired.
+    active: bool
+
+
+class RevokedSessions(BaseModel):
+    revoked_sessions: int
