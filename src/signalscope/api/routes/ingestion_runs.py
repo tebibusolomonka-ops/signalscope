@@ -27,8 +27,7 @@ async def get_ingestion_run_filters(
     source_id: uuid.UUID | None = None,
     status: IngestionStatus | None = None,
 ) -> IngestionRunFilters:
-    if source_id is not None:
-        await policy.authorize_source(source_id)
+    await policy.check_source_filter(source_id)
     return IngestionRunFilters(source_id=source_id, status=status, scope=scope)
 
 

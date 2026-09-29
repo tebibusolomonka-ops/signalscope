@@ -136,6 +136,15 @@ class ContentAccessPolicy:
         await self.require(source.organization_id, capability, not_found)
         return source
 
+    async def check_source_filter(self, source_id: uuid.UUID | None) -> None:
+        """A source_id filter must name a source the actor may read.
+
+        With authentication off any ID is accepted, as before: an unknown one
+        simply matches nothing.
+        """
+        if source_id is not None and self._active_actor() is not None:
+            await self.authorize_source(source_id)
+
     async def authorize_document(
         self, document_id: uuid.UUID, capability: ContentCapability = ContentCapability.READ
     ) -> Document:

@@ -39,8 +39,7 @@ async def get_document_filters(
     published_from: AwareDatetime | None = None,
     published_to: AwareDatetime | None = None,
 ) -> DocumentFilters:
-    if source_id is not None:
-        await policy.authorize_source(source_id)
+    await policy.check_source_filter(source_id)
     return DocumentFilters(
         source_id=source_id,
         language=language,
