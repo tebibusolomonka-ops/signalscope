@@ -128,6 +128,25 @@ are added by user ID with `POST /organizations/{id}/members`. Roles:
 
 Users who are not members get 404. System admins can manage any organization.
 
+### Invitations
+
+There is no email sending yet, so invitations are shared by hand:
+
+1. An owner or admin invites an address with
+   `POST /organizations/{id}/invitations` and
+   `{"email": "person@example.org", "role": "member"}`. Owners may invite
+   admins, members and viewers; admins may invite members and viewers. Nobody
+   is invited as owner.
+2. The answer holds `invitation_token`. It is shown only once and only its
+   hash is stored. Send it to the person over a secure channel, never in a
+   public place.
+3. `GET /organizations/{id}/invitations` lists invitations with a computed
+   `status` (`pending`, `accepted`, `revoked` or `expired`), never the token.
+   `DELETE /organizations/{id}/invitations/{invitation_id}` revokes one.
+
+Invitations expire after `SIGNALSCOPE_ORGANIZATION_INVITATION_DAYS` days (7 by
+default).
+
 ### Sessions
 
 Signed in users can see their sessions with `GET /auth/sessions` (never the
