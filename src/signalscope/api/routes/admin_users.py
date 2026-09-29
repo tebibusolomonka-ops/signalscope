@@ -1,0 +1,63 @@
+import uuid
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Query, Request, status
+
+from signalscope.api.auth import CurrentSession
+from signalscope.api.dependencies import DatabaseSession
+from signalscope.api.pagination import Page, Pagination
+from signalscope.domain.users.administration import UserAdministrationService
+from signalscope.domain.users.schemas import AdminUserCreate, AdminUserRead
+
+router = APIRouter(prefix="/admin/users", tags=["User administration"])
+
+
+def administration(
+    request: Request, current: CurrentSession, session: DatabaseSession
+) -> UserAdministrationService:
+    """The service for the signed in user. It refuses anyone but a system admin."""
+    return UserAdministrationService(session, current.user, request.app.state.password_hasher)
+
+
+Administration = Annotated[UserAdministrationService, Depends(administration)]
+
+
+@router.get("")
+async def list_users(
+    service: Administration,
+    page: Pagination,
+    query: Annotated[str | None, Query(max_length=200)] = None,
+    is_active: bool | None = None,
+    is_system_admin: bool | None = None,
+) -> Page[AdminUserRead]:
+    """Users in the order they were made. query matches part of the email or name."""
+    users, total = await service.list_users(
+        query=query,
+        is_active=is_active,
+        is_system_admin=is_system_admin,
+        limit=page.limit,
+        offset=page.offset,
+    )
+    return Page[AdminUserRead](
+        items=[AdminUserRead.model_validate(user) for user in users],
+        total=total,
+        limit=page.limit,
+        offset=page.offset,
+    )
+
+
+@router.post("", status_code=status.HTTP_201_CREATED)
+async def create_user(request: AdminUserCreate, service: Administration) -> AdminUserRead:
+    """Create an account with a password. There is no self registration."""
+    user = await service.create_user(
+        request.email,
+        request.display_name,
+        request.password,
+        is_system_admin=request.is_system_admin,
+    )
+    return AdminUserRead.model_validate(user)
+
+
+@router.get("/{user_id}")
+async def get_user(user_id: uuid.UUID, service: Administration) -> AdminUserRead:
+    return AdminUserRead.model_validate(await service.get_user(user_id))

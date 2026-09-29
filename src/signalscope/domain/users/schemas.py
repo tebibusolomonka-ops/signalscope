@@ -5,6 +5,7 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, StringConstraints
 
 from signalscope.domain.users.email import EMAIL_MAX_LENGTH
+from signalscope.domain.users.model import DISPLAY_NAME_MAX_LENGTH
 from signalscope.domain.users.passwords import PASSWORD_MAX_LENGTH
 
 
@@ -53,3 +54,23 @@ class SessionRead(BaseModel):
     revoked_at: datetime | None
     # True for the session of the token used for this request.
     current_session: bool
+
+
+class AdminUserRead(UserRead):
+    """A user for system admins. Still never with a password, hash or session."""
+
+    created_at: datetime
+    updated_at: datetime
+
+
+class AdminUserCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    email: Annotated[str, StringConstraints(min_length=1, max_length=EMAIL_MAX_LENGTH)]
+    display_name: Annotated[
+        str,
+        StringConstraints(strip_whitespace=True, min_length=1, max_length=DISPLAY_NAME_MAX_LENGTH),
+    ]
+    # The policy (12 to 1024 characters) is checked by the service.
+    password: Annotated[str, StringConstraints(min_length=1, max_length=PASSWORD_MAX_LENGTH)]
+    is_system_admin: bool = False
