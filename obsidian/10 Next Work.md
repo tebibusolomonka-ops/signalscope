@@ -5,10 +5,10 @@ passwords, sessions, the auth API, the bootstrap command, organizations,
 investigation ownership, access policy and collaborators, session management
 and cleanup, and the security audit log.
 
-Next planned area: add organization-scoped data tenancy gradually,
-organization invitations and user administration, build the authenticated
-admin/frontend dashboard, expose security audit views, and later evaluate
-password reset/MFA/SSO requirements.
+Current batch, 294 to 313: user administration, lifecycle and password
+change (done); organization invitations, the security audit API, admin
+session controls and an access summary (to do); then a small React admin web
+app. Content data tenancy is deliberately not part of it.
 
 ## Next batch
 

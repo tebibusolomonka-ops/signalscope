@@ -30,6 +30,7 @@ empty, keeps its default value. An invalid value raises `SettingsError`.
 | `SIGNALSCOPE_AUTH_ENABLED` | `false` | `true`, `false`, `1`, `0`, `yes`, `no`, `on`, `off` |
 | `SIGNALSCOPE_AUTH_SESSION_DAYS` | `7` | A whole number from 1 to 365 |
 | `SIGNALSCOPE_AUTH_SESSION_RETENTION_DAYS` | `30` | A whole number from 1 to 3650 |
+| `SIGNALSCOPE_ORGANIZATION_INVITATION_DAYS` | `7` | A whole number from 1 to 90 |
 
 Values are not case-sensitive, except for the app name, the database URL,
 the device and the folders.

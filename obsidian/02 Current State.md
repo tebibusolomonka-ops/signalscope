@@ -1,8 +1,9 @@
 # Current State
 
-Last updated at commit 294. Batch 273 to 292 (identity and authorization
+Last updated at commit 298. Batch 273 to 292 (identity and authorization
 foundation) ended at commit 293 (`68f9284`), with one corrective commit.
-Alembic head: `fb1d292a0ca2` (Create security audit events).
+Current batch: 294 to 313 (administration and the admin web app). Alembic
+head: `23438041f111` (Create organization invitations).
 
 ## Done
 
@@ -27,6 +28,13 @@ Alembic head: `fb1d292a0ca2` (Create security audit events).
   as the change. No read API yet.
 - An end to end test covers bootstrap, login, organizations, sharing,
   logout-all and the audit log, plus the auth-off behavior.
+- User administration for system admins (`UserAdministrationService`,
+  `/admin/users`): list with search and filters, detail, create, and
+  deactivate or reactivate. Deactivating revokes every session; the last
+  active system admin cannot be deactivated.
+- Self-service password change (`POST /auth/change-password`), which revokes
+  the user's other sessions.
+- The `organization_invitations` table (model only so far).
 
 - Sources, scheduled network ingestion (RSS, web), file import, blob storage.
 - Processing jobs, parsers, document revisions, section-aware chunks.

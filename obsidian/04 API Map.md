@@ -1,7 +1,7 @@
 # API Map
 
-All routes are JSON over HTTP. Only the auth, organization and (with auth on)
-investigation routes check a bearer token; the rest stay open. Routes that need the
+All routes are JSON over HTTP. Only the auth, admin, organization and (with
+auth on) investigation routes check a bearer token; the rest stay open. Routes that need the
 database answer 503 when it is not configured. Routes that need an optional
 model answer 503 when it is off. Lists are paged with `limit` and `offset`.
 
@@ -19,7 +19,21 @@ Only when `SIGNALSCOPE_AUTH_ENABLED=true`; otherwise 503. Send the token as
 - `DELETE /auth/sessions/{session_id}`: revoke one of mine; someone else's
   gives 404.
 - `POST /auth/logout-all`: revoke all of mine, the current one included.
+- `POST /auth/change-password`: current and new password. Other sessions are
+  revoked, this one stays. Wrong current password: 403 with one message.
 - There is no registration route. Accounts come from the command line.
+
+## User administration
+
+System admins only: 503 when auth is off, 401 without a token, 403 for
+others. Responses never include passwords, hashes or sessions.
+
+- `GET /admin/users` (`query` on email or name, `is_active`,
+  `is_system_admin`, paged), `POST /admin/users` (409 for a used email),
+  `GET /admin/users/{id}`
+- `PATCH /admin/users/{id}/status` with `{"is_active": false}` deactivates and
+  revokes all sessions; `true` reactivates without restoring old sessions.
+  Deactivating the last active system admin: 409.
 
 ## Organizations
 

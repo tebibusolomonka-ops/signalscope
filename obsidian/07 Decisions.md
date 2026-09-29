@@ -85,6 +85,20 @@ Decisions that should hold unless there is a clear reason to change them.
   event. Details only take a fixed set of keys (IDs, roles, counts), so
   passwords, tokens and hashes cannot land there. Failed logins are not
   recorded yet. Deleting a user or organization keeps its events.
+- **User administration is enforced in the service.**
+  `UserAdministrationService` checks for an active system admin itself, so the
+  rule does not depend on the routes. User creation goes through
+  `AuthenticationService`, so hashing lives in one place.
+- **There is always an active system admin.** Deactivation locks every active
+  system admin row (in id order, before the target) and refuses to remove the
+  last one, so two admins deactivating each other at once cannot both win.
+- **Deactivation revokes sessions; reactivation does not restore them.**
+- **A password change keeps the current session** and revokes the others, in
+  the same commit. A wrong current password is 403 rather than 401, so a
+  client does not treat it as a lost session.
+- **Invitation tokens are stored as hashes only**, like session tokens. The
+  raw token is shown once when the invitation is made. Invitations cannot
+  make owners.
 - **Only investigations are protected so far.** Search, timeline, sources,
   documents and extraction APIs stay open until data tenancy is designed.
 - **Exports replay history, not live data.** A research session export uses

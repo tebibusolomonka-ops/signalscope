@@ -14,6 +14,7 @@ DATABASE_URL_PREFIX = "postgresql+asyncpg://"
 MAX_ANSWER_TOKENS = 4096
 MAX_AUTH_SESSION_DAYS = 365
 MAX_AUTH_SESSION_RETENTION_DAYS = 3650
+MAX_ORGANIZATION_INVITATION_DAYS = 90
 
 
 class SettingsError(SignalScopeError, ValueError):
@@ -80,6 +81,8 @@ class Settings:
     # How long expired and revoked sessions are kept before cleanup-auth-sessions
     # deletes them.
     auth_session_retention_days: int = 30
+    # How long an organization invitation can be accepted.
+    organization_invitation_days: int = 7
 
     def __post_init__(self) -> None:
         if not self.app_name.strip():
@@ -109,6 +112,10 @@ class Settings:
         if not 1 <= self.auth_session_retention_days <= MAX_AUTH_SESSION_RETENTION_DAYS:
             raise SettingsError(
                 f"auth_session_retention_days must be from 1 to {MAX_AUTH_SESSION_RETENTION_DAYS}"
+            )
+        if not 1 <= self.organization_invitation_days <= MAX_ORGANIZATION_INVITATION_DAYS:
+            raise SettingsError(
+                f"organization_invitation_days must be from 1 to {MAX_ORGANIZATION_INVITATION_DAYS}"
             )
         if self.database_url is not None and not self.database_url.startswith(DATABASE_URL_PREFIX):
             raise SettingsError(f"Database URL must start with {DATABASE_URL_PREFIX}")
@@ -182,6 +189,11 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
             env,
             "SIGNALSCOPE_AUTH_SESSION_RETENTION_DAYS",
             defaults.auth_session_retention_days,
+        ),
+        organization_invitation_days=_read_int(
+            env,
+            "SIGNALSCOPE_ORGANIZATION_INVITATION_DAYS",
+            defaults.organization_invitation_days,
         ),
     )
 
