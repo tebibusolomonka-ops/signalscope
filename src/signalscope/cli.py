@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+import getpass
 import importlib.util
 import math
 import mimetypes
@@ -18,7 +19,12 @@ from signalscope.claims.gliner2 import Gliner2ClaimProvider
 from signalscope.claims.provider import ClaimExtractionProvider
 from signalscope.claims.registry import ClaimExtractorRegistry
 from signalscope.claims.runtime import create_claim_extractor_registry
-from signalscope.core.errors import NotFoundError, SignalScopeError
+from signalscope.core.errors import (
+    ConflictError,
+    InvalidInputError,
+    NotFoundError,
+    SignalScopeError,
+)
 from signalscope.core.exports import ExportFormat
 from signalscope.core.logging import configure_logging
 from signalscope.core.settings import Settings, SettingsError, load_settings
@@ -66,6 +72,8 @@ from signalscope.domain.search.embedding_worker import EmbeddingWorker
 from signalscope.domain.sources.model import SourceType
 from signalscope.domain.sources.repository import SourceRepository
 from signalscope.domain.sources.scheduling import utc_now
+from signalscope.domain.users.authentication import AuthenticationService
+from signalscope.domain.users.passwords import PasswordHasher
 from signalscope.embeddings.local import LocalEmbeddingsNotInstalledError
 from signalscope.embeddings.models import MULTILINGUAL_E5_SMALL
 from signalscope.embeddings.provider import EmbeddingInputRole, EmbeddingProvider, embed
@@ -240,6 +248,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(queue_entities(settings, document_id=args.document_id, limit=args.limit))
     if args.command == "queue-events":
         return asyncio.run(queue_events(settings, document_id=args.document_id, limit=args.limit))
+    if args.command == "create-user":
+        return asyncio.run(
+            create_user(
+                settings,
+                args.email,
+                display_name=args.display_name,
+                system_admin=args.system_admin,
+                password_stdin=args.password_stdin,
+            )
+        )
     if args.command == "export-investigation":
         return asyncio.run(
             export_investigation(
@@ -340,6 +358,22 @@ def build_parser() -> argparse.ArgumentParser:
     )
     event_backlog.add_argument(
         "--limit", type=positive_int, default=None, help="most jobs to create (default: no limit)"
+    )
+
+    user_command = commands.add_parser(
+        "create-user", help="create an account; the password is asked for, never given as an option"
+    )
+    user_command.add_argument("email", help="the email address to sign in with")
+    user_command.add_argument(
+        "--display-name", default=None, help="the name shown for the user (default: from the email)"
+    )
+    user_command.add_argument(
+        "--system-admin", action="store_true", help="give the account full admin rights"
+    )
+    user_command.add_argument(
+        "--password-stdin",
+        action="store_true",
+        help="read the password from the first line of standard input, for automation",
     )
 
     export_command = commands.add_parser(
@@ -673,6 +707,53 @@ async def queue_events(
     print(f"Jobs created: {result.jobs_created}", file=out)
     print(f"Already extracted: {result.already_extracted}", file=out)
     print(f"Already queued: {result.already_queued}", file=out)
+    return 0
+
+
+async def create_user(
+    settings: Settings,
+    email: str,
+    out: TextIO | None = None,
+    err: TextIO | None = None,
+    *,
+    display_name: str | None = None,
+    system_admin: bool = False,
+    password_stdin: bool = False,
+    stdin: TextIO | None = None,
+    ask_password: Callable[[str], str] = getpass.getpass,
+    hasher: PasswordHasher | None = None,
+) -> int:
+    """Create an account. Works whether or not SIGNALSCOPE_AUTH_ENABLED is on.
+
+    The password is asked for twice without echo, or read from the first line
+    of standard input. It is never an option, so it cannot end up in shell
+    history or process lists, and it is never printed. Returns the exit code.
+    """
+    out = sys.stdout if out is None else out
+    err = sys.stderr if err is None else err
+    if settings.database_url is None:
+        print(NO_DATABASE_ERROR, file=err)
+        return 1
+    if password_stdin:
+        password = (stdin or sys.stdin).readline().rstrip("\r\n")
+    else:
+        password = ask_password("Password: ")
+        if ask_password("Repeat password: ") != password:
+            print("Error: The passwords do not match.", file=err)
+            return 1
+    name = display_name if display_name is not None else email.strip().split("@")[0]
+
+    async with _database(settings) as session_factory, session_factory() as session:
+        try:
+            user = await AuthenticationService(session, hasher).create_user(
+                email, name, password, is_system_admin=system_admin
+            )
+        except (ConflictError, InvalidInputError) as error:
+            print(f"Error: {error}", file=err)
+            return 1
+    print(f"User ID: {user.id}", file=out)
+    print(f"Email: {user.email}", file=out)
+    print(f"System admin: {'yes' if user.is_system_admin else 'no'}", file=out)
     return 0
 
 

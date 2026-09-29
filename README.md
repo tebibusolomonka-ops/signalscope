@@ -77,6 +77,22 @@ export SIGNALSCOPE_TEST_DATABASE_URL=postgresql+asyncpg://signalscope:signalscop
 pytest
 ```
 
+## Accounts and sign in
+
+Authentication is off by default, and then every API works without a login.
+To turn it on, create the first account from the command line, then enable it:
+
+```bash
+signalscope create-user admin@example.org --display-name "Admin" --system-admin
+export SIGNALSCOPE_AUTH_ENABLED=true
+```
+
+`create-user` asks for the password twice without showing it. For automation,
+`--password-stdin` reads it from the first line of standard input instead.
+There is no option that takes the password itself, so it never lands in shell
+history. Passwords must be 12 to 1024 characters. There is no self
+registration.
+
 ## Command line
 
 Fetch new content for one RSS or web source. This needs
