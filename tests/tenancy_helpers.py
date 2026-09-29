@@ -8,12 +8,17 @@ import uuid
 from dataclasses import dataclass, field
 
 import httpx
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from auth_helpers import bearer, create_account, login
+from signalscope.domain.claims.model import Claim, ClaimEvidence
+from signalscope.domain.documents.chunk import DocumentChunk
 from signalscope.domain.documents.chunk_repository import DocumentChunkRepository
 from signalscope.domain.documents.chunking import TextChunk
 from signalscope.domain.documents.model import Document
+from signalscope.domain.entities.mention import EntityMention
+from signalscope.domain.entities.model import Entity
 from signalscope.domain.organizations.membership import OrganizationRole
 from signalscope.domain.organizations.service import OrganizationService
 from signalscope.domain.sources.model import Source, SourceType
@@ -117,3 +122,62 @@ async def add_document(
         saved = await repository.list_by_document(document.id)
         await session.commit()
         return document.id, [chunk.id for chunk in saved]
+
+
+async def add_findings(
+    session_factory: async_sessionmaker[AsyncSession],
+    chunk_id: uuid.UUID,
+    entity_name: str = "Porto",
+    claim_text: str = "Water rose",
+) -> tuple[uuid.UUID, uuid.UUID]:
+    """A mention of the entity and evidence for the claim in one chunk.
+
+    The entity and claim rows are shared: an existing one with the same name or
+    text is reused, like the extraction workers do. Returns their IDs.
+    """
+    async with session_factory() as session:
+        chunk = await session.get_one(DocumentChunk, chunk_id)
+        entity = await session.scalar(
+            select(Entity).where(Entity.normalized_name == entity_name.lower())
+        )
+        if entity is None:
+            entity = Entity(
+                canonical_name=entity_name, normalized_name=entity_name.lower(), entity_type="city"
+            )
+            session.add(entity)
+        claim = await session.scalar(
+            select(Claim).where(Claim.normalized_text == claim_text.lower())
+        )
+        if claim is None:
+            claim = Claim(
+                text=claim_text, normalized_text=claim_text.lower(), claim_type="statistic"
+            )
+            session.add(claim)
+        await session.flush()
+        session.add_all(
+            [
+                EntityMention(
+                    entity_id=entity.id,
+                    document_id=chunk.document_id,
+                    chunk_id=chunk.id,
+                    surface_text=chunk.text[:4],
+                    entity_type="city",
+                    start_char=0,
+                    end_char=4,
+                    provider="test",
+                    model="m",
+                    chunk_text_hash=chunk.text_hash,
+                ),
+                ClaimEvidence(
+                    claim_id=claim.id,
+                    chunk_id=chunk.id,
+                    surface_text=chunk.text[:4],
+                    start_char=0,
+                    end_char=4,
+                    provider="test",
+                    model="m",
+                ),
+            ]
+        )
+        await session.commit()
+        return entity.id, claim.id

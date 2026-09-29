@@ -15,7 +15,7 @@ def test_routes_are_in_openapi(app: FastAPI) -> None:
     paths = app.openapi()["paths"]
     parameters = {parameter["name"] for parameter in paths["/entities"]["get"]["parameters"]}
 
-    assert parameters == {"query", "entity_type", "limit", "offset"}
+    assert parameters == {"query", "entity_type", "limit", "offset", "organization_id"}
     assert paths["/entities"]["get"]["tags"] == ["Entities"]
     assert set(paths["/entities/{entity_id}"]) == {"get"}
     # Entities come from extraction, so there is no way to write them.

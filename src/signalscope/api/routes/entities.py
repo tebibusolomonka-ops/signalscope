@@ -6,6 +6,7 @@ from pydantic import StringConstraints
 
 from signalscope.api.dependencies import DatabaseSession, DatabaseSessionFactory
 from signalscope.api.pagination import Page, Pagination
+from signalscope.api.tenancy import ReadScope
 from signalscope.core.errors import NotFoundError
 from signalscope.domain.entities.coverage import EntityCoverageService
 from signalscope.domain.entities.model import (
@@ -40,12 +41,17 @@ TypeQuery = Annotated[
 async def list_entities(
     session: DatabaseSession,
     page: Pagination,
+    scope: ReadScope,
     query: NameQuery = None,
     entity_type: TypeQuery = None,
 ) -> Page[EntityRead]:
-    """List entities found in documents, by name. Entities are read only."""
+    """List entities found in documents, by name. Entities are read only.
+
+    With authentication on, only entities mentioned in the organization_id
+    organization's documents are listed, with those mentions counted.
+    """
     summaries, total = await EntityRepository(session).list_page(
-        query, entity_type, page.limit, page.offset
+        query, entity_type, page.limit, page.offset, scope
     )
     return Page[EntityRead](
         items=[_entity_read(summary.entity, summary.mention_count) for summary in summaries],
@@ -86,13 +92,21 @@ async def entity_coverage(
 
 
 @router.get("/{entity_id}")
-async def get_entity(entity_id: uuid.UUID, session: DatabaseSession) -> EntityDetailRead:
-    """One entity with its mentions, the first 100 in document order."""
+async def get_entity(
+    entity_id: uuid.UUID, session: DatabaseSession, scope: ReadScope
+) -> EntityDetailRead:
+    """One entity with its mentions, the first 100 in document order.
+
+    With authentication on, only mentions in the organization_id
+    organization's documents; an entity without any there is not found.
+    """
     repository = EntityRepository(session)
     entity = await repository.get(entity_id)
     if entity is None:
         raise NotFoundError("Entity was not found.")
-    mentions, total = await repository.mentions(entity_id)
+    mentions, total = await repository.mentions(entity_id, scope=scope)
+    if total == 0 and not scope.is_unrestricted:
+        raise NotFoundError("Entity was not found.")
     return EntityDetailRead(
         entity=_entity_read(entity, total),
         mention_count=total,
