@@ -28,6 +28,10 @@ class ParserRegistry:
             raise ValueError(f"A parser is already registered for {key}.")
         self._parsers[key] = parser
 
+    def content_types(self) -> list[str]:
+        """The media types that have a parser, sorted."""
+        return sorted(self._parsers)
+
     def get(self, content_type: str) -> DocumentParser:
         key = media_type(content_type)
         parser = self._parsers.get(key)

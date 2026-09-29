@@ -20,7 +20,7 @@ function dayBound(day, end) {
 
 /** Documents of the active organization, with the filters the API supports. */
 export function DocumentsPage() {
-  const { active, tenantApi } = useOrganization();
+  const { active, tenantApi, can } = useOrganization();
   const { sources, names } = useSourceOptions();
   const [filters, setFilters] = useState(NO_FILTERS);
   const [offset, setOffset] = useState(0);
@@ -56,6 +56,7 @@ export function DocumentsPage() {
     <>
       <PageHeading title="Documents">
         <span className="muted">{active.name}</span>
+        {can.contribute && <Link to="/documents/import">Import a file</Link>}
       </PageHeading>
       <section className="panel" aria-labelledby="documents-heading">
         <h2 id="documents-heading">Documents</h2>

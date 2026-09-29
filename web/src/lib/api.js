@@ -50,9 +50,11 @@ function withQuery(path, query) {
 export function createApiClient({ baseUrl, getToken = () => null, fetchImpl }) {
   const send = fetchImpl ?? ((...args) => fetch(...args));
 
-  async function request(method, path, { body, query } = {}) {
+  // file sends a File or Blob as the raw body, with its own content type.
+  async function request(method, path, { body, query, file, contentType } = {}) {
     const headers = { Accept: "application/json" };
     if (body !== undefined) headers["Content-Type"] = "application/json";
+    if (file !== undefined) headers["Content-Type"] = contentType;
     const token = getToken();
     if (token) headers.Authorization = `Bearer ${token}`;
     let response;
@@ -60,7 +62,7 @@ export function createApiClient({ baseUrl, getToken = () => null, fetchImpl }) {
       response = await send(`${baseUrl}${withQuery(path, query)}`, {
         method,
         headers,
-        body: body === undefined ? undefined : JSON.stringify(body),
+        body: file ?? (body === undefined ? undefined : JSON.stringify(body)),
       });
     } catch {
       throw new ApiError(0, "network_error", "The API could not be reached.");
@@ -77,5 +79,7 @@ export function createApiClient({ baseUrl, getToken = () => null, fetchImpl }) {
     put: (path, body, options) => request("PUT", path, { ...options, body }),
     patch: (path, body, options) => request("PATCH", path, { ...options, body }),
     delete: (path, options) => request("DELETE", path, options),
+    upload: (path, file, contentType, options) =>
+      request("POST", path, { ...options, file, contentType }),
   };
 }

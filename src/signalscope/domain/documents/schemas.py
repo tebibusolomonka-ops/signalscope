@@ -65,6 +65,23 @@ class DocumentRead(BaseModel):
     updated_at: datetime
 
 
+class DocumentFileRead(BaseModel):
+    """A file stored as a new document and queued for processing."""
+
+    document: DocumentRead
+    filename: str | None
+    content_type: str
+    size_bytes: int
+    processing_job_id: uuid.UUID
+
+
+class FileUploadLimits(BaseModel):
+    """What POST /documents/files accepts."""
+
+    content_types: list[str]
+    max_bytes: int
+
+
 class DocumentRevisionSummary(BaseModel):
     """One earlier state of a document, without its text."""
 

@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router";
 
 import { LoginPage } from "../features/auth/LoginPage.jsx";
 import { DashboardPage } from "../features/dashboard/DashboardPage.jsx";
+import { FileImportPage } from "../features/documents/FileImportPage.jsx";
 import { DocumentDetailPage } from "../features/documents/DocumentDetailPage.jsx";
 import { DocumentsPage } from "../features/documents/DocumentsPage.jsx";
 import { AcceptInvitationPage } from "../features/invitations/AcceptInvitationPage.jsx";
@@ -39,6 +40,7 @@ export function AppRoutes() {
             <Route path="/sources" element={<SourcesPage />} />
             <Route path="/sources/:sourceId" element={<SourceDetailPage />} />
             <Route path="/documents" element={<DocumentsPage />} />
+            <Route path="/documents/import" element={<FileImportPage />} />
             <Route path="/documents/:documentId" element={<DocumentDetailPage />} />
             <Route path="/search" element={<Placeholder title="Search" />} />
             <Route path="/entities" element={<Placeholder title="Entities" />} />

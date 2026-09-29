@@ -25,7 +25,8 @@ export function fakeApi(routes = {}) {
   const calls = [];
   const fetchImpl = vi.fn(async (url, options) => {
     const [path, query = ""] = url.replace(/^\/api/, "").split("?");
-    const body = options.body ? JSON.parse(options.body) : undefined;
+    // JSON bodies are parsed; a raw file body is kept as it is.
+    const body = typeof options.body === "string" ? JSON.parse(options.body) : options.body;
     const request = {
       method: options.method,
       path,
