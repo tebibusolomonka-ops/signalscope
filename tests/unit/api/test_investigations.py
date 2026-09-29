@@ -22,6 +22,7 @@ def test_routes_are_in_openapi(app: FastAPI) -> None:
     assert set(paths["/investigations/{investigation_id}/items/{item_id}"]) == {"delete"}
     assert {parameter["name"] for parameter in paths["/investigations"]["get"]["parameters"]} == {
         "status",
+        "organization_id",
         "limit",
         "offset",
     }

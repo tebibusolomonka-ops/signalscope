@@ -105,6 +105,7 @@ label {
 
 input,
 select,
+textarea,
 button {
   font: inherit;
   padding: 0.4rem 0.6rem;
@@ -309,4 +310,31 @@ button.danger {
 
 .scroll {
   overflow-x: auto;
+}
+
+.inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.notice {
+  padding: 0.5rem 0.75rem;
+  background: var(--background);
+  border-left: 3px solid var(--accent);
+}
+
+.actions {
+  margin-top: 1rem;
+}
+
+.items {
+  display: grid;
+  gap: 0.5rem;
+  padding-left: 1.25rem;
+}
+
+.items .label {
+  margin: 0.15rem 0 0;
+  font-style: italic;
 }

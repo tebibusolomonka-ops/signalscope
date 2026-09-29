@@ -11,6 +11,8 @@ import { DocumentDetailPage } from "../features/documents/DocumentDetailPage.jsx
 import { DocumentsPage } from "../features/documents/DocumentsPage.jsx";
 import { EventClusterPage } from "../features/events/EventClusterPage.jsx";
 import { TimelinePage } from "../features/events/TimelinePage.jsx";
+import { InvestigationDetailPage } from "../features/investigations/InvestigationDetailPage.jsx";
+import { InvestigationsPage } from "../features/investigations/InvestigationsPage.jsx";
 import { AcceptInvitationPage } from "../features/invitations/AcceptInvitationPage.jsx";
 import { OrganizationDetailPage } from "../features/organizations/OrganizationDetailPage.jsx";
 import { OrganizationsPage } from "../features/organizations/OrganizationsPage.jsx";
@@ -57,11 +59,9 @@ export function AppRoutes() {
             <Route path="/claims" element={<ClaimsPage />} />
             <Route path="/claims/:claimId" element={<ClaimDetailPage />} />
             <Route path="/events" element={<TimelinePage />} />
-            <Route
-              path="/event-clusters/:clusterId"
-              element={<EventClusterPage />}
-            />
-            <Route path="/investigations" element={<Placeholder title="Investigations" />} />
+            <Route path="/event-clusters/:clusterId" element={<EventClusterPage />} />
+            <Route path="/investigations" element={<InvestigationsPage />} />
+            <Route path="/investigations/:investigationId" element={<InvestigationDetailPage />} />
             <Route path="/research" element={<Placeholder title="Research" />} />
           </Route>
           <Route path="/organizations" element={<OrganizationsPage />} />

@@ -111,10 +111,19 @@ class InvestigationService:
         return investigation
 
     async def list_page(
-        self, status: InvestigationStatus | None, limit: int, offset: int
+        self,
+        status: InvestigationStatus | None,
+        limit: int,
+        offset: int,
+        organization_id: uuid.UUID | None = None,
     ) -> tuple[list[Investigation], int]:
-        """Newest first, with the total that match. Only those the actor may view."""
+        """Newest first, with the total that match. Only those the actor may view.
+
+        organization_id keeps only that organization's investigations.
+        """
         conditions = [] if status is None else [Investigation.status == status]
+        if organization_id is not None:
+            conditions.append(Investigation.organization_id == organization_id)
         if self.actor is not None:
             conditions.append(visible_to(self.actor))
         items = await self.session.scalars(

@@ -52,10 +52,16 @@ async def list_investigations(
     actor: Actor,
     page: Pagination,
     status: InvestigationStatus | None = None,
+    organization_id: uuid.UUID | None = None,
 ) -> Page[InvestigationRead]:
-    """Investigations, newest first, optionally only open or only closed ones."""
+    """Investigations, newest first, optionally only open or only closed ones.
+
+    organization_id keeps only that organization's investigations, which the
+    web app uses to show one organization at a time. Without it, every
+    investigation the user may view is listed.
+    """
     items, total = await InvestigationService(session, actor).list_page(
-        status, page.limit, page.offset
+        status, page.limit, page.offset, organization_id
     )
     return Page[InvestigationRead](
         items=[InvestigationRead.model_validate(item) for item in items],

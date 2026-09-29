@@ -142,3 +142,29 @@ export function evidence(overrides = {}) {
     ...overrides,
   };
 }
+
+export function investigation(overrides = {}) {
+  return {
+    id: "inv-1",
+    title: "Harbour closure",
+    description: "Why the harbour closed.",
+    status: "open",
+    organization_id: "org-a",
+    created_by_user_id: "u-admin",
+    created_at: "2026-09-10T08:00:00Z",
+    updated_at: "2026-09-11T08:00:00Z",
+    ...overrides,
+  };
+}
+
+export function savedItem(type, snapshot, overrides = {}) {
+  return {
+    id: `item-${type}`,
+    item_type: type,
+    reference_id: `ref-${type}`,
+    label: null,
+    snapshot,
+    created_at: "2026-09-12T08:00:00Z",
+    ...overrides,
+  };
+}
