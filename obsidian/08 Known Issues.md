@@ -1,6 +1,6 @@
 # Known Issues
 
-Open problems as of commit 303. Remove an item when it is fixed.
+Open problems as of commit 308. Remove an item when it is fixed.
 
 ## Events
 
@@ -55,8 +55,7 @@ Open problems as of commit 303. Remove an item when it is fixed.
 - Login has no rate limit or lockout yet.
 - There is no password reset yet, only a change while signed in.
 - There is no way to delete an organization or a user through the API.
-- Invitations are shared by hand: there is no email sending, and old
-  invitation rows are not cleaned up yet.
+- Invitations are shared by hand: there is no email sending.
 - Only investigations and organizations are protected; other APIs stay open
   even when auth is on, until data tenancy is designed.
 - The saved records an investigation points at are not checked against the
@@ -68,6 +67,10 @@ Open problems as of commit 303. Remove an item when it is fixed.
   `cleanup-auth-sessions` regularly.
 
 ## Code
+
+- `Result.tuples()` in `domain/investigations/members.py` and
+  `domain/audit/query.py` is deprecated in SQLAlchemy 2.1 and gives warnings
+  in CI.
 
 - The entity, event and claim queues, repositories, workers and coverage
   services are close copies of each other.

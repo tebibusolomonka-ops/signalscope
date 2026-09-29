@@ -1,6 +1,6 @@
 # Current State
 
-Last updated at commit 303. Batch 273 to 292 (identity and authorization
+Last updated at commit 308. Batch 273 to 292 (identity and authorization
 foundation) ended at commit 293 (`68f9284`), with one corrective commit.
 Current batch: 294 to 313 (administration and the admin web app). Alembic
 head: `23438041f111` (Create organization invitations).
@@ -38,6 +38,13 @@ head: `23438041f111` (Create organization invitations).
   and accept (`OrganizationInvitationService`). The raw token is returned
   only when an invitation is made; delivery is manual.
 - Security audit reading (`SecurityAuditQueryService`, `GET /security/audit`).
+- `signalscope cleanup-organization-invitations` removes old used, revoked
+  and expired invitations.
+- Admin session controls under `/admin/users/{id}/sessions`.
+- Organization access summary (`GET /organizations/{id}/access-summary`).
+- An administration end to end test covers the whole backend flow.
+- Content data (sources, documents, chunks, entities, events, claims) is not
+  split by organization. This is deliberate; see [[07 Decisions]].
 
 - Sources, scheduled network ingestion (RSS, web), file import, blob storage.
 - Processing jobs, parsers, document revisions, section-aware chunks.

@@ -41,10 +41,15 @@ One Python package, `src/signalscope`, with one PostgreSQL database. See
   `InvestigationAccess` turns organization and collaborator roles into
   permissions; the services take the signed in user as the actor, or None
   when auth is off. `InvestigationMemberService` manages collaborators.
+- **Administration** (`domain/users/administration.py`,
+  `domain/organizations/invitations.py`, `access_summary.py`): user
+  management, invitations and access counts. Each service checks its own
+  permissions from the actor it is given.
 - **Security audit** (`domain/audit/`): `SecurityAuditService` adds an event
   to the caller's transaction, so it commits with the change it describes.
   The auth, organization and collaborator services call it. Details are
-  limited to a fixed set of keys (IDs and roles).
+  limited to a fixed set of keys (IDs and roles). `SecurityAuditQueryService`
+  reads events for system admins and organization managers.
 - **Dashboard** (`dashboard/`): aggregate counts and zero-filled UTC daily
   series, built with SQL aggregates.
 - **Relations** (`relations/`): relation extraction interface and an

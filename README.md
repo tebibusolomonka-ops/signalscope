@@ -116,6 +116,29 @@ With authentication on, only the sign in, organization and investigation routes
 need a token. Search, timeline, sources, documents and the extraction APIs
 stay open, as before.
 
+### Administration
+
+After the first system admin exists (from `create-user`), the usual backend
+workflow is:
+
+1. The system admin creates accounts with `POST /admin/users`, lists and
+   searches them with `GET /admin/users?query=...&is_active=true`, and turns
+   them off or on with `PATCH /admin/users/{id}/status` and
+   `{"is_active": false}`. Turning an account off ends all its sessions. The
+   last active system admin cannot be turned off.
+2. A signed in user creates an organization, adds members or invites people
+   (see below), and starts investigations in it.
+3. System admins can see and end another user's sessions:
+   `GET /admin/users/{id}/sessions`,
+   `DELETE /admin/users/{id}/sessions/{session_id}` and
+   `POST /admin/users/{id}/revoke-sessions`.
+4. Owners and admins read `GET /organizations/{id}/access-summary` for counts
+   of members by role, active and inactive members, invitations by status,
+   investigations and collaborators, and the audit log (below).
+
+Only system admins can create accounts through the API; there is no public
+registration.
+
 ### Organizations
 
 `POST /organizations` makes an organization and you become its owner. Members

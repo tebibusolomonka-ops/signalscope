@@ -110,6 +110,13 @@ Decisions that should hold unless there is a clear reason to change them.
 - **Audit reading is scoped by organization.** Organization owners and admins
   must name one organization they manage; results are never merged across
   organizations. Only system admins read events without an organization.
+- **Content tenancy is deferred on purpose.** Sources, documents, chunks,
+  entities, events and claims have no organization. They feed search,
+  extraction, timelines, research and dashboards, so isolating them needs one
+  design that covers every access path. A partial boundary would be worse
+  than an explicit one that does not exist yet.
+- **Admin summaries are counts.** The access summary has no risk or trust
+  scores and no ranking of users.
 - **Only investigations are protected so far.** Search, timeline, sources,
   documents and extraction APIs stay open until data tenancy is designed.
 - **Exports replay history, not live data.** A research session export uses

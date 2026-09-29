@@ -34,6 +34,9 @@ others. Responses never include passwords, hashes or sessions.
 - `PATCH /admin/users/{id}/status` with `{"is_active": false}` deactivates and
   revokes all sessions; `true` reactivates without restoring old sessions.
   Deactivating the last active system admin: 409.
+- `GET /admin/users/{id}/sessions` (with `active`, never tokens),
+  `DELETE /admin/users/{id}/sessions/{session_id}` (another user's session:
+  404), `POST /admin/users/{id}/revoke-sessions` (returns the count).
 
 ## Organizations
 
@@ -45,6 +48,11 @@ Auth only: 503 when auth is off, 401 without a valid token.
   (by `user_id`), `PATCH` and `DELETE /organizations/{id}/members/{user_id}`
 - Not a member: 404. Member without the right role: 403. Removing or demoting
   the last owner: 409.
+
+- `GET /organizations/{id}/access-summary`: counts of members by role,
+  active and inactive members, invitations by status, open and closed
+  investigations, and collaborators by role. Owners, admins and system
+  admins; other members 403.
 
 ## Invitations
 

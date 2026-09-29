@@ -49,6 +49,9 @@ invitations).
   times, not stored. No uniqueness on email, so old rows stay as history.
   The service allows one pending invitation per organization and email,
   checked under a lock on the organization row.
+  `cleanup-organization-invitations` deletes invitations accepted, revoked or
+  expired more than `SIGNALSCOPE_ORGANIZATION_INVITATION_RETENTION_DAYS` days
+  ago, at most `--limit` per run.
 - **Audit**: `security_audit_events` (actor, organization, action, resource
   type and ID, JSONB `metadata` object, `created_at` only, since events are
   history). Indexed by time, actor, organization and action.

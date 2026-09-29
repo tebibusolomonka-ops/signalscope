@@ -27,6 +27,9 @@ stops at the first failure, and checks that Alembic has one head.
   Argon2id hasher, so production costs stay unchanged), `tests/auth_helpers.py`
   (accounts, login, bearer headers) and the `auth_client` fixture, an app
   with auth on. `test_auth_end_to_end.py` covers the whole flow.
+- `test_administration_end_to_end.py` runs the admin flow through the API
+  and checks that no answer holds a password, hash or bearer token, and that
+  the invitation token appears only in the answer that made it.
 - Concurrency rules (last owner, last system admin) have tests that run two
   sessions at once with `asyncio.gather`.
 - Extraction quality is measured with `signalscope evaluate-extraction` on a
