@@ -11,12 +11,14 @@ describe("createTenantApi", () => {
 
     await tenant.get("/dashboard/overview", { query: { days: 7 } });
     await tenant.post("/research/context", { query: "x" });
+    await tenant.delete("/sources/s-1");
     await api.get("/organizations");
 
     const urls = fetchImpl.mock.calls.map(([url]) => url);
     expect(urls).toEqual([
       "/api/dashboard/overview?days=7&organization_id=org-1",
       "/api/research/context?organization_id=org-1",
+      "/api/sources/s-1?organization_id=org-1",
       "/api/organizations",
     ]);
     expect(fetchImpl.mock.calls[0][1].headers.Authorization).toBe("Bearer t");

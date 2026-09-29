@@ -14,5 +14,8 @@ export function createTenantApi(api, organizationId) {
     organizationId,
     get: (path, options) => api.get(path, scoped(options)),
     post: (path, body, options) => api.post(path, body, scoped(options)),
+    put: (path, body, options) => api.put(path, body, scoped(options)),
+    patch: (path, body, options) => api.patch(path, body, scoped(options)),
+    delete: (path, options) => api.delete(path, scoped(options)),
   };
 }

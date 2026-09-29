@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { readOrganization, saveOrganization } from "../lib/activeOrganization.js";
+import { contentCapabilities } from "../lib/capabilities.js";
 import { createTenantApi } from "../lib/tenantApi.js";
 import { useResource } from "../lib/useResource.js";
 import { useAuth } from "./useAuth.js";
@@ -13,7 +14,7 @@ import { OrganizationContext } from "./useOrganization.js";
  * replaced by the first organization, or cleared when there is none.
  */
 export function OrganizationProvider({ children }) {
-  const { api } = useAuth();
+  const { api, user } = useAuth();
   const load = useCallback(() => api.get("/organizations"), [api]);
   const { data, error, loading, reload } = useResource(load);
   const [selectedId, setSelectedId] = useState(readOrganization);
@@ -23,8 +24,7 @@ export function OrganizationProvider({ children }) {
     [data],
   );
   const active = useMemo(
-    () =>
-      organizations.find((item) => item.id === selectedId) ?? organizations[0] ?? null,
+    () => organizations.find((item) => item.id === selectedId) ?? organizations[0] ?? null,
     [organizations, selectedId],
   );
 
@@ -37,14 +37,16 @@ export function OrganizationProvider({ children }) {
     setSelectedId(organizationId);
   }, []);
 
-  const tenantApi = useMemo(
-    () => (active ? createTenantApi(api, active.id) : null),
-    [api, active],
+  const tenantApi = useMemo(() => (active ? createTenantApi(api, active.id) : null), [api, active]);
+
+  const can = useMemo(
+    () => contentCapabilities(active?.role, Boolean(user?.is_system_admin)),
+    [active, user],
   );
 
   const value = useMemo(
-    () => ({ organizations, active, select, tenantApi, loading, error, reload }),
-    [organizations, active, select, tenantApi, loading, error, reload],
+    () => ({ organizations, active, select, tenantApi, can, loading, error, reload }),
+    [organizations, active, select, tenantApi, can, loading, error, reload],
   );
   return <OrganizationContext.Provider value={value}>{children}</OrganizationContext.Provider>;
 }

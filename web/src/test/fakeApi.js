@@ -8,6 +8,14 @@ export const ADMIN = {
   is_active: true,
   is_system_admin: true,
 };
+/** A normal user; their role comes from GET /organizations. */
+export const USER = {
+  id: "u-user",
+  email: "mel@example.org",
+  display_name: "Mel",
+  is_active: true,
+  is_system_admin: false,
+};
 
 /**
  * A fetch stand-in. routes maps "METHOD /path" to an answer {status, body},
@@ -18,7 +26,13 @@ export function fakeApi(routes = {}) {
   const fetchImpl = vi.fn(async (url, options) => {
     const [path, query = ""] = url.replace(/^\/api/, "").split("?");
     const body = options.body ? JSON.parse(options.body) : undefined;
-    const request = { method: options.method, path, query: new URLSearchParams(query), body, options };
+    const request = {
+      method: options.method,
+      path,
+      query: new URLSearchParams(query),
+      body,
+      options,
+    };
     calls.push(request);
     const handler = routes[`${options.method} ${path}`];
     if (!handler) return answer(404, { error: { code: "not_found", message: "Not found." } });
