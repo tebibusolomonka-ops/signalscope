@@ -7,6 +7,7 @@ import { PageHeading } from "../../components/PageHeading.jsx";
 import { ErrorMessage, Loading } from "../../components/Status.jsx";
 import { formatTime } from "../../lib/format.js";
 import { useResource } from "../../lib/useResource.js";
+import { Collaborators } from "./Collaborators.jsx";
 import { ITEM_TYPES, describeItem } from "./items.js";
 
 /**
@@ -46,6 +47,7 @@ export function InvestigationDetailPage() {
         <>
           <Overview investigation={investigation} onChange={setChanged} />
           <Items investigation={investigation} items={data.items} onChange={reload} />
+          <Collaborators investigationId={investigation.id} />
         </>
       )}
     </>

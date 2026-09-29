@@ -42,6 +42,8 @@ function routes(extra = {}, role = "owner", user) {
     ]),
     "GET /investigations/inv-1": { body: investigation() },
     "GET /investigations/inv-1/items": { body: ITEMS },
+    "GET /investigations/inv-1/members": { body: [] },
+    "GET /organizations/org-a/members": { body: [] },
     ...extra,
   };
 }
