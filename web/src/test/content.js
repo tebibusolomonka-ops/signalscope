@@ -87,3 +87,16 @@ export function doc(overrides = {}) {
     ...overrides,
   };
 }
+
+export function revision(version, overrides = {}) {
+  return {
+    version,
+    title: "Storm closes the harbour",
+    language: "en",
+    url: "https://harbour.example/storm",
+    content_hash: "abcdef0123456789",
+    content_length: 24,
+    created_at: `2026-09-0${version}T07:00:00Z`,
+    ...overrides,
+  };
+}
