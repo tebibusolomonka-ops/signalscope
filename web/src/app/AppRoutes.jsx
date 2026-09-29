@@ -9,6 +9,7 @@ import { EntityDetailPage } from "../features/entities/EntityDetailPage.jsx";
 import { FileImportPage } from "../features/documents/FileImportPage.jsx";
 import { DocumentDetailPage } from "../features/documents/DocumentDetailPage.jsx";
 import { DocumentsPage } from "../features/documents/DocumentsPage.jsx";
+import { TimelinePage } from "../features/events/TimelinePage.jsx";
 import { AcceptInvitationPage } from "../features/invitations/AcceptInvitationPage.jsx";
 import { OrganizationDetailPage } from "../features/organizations/OrganizationDetailPage.jsx";
 import { OrganizationsPage } from "../features/organizations/OrganizationsPage.jsx";
@@ -52,7 +53,11 @@ export function AppRoutes() {
             <Route path="/entities/:entityId" element={<EntityDetailPage />} />
             <Route path="/claims" element={<ClaimsPage />} />
             <Route path="/claims/:claimId" element={<ClaimDetailPage />} />
-            <Route path="/events" element={<Placeholder title="Events" />} />
+            <Route path="/events" element={<TimelinePage />} />
+            <Route
+              path="/event-clusters/:clusterId"
+              element={<Placeholder title="Event cluster" />}
+            />
             <Route path="/investigations" element={<Placeholder title="Investigations" />} />
             <Route path="/research" element={<Placeholder title="Research" />} />
           </Route>
