@@ -1,0 +1,161 @@
+import { useCallback, useState } from "react";
+import { Link, useParams } from "react-router";
+
+import { useOrganization } from "../../app/useOrganization.js";
+import { PageHeading } from "../../components/PageHeading.jsx";
+import { ErrorMessage, Loading } from "../../components/Status.jsx";
+import { chunkLocation } from "../../lib/chunks.js";
+import { formatTime } from "../../lib/format.js";
+import { useResource } from "../../lib/useResource.js";
+
+function occurred(value) {
+  return value ? formatTime(value) : "Date unknown";
+}
+
+/**
+ * One event cluster: the events that report the same thing and where each
+ * was reported. Read only; clusters are never merged or split here.
+ */
+export function EventClusterPage() {
+  const { clusterId } = useParams();
+  const { tenantApi } = useOrganization();
+  const load = useCallback(
+    () => tenantApi.get(`/event-clusters/${clusterId}`),
+    [tenantApi, clusterId],
+  );
+  const { data, error, loading } = useResource(load);
+
+  return (
+    <>
+      <PageHeading title={data ? data.title : "Event cluster"}>
+        <Link to="/events">Timeline</Link>
+      </PageHeading>
+      {loading && <Loading />}
+      <ErrorMessage error={error} />
+      {data && (
+        <>
+          <section className="panel" aria-labelledby="cluster-summary">
+            <h2 id="cluster-summary">Summary</h2>
+            <dl className="facts">
+              <dt>Event type</dt>
+              <dd>{data.event_type}</dd>
+              <dt>Occurred</dt>
+              <dd>{occurred(data.occurred_at)}</dd>
+              <dt>Events</dt>
+              <dd>{data.event_count}</dd>
+              <dt>Sources</dt>
+              <dd>{data.source_count}</dd>
+              <dt>Evidence rows</dt>
+              <dd>{data.evidence_count}</dd>
+            </dl>
+          </section>
+          <section className="panel" aria-labelledby="cluster-members">
+            <h2 id="cluster-members">Member events</h2>
+            {data.members.map((member) => (
+              <Member key={member.event_id} member={member} clusterId={data.cluster_id} />
+            ))}
+          </section>
+        </>
+      )}
+    </>
+  );
+}
+
+function Member({ member, clusterId }) {
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  return (
+    <article className="member" aria-labelledby={`event-${member.event_id}`}>
+      <h3 id={`event-${member.event_id}`}>{member.title}</h3>
+      <p className="muted">{`Occurred: ${occurred(member.occurred_at)}`}</p>
+      {member.summary && <p>{member.summary}</p>}
+      <table aria-label={`Evidence for ${member.title}`}>
+        <thead>
+          <tr>
+            <th scope="col">Source</th>
+            <th scope="col">Document</th>
+            <th scope="col">Location</th>
+            <th scope="col">Confidence</th>
+            <th scope="col">Found by</th>
+          </tr>
+        </thead>
+        <tbody>
+          {member.evidence.map((row) => (
+            <tr key={row.chunk_id}>
+              <td>
+                <Link to={`/sources/${row.source_id}`}>{row.source_name}</Link>
+              </td>
+              <td>
+                <Link to={`/documents/${row.document_id}`}>Open document</Link>
+              </td>
+              <td>{chunkLocation(row.chunk_metadata) || "-"}</td>
+              <td>{row.confidence === null ? "-" : Number(row.confidence).toFixed(2)}</td>
+              <td className="wrap">{`${row.provider} / ${row.model}`}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {showSuggestions ? (
+        <Suggestions eventId={member.event_id} clusterId={clusterId} />
+      ) : (
+        <button type="button" className="secondary" onClick={() => setShowSuggestions(true)}>
+          Show suggested similar events
+        </button>
+      )}
+    </article>
+  );
+}
+
+function Suggestions({ eventId, clusterId }) {
+  const { tenantApi } = useOrganization();
+  const load = useCallback(
+    () => tenantApi.get(`/events/${eventId}/link-suggestions`),
+    [tenantApi, eventId],
+  );
+  const { data, error, loading } = useResource(load);
+  return (
+    <section aria-label="Suggested similar events" className="suggestions">
+      <h4>Suggested similar events</h4>
+      <p className="muted">
+        Events whose text is close to this one by meaning. They are suggestions only and are not
+        linked to this cluster.
+      </p>
+      {loading && <Loading />}
+      {error?.status === 503 ? (
+        <p className="error" role="alert">
+          {`Suggestions are not available: ${error.message}`}
+        </p>
+      ) : (
+        <ErrorMessage error={error} />
+      )}
+      {data && data.length === 0 && <p className="muted">No similar events found.</p>}
+      {data && data.length > 0 && (
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Event</th>
+              <th scope="col">Occurred</th>
+              <th scope="col">Cosine similarity</th>
+              <th scope="col">Its cluster</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((item) => (
+              <tr key={item.candidate_event_id}>
+                <td className="wrap">{item.title}</td>
+                <td>{occurred(item.occurred_at)}</td>
+                <td>{Number(item.similarity).toFixed(3)}</td>
+                <td>
+                  {!item.candidate_cluster_id && "None"}
+                  {item.candidate_cluster_id === clusterId && "This cluster"}
+                  {item.candidate_cluster_id && item.candidate_cluster_id !== clusterId && (
+                    <Link to={`/event-clusters/${item.candidate_cluster_id}`}>Open cluster</Link>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </section>
+  );
+}
