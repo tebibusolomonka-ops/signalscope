@@ -30,6 +30,8 @@ stops at the first failure, and checks that Alembic has one head.
 - `test_administration_end_to_end.py` runs the admin flow through the API
   and checks that no answer holds a password, hash or bearer token, and that
   the invitation token appears only in the answer that made it.
+- `tests/tenancy_helpers.py` makes organizations A and B with one user per
+  role, plus a system admin and an outsider, for organization content tests.
 - Concurrency rules (last owner, last system admin) have tests that run two
   sessions at once with `asyncio.gather`.
 - Extraction quality is measured with `signalscope evaluate-extraction` on a

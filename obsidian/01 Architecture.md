@@ -50,6 +50,11 @@ One Python package, `src/signalscope`, with one PostgreSQL database. See
   The auth, organization and collaborator services call it. Details are
   limited to a fixed set of keys (IDs and roles). `SecurityAuditQueryService`
   reads events for system admins and organization managers.
+- **Content tenancy** (`domain/tenancy/`, `api/tenancy.py`): `ContentScope`
+  (unrestricted when auth is off, one organization, or legacy content) turns
+  into SQL conditions through the source, and `ContentAccessPolicy` decides
+  the scope for a request and checks single resources. Routes get the
+  policy and a read scope from `api/tenancy.py`.
 - **Dashboard** (`dashboard/`): aggregate counts and zero-filled UTC daily
   series, built with SQL aggregates.
 - **Relations** (`relations/`): relation extraction interface and an

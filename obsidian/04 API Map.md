@@ -1,7 +1,10 @@
 # API Map
 
-All routes are JSON over HTTP. Only the auth, admin, organization and (with
-auth on) investigation routes check a bearer token; the rest stay open. Routes that need the
+All routes are JSON over HTTP. With auth off, content routes stay open as
+before. With auth on, content routes take `organization_id` for lists and
+searches, and check the source's organization for single records (see
+[[07 Decisions]]); the move is done route group by route group in batch 314 to
+333, and the sections below say which are scoped. Routes that need the
 database answer 503 when it is not configured. Routes that need an optional
 model answer 503 when it is off. Lists are paged with `limit` and `offset`.
 
@@ -96,12 +99,18 @@ and viewers; system admins may manage any organization's invitations.
 - `POST /sources/compare`: 2 to 10 sources side by side, with shared clusters,
   entities and claims; no score or ranking
 - `POST /ingestion-runs`, `GET /ingestion-runs`, `GET /ingestion-runs/{id}`
+- Scoped with auth on: lists need `organization_id` (system admins without it
+  see legacy sources); creating a source needs `organization_id` and the
+  owner or admin role; schedules, deletes and ingestion runs need owner or
+  admin; reading needs any role. Another organization's source: 404.
 
 ## Documents
 
 - `POST /documents`, `GET /documents`, `GET /documents/{id}`,
   `DELETE /documents/{id}`
 - `GET /documents/{id}/revisions`, `GET /documents/{id}/revisions/{version}`
+- Scoped with auth on through the document's source: reading needs any role,
+  adding and deleting need member or higher. There is no file download route.
 
 ## Search and embeddings
 

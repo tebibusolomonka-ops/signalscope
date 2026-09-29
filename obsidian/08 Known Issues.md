@@ -1,6 +1,6 @@
 # Known Issues
 
-Open problems as of commit 313. Remove an item when it is fixed.
+Open problems as of commit 318. Remove an item when it is fixed.
 
 ## Events
 
@@ -56,8 +56,9 @@ Open problems as of commit 313. Remove an item when it is fixed.
 - There is no password reset yet, only a change while signed in.
 - There is no way to delete an organization or a user through the API.
 - Invitations are shared by hand: there is no email sending.
-- Only investigations and organizations are protected; other APIs stay open
-  even when auth is on, until data tenancy is designed.
+- Content tenancy is being added in batch 314 to 333. Until it is done,
+  search, extracted data, timelines, dashboards and research routes are not
+  yet scoped by organization.
 - The saved records an investigation points at are not checked against the
   organization: any record ID can be saved and its snapshot read.
 - Audit events have no retention rule yet, and failed logins are not
@@ -74,7 +75,6 @@ Open problems as of commit 313. Remove an item when it is fixed.
 - The API sends no CORS headers, so the app must be served from the API's
   origin (the development server proxies `/api`).
 - There are no pages yet for investigations or research sessions.
-- Content data is still not split by organization (see [[07 Decisions]]).
 
 ## Code
 

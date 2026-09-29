@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from signalscope.domain.documents.language import normalize_language
 from signalscope.domain.documents.model import Document
+from signalscope.domain.tenancy.scope import ContentScope
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -17,6 +18,8 @@ class DocumentFilters:
     language: str | None = None
     published_from: datetime | None = None
     published_to: datetime | None = None
+    # Only documents whose source is in scope.
+    scope: ContentScope = ContentScope.unrestricted()
 
 
 class DocumentRepository:
@@ -86,7 +89,7 @@ class DocumentRepository:
 
 def _conditions(filters: DocumentFilters) -> list[ColumnElement[bool]]:
     # Rows without published_at never match a date limit, because NULL comparisons are false.
-    conditions: list[ColumnElement[bool]] = []
+    conditions: list[ColumnElement[bool]] = [filters.scope.source_condition(Document.source_id)]
     if filters.source_id is not None:
         conditions.append(Document.source_id == filters.source_id)
     if filters.language is not None:

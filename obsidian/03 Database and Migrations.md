@@ -1,8 +1,8 @@
 # Database and Migrations
 
 PostgreSQL 17 with the pgvector extension. Current Alembic head:
-`23438041f111` (Create organization
-invitations).
+`7ae71d53471b` (Add source
+organization).
 
 ## Rules
 
@@ -14,7 +14,11 @@ invitations).
 
 ## Tables by area
 
-- **Sources and ingestion**: `sources`, `ingestion_runs`, `ingestion_jobs`.
+- **Sources and ingestion**: `sources` (nullable `organization_id`: the root
+  of content ownership; NULL means legacy content; no uniqueness on name or
+  URL, so organizations can share a feed), `ingestion_runs`, `ingestion_jobs`.
+  Documents, chunks and extracted rows have no organization column: they
+  belong to their source's organization.
 - **Documents**: `documents`, `document_assets` (blob keys),
   `document_extractions`, `document_revisions`, `document_chunks` (with a
   full-text index).
@@ -68,7 +72,7 @@ invitations).
   refused while they created an organization or are a member of one. There is
   no user delete API.
 - Deleting an organization deletes its memberships and invitations, but is
-  refused while it has investigations. Deleting a user is refused while they
+  refused while it has investigations or sources. Deleting a user is refused while they
   invited someone.
 - Deleting a user or organization keeps its audit events and sets their
   reference to NULL.

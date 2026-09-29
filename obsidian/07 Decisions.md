@@ -110,11 +110,27 @@ Decisions that should hold unless there is a clear reason to change them.
 - **Audit reading is scoped by organization.** Organization owners and admins
   must name one organization they manage; results are never merged across
   organizations. Only system admins read events without an organization.
-- **Content tenancy is deferred on purpose.** Sources, documents, chunks,
-  entities, events and claims have no organization. They feed search,
-  extraction, timelines, research and dashboards, so isolating them needs one
-  design that covers every access path. A partial boundary would be worse
-  than an explicit one that does not exist yet.
+- **The source is the root of content ownership.** Only `sources` has an
+  `organization_id` among normal content; documents, chunks, mentions and
+  evidence belong to their source's organization and are filtered through
+  it in SQL. Rows that span documents (event clusters, research sessions)
+  get their own organization later in this batch.
+- **Legacy content stays legacy.** Sources from before organizations keep
+  `organization_id` NULL and are never assigned to a made-up organization.
+  With auth on only system admins reach them; with auth off everything works
+  as before.
+- **One content policy.** `ContentAccessPolicy` gives a `ContentScope`:
+  unrestricted (auth off), one organization, or legacy. Capabilities: viewer
+  READ; member READ and CONTRIBUTE; admin and owner also MANAGE; system admins
+  everything. READ covers reading and searching, CONTRIBUTE adding documents
+  and research, MANAGE sources, schedules and ingestion runs.
+- **Broad queries name one organization.** With auth on, lists and searches
+  need `organization_id`. A system admin without it gets legacy content only,
+  never every organization at once. Single records use the organization on
+  their source, never one the caller sends. Content the caller may not see
+  is 404, a missing role 403, a missing `organization_id` 422.
+- **No new legacy content through the API.** With auth on, creating a source
+  needs an organization, also for system admins.
 - **Admin summaries are counts.** The access summary has no risk or trust
   scores and no ranking of users.
 - **The admin app is React in JavaScript, not TypeScript**, with Vite, a

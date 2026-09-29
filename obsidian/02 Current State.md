@@ -1,11 +1,9 @@
 # Current State
 
-Last updated at commit 313, the end of batch 294 to 313 (administration
-and the admin web app). The batch before, 273 to 292, ended at commit 293
-(`68f9284`) with one corrective commit. This batch ends at repository commit
-313, "Add security dashboard workspace" (a commit cannot name its own hash;
-see `git log`). A later corrective commit must update this line. Alembic
-head: `23438041f111` (Create organization invitations).
+Last updated at commit 318. Batch 294 to 313 (administration and the admin
+web app) ended at commit 313 (`0fbf1cc`) with no corrective commit. Current
+batch: 314 to 333, organization content tenancy. Alembic head:
+`7ae71d53471b` (Add source organization).
 
 ## Done
 
@@ -48,8 +46,11 @@ head: `23438041f111` (Create organization invitations).
 - The admin web app in `web/` (React, JavaScript, Vite): sign in, dashboard,
   organizations with members, invitations and access summary, users, and
   security (audit log and sessions). CI lints, tests and builds it.
-- Content data (sources, documents, chunks, entities, events, claims) is not
-  split by organization. This is deliberate; see [[07 Decisions]].
+- Content tenancy, in progress: sources have an organization (NULL for
+  legacy sources), `ContentAccessPolicy` decides access, and the source,
+  ingestion run and document routes are scoped. Search, extracted data,
+  timelines, dashboards and research are not scoped yet; the rest of batch
+  314 to 333 does that.
 
 - Sources, scheduled network ingestion (RSS, web), file import, blob storage.
 - Processing jobs, parsers, document revisions, section-aware chunks.
