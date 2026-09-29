@@ -113,3 +113,32 @@ export function hit(overrides = {}) {
     ...overrides,
   };
 }
+
+export function entity(overrides = {}) {
+  return {
+    id: "e-1",
+    canonical_name: "Harbour Authority",
+    normalized_name: "harbour authority",
+    entity_type: "organization",
+    mention_count: 3,
+    created_at: "2026-09-05T07:00:00Z",
+    ...overrides,
+  };
+}
+
+/** One mention or evidence row of an entity or claim. */
+export function evidence(overrides = {}) {
+  return {
+    id: "m-1",
+    document_id: "d-1",
+    chunk_id: "c-1",
+    surface_text: "the Harbour Authority",
+    start_char: 10,
+    end_char: 31,
+    confidence: 0.912,
+    provider: "gliner",
+    model: "urchade/gliner_multi-v2.1",
+    chunk_metadata: { page_number: 2 },
+    ...overrides,
+  };
+}

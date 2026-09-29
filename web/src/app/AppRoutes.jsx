@@ -2,6 +2,8 @@ import { Navigate, Route, Routes } from "react-router";
 
 import { LoginPage } from "../features/auth/LoginPage.jsx";
 import { DashboardPage } from "../features/dashboard/DashboardPage.jsx";
+import { EntitiesPage } from "../features/entities/EntitiesPage.jsx";
+import { EntityDetailPage } from "../features/entities/EntityDetailPage.jsx";
 import { FileImportPage } from "../features/documents/FileImportPage.jsx";
 import { DocumentDetailPage } from "../features/documents/DocumentDetailPage.jsx";
 import { DocumentsPage } from "../features/documents/DocumentsPage.jsx";
@@ -44,7 +46,8 @@ export function AppRoutes() {
             <Route path="/documents/import" element={<FileImportPage />} />
             <Route path="/documents/:documentId" element={<DocumentDetailPage />} />
             <Route path="/search" element={<SearchPage />} />
-            <Route path="/entities" element={<Placeholder title="Entities" />} />
+            <Route path="/entities" element={<EntitiesPage />} />
+            <Route path="/entities/:entityId" element={<EntityDetailPage />} />
             <Route path="/claims" element={<Placeholder title="Claims" />} />
             <Route path="/events" element={<Placeholder title="Events" />} />
             <Route path="/investigations" element={<Placeholder title="Investigations" />} />
