@@ -3,6 +3,7 @@
 Test passwords and tokens only.
 """
 
+import hashlib
 import uuid
 from dataclasses import dataclass, field
 
@@ -10,6 +11,9 @@ import httpx
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from auth_helpers import bearer, create_account, login
+from signalscope.domain.documents.chunk_repository import DocumentChunkRepository
+from signalscope.domain.documents.chunking import TextChunk
+from signalscope.domain.documents.model import Document
 from signalscope.domain.organizations.membership import OrganizationRole
 from signalscope.domain.organizations.service import OrganizationService
 from signalscope.domain.sources.model import Source, SourceType
@@ -85,3 +89,31 @@ async def add_source(
         session.add(source)
         await session.commit()
         return source.id
+
+
+async def add_document(
+    session_factory: async_sessionmaker[AsyncSession],
+    source_id: uuid.UUID,
+    title: str,
+    texts: list[str],
+) -> tuple[uuid.UUID, list[uuid.UUID]]:
+    """A document in the source with one chunk per text. Returns its ID and chunk IDs."""
+    chunks = [
+        TextChunk(
+            position=index,
+            text=text,
+            start_char=0,
+            end_char=len(text),
+            text_hash=hashlib.sha256(text.encode()).hexdigest(),
+        )
+        for index, text in enumerate(texts)
+    ]
+    async with session_factory() as session:
+        document = Document(source_id=source_id, title=title, url=f"https://example.org/{title}")
+        session.add(document)
+        await session.flush()
+        repository = DocumentChunkRepository(session)
+        await repository.replace_for_document(document.id, chunks)
+        saved = await repository.list_by_document(document.id)
+        await session.commit()
+        return document.id, [chunk.id for chunk in saved]

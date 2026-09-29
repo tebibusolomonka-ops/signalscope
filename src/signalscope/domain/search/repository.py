@@ -11,6 +11,7 @@ from signalscope.domain.documents.chunk import (
     text_search_config,
 )
 from signalscope.domain.documents.model import Document
+from signalscope.domain.tenancy.scope import ContentScope
 
 # The most results one API request can ask for.
 PUBLIC_SEARCH_LIMIT = 50
@@ -19,6 +20,7 @@ PUBLIC_SEARCH_LIMIT = 50
 MAX_CANDIDATE_LIMIT = 150
 # No highlight markers, so an excerpt is plain text and safe to show anywhere.
 HEADLINE_OPTIONS = 'StartSel="", StopSel="", MaxWords=35, MinWords=15'
+UNRESTRICTED = ContentScope.unrestricted()
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,13 +43,20 @@ class SearchRepository:
         self.session = session
 
     async def search(
-        self, query: str, *, limit: int, source_id: uuid.UUID | None = None
+        self,
+        query: str,
+        *,
+        limit: int,
+        source_id: uuid.UUID | None = None,
+        scope: ContentScope = UNRESTRICTED,
     ) -> list[SearchResult]:
-        """Return the chunks that match query, best match first.
+        """Return the chunks in scope that match query, best match first.
 
         The query uses web search syntax: words must all appear, "quoted
         phrases" match in order, "or" gives alternatives and -word excludes a
-        word. A query without any words matches nothing.
+        word. A query without any words matches nothing. The scope is part of
+        the WHERE clause, so chunks outside it never take a place in the
+        ranking or the limit.
         """
         if not 1 <= limit <= MAX_CANDIDATE_LIMIT:
             raise ValueError(f"limit must be between 1 and {MAX_CANDIDATE_LIMIT}")
@@ -67,7 +76,10 @@ class SearchRepository:
                 DocumentChunk.chunk_metadata,
             )
             .join(Document, Document.id == DocumentChunk.document_id)
-            .where(chunk_search_vector().bool_op("@@")(tsquery))
+            .where(
+                chunk_search_vector().bool_op("@@")(tsquery),
+                scope.source_condition(Document.source_id),
+            )
             # Chunks with the same rank keep the order they have in their documents.
             .order_by(rank.desc(), DocumentChunk.document_id, DocumentChunk.position)
             .limit(limit)

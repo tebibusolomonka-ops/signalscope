@@ -5,8 +5,9 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from signalscope.core.errors import InvalidInputError
-from signalscope.domain.search.repository import SearchRepository, SearchResult
+from signalscope.domain.search.repository import UNRESTRICTED, SearchRepository, SearchResult
 from signalscope.domain.search.service import SearchService
+from signalscope.domain.tenancy.scope import ContentScope
 
 pytestmark = pytest.mark.anyio
 
@@ -17,8 +18,14 @@ def calls(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
     recorded: list[dict[str, Any]] = []
 
     async def fake_search(
-        self: SearchRepository, query: str, *, limit: int, source_id: uuid.UUID | None = None
+        self: SearchRepository,
+        query: str,
+        *,
+        limit: int,
+        source_id: uuid.UUID | None = None,
+        scope: ContentScope = UNRESTRICTED,
     ) -> list[SearchResult]:
+        assert scope.is_unrestricted
         recorded.append({"query": query, "limit": limit, "source_id": source_id})
         return []
 

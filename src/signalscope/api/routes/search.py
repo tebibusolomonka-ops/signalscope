@@ -5,6 +5,7 @@ from fastapi import APIRouter, Query
 from pydantic import StringConstraints
 
 from signalscope.api.dependencies import DatabaseSession, EmbeddingProviders, Rerankers
+from signalscope.api.tenancy import Policy, ReadScope
 from signalscope.domain.search.embedding_model import MODEL_MAX_LENGTH, PROVIDER_MAX_LENGTH
 from signalscope.domain.search.hybrid_service import HybridSearchService
 from signalscope.domain.search.repository import PUBLIC_SEARCH_LIMIT
@@ -53,11 +54,18 @@ ModelName = Annotated[
 async def search(
     q: SearchQuery,
     session: DatabaseSession,
+    scope: ReadScope,
+    policy: Policy,
     limit: SearchLimit = DEFAULT_SEARCH_LIMIT,
     source_id: uuid.UUID | None = None,
 ) -> SearchResponse:
-    """Find document chunks that contain the words in q, best match first."""
-    results = await SearchService(session).search(q, limit=limit, source_id=source_id)
+    """Find document chunks that contain the words in q, best match first.
+
+    With authentication on, only chunks of the organization_id organization
+    are searched (legacy content for system admins without one).
+    """
+    await policy.check_source_filter(source_id)
+    results = await SearchService(session).search(q, limit=limit, source_id=source_id, scope=scope)
     return SearchResponse(items=[SearchResultRead.model_validate(result) for result in results])
 
 
