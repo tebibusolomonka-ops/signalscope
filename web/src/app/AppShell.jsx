@@ -7,6 +7,7 @@ const LINKS = [
   { to: "/organizations", label: "Organizations" },
   { to: "/users", label: "Users" },
   { to: "/security", label: "Security" },
+  { to: "/accept-invitation", label: "Accept invitation" },
 ];
 
 export function AppShell() {

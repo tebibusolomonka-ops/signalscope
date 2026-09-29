@@ -5,6 +5,7 @@ import { useAuth } from "../../app/useAuth.js";
 import { PageHeading } from "../../components/PageHeading.jsx";
 import { ErrorMessage, Loading } from "../../components/Status.jsx";
 import { useResource } from "../../lib/useResource.js";
+import { Invitations } from "../invitations/Invitations.jsx";
 import { AccessSummary } from "./AccessSummary.jsx";
 import { Members } from "./Members.jsx";
 
@@ -41,6 +42,7 @@ export function OrganizationDetailPage() {
         <dd>{role ?? "Not a member (system admin access)"}</dd>
       </dl>
       <Members organizationId={organizationId} />
+      <Invitations organizationId={organizationId} />
       <AccessSummary organizationId={organizationId} />
     </>
   );

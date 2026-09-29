@@ -2,8 +2,10 @@ import { Navigate, Route, Routes } from "react-router";
 
 import { PageHeading } from "../components/PageHeading.jsx";
 import { LoginPage } from "../features/auth/LoginPage.jsx";
+import { AcceptInvitationPage } from "../features/invitations/AcceptInvitationPage.jsx";
 import { OrganizationDetailPage } from "../features/organizations/OrganizationDetailPage.jsx";
 import { OrganizationsPage } from "../features/organizations/OrganizationsPage.jsx";
+import { UsersPage } from "../features/users/UsersPage.jsx";
 import { AppShell } from "./AppShell.jsx";
 import { RequireAuth } from "./RequireAuth.jsx";
 
@@ -22,7 +24,8 @@ export function AppRoutes() {
           <Route path="/dashboard" element={<Placeholder title="Dashboard" />} />
           <Route path="/organizations" element={<OrganizationsPage />} />
           <Route path="/organizations/:organizationId" element={<OrganizationDetailPage />} />
-          <Route path="/users" element={<Placeholder title="Users" />} />
+          <Route path="/users" element={<UsersPage />} />
+          <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
           <Route path="/security" element={<Placeholder title="Security" />} />
           <Route path="*" element={<Placeholder title="Page not found" />} />
         </Route>
