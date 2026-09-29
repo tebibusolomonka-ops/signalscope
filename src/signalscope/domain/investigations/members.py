@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from signalscope.core.errors import ConflictError, NotFoundError
 from signalscope.db.errors import is_unique_violation
+from signalscope.domain.audit.service import AuditAction, DetailValue, SecurityAuditService
 from signalscope.domain.investigations.access import (
     NOT_FOUND,
     InvestigationAccess,
@@ -84,6 +85,9 @@ class InvestigationMemberService:
             investigation_id=investigation_id, user_id=user_id, role=role
         )
         self.session.add(collaborator)
+        self._record(
+            AuditAction.COLLABORATOR_ADDED, investigation, {"user_id": user_id, "role": role}
+        )
         try:
             await self.session.commit()
         except IntegrityError as error:
@@ -99,22 +103,47 @@ class InvestigationMemberService:
     async def change_role(
         self, investigation_id: uuid.UUID, user_id: uuid.UUID, role: CollaboratorRole
     ) -> CollaboratorWithUser:
-        await self._lock(investigation_id)
+        investigation = await self._lock(investigation_id)
         collaborator = await self._collaborator(investigation_id, user_id)
         if collaborator.role is CollaboratorRole.OWNER and role is not CollaboratorRole.OWNER:
             await self._keep_an_owner(investigation_id)
+        self._record(
+            AuditAction.COLLABORATOR_ROLE_CHANGED,
+            investigation,
+            {"user_id": user_id, "old_role": collaborator.role, "new_role": role},
+        )
         collaborator.role = role
         await self._commit()
         user = await self.session.get_one(User, user_id)
         return CollaboratorWithUser(collaborator, user)
 
     async def remove(self, investigation_id: uuid.UUID, user_id: uuid.UUID) -> None:
-        await self._lock(investigation_id)
+        investigation = await self._lock(investigation_id)
         collaborator = await self._collaborator(investigation_id, user_id)
         if collaborator.role is CollaboratorRole.OWNER:
             await self._keep_an_owner(investigation_id)
+        self._record(
+            AuditAction.COLLABORATOR_REMOVED,
+            investigation,
+            {"user_id": user_id, "role": collaborator.role},
+        )
         await self.session.delete(collaborator)
         await self._commit()
+
+    def _record(
+        self,
+        action: AuditAction,
+        investigation: Investigation,
+        details: dict[str, DetailValue],
+    ) -> None:
+        SecurityAuditService(self.session).record(
+            action,
+            actor_user_id=self.actor.id,
+            resource_type="investigation",
+            resource_id=investigation.id,
+            organization_id=investigation.organization_id,
+            details=details,
+        )
 
     async def _lock(self, investigation_id: uuid.UUID) -> Investigation:
         """Lock the investigation row, so owner checks cannot race, and check the actor."""

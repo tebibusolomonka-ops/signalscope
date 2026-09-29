@@ -15,6 +15,7 @@ from signalscope.core.errors import (
     UnauthenticatedError,
 )
 from signalscope.db.errors import is_unique_violation
+from signalscope.domain.audit.service import AuditAction, SecurityAuditService
 from signalscope.domain.sources.scheduling import Clock, utc_now
 from signalscope.domain.users.credential import UserPasswordCredential
 from signalscope.domain.users.email import InvalidEmailError, normalize_email
@@ -76,6 +77,7 @@ class AuthenticationService:
         self.hasher = hasher or PasswordHasher()
         self.clock = clock
         self.session_days = session_days
+        self.audit = SecurityAuditService(session)
 
     async def create_user(
         self, email: str, display_name: str, password: str, *, is_system_admin: bool = False
@@ -98,6 +100,13 @@ class AuthenticationService:
         try:
             await self.session.flush()
             self.session.add(UserPasswordCredential(user_id=user.id, password_hash=password_hash))
+            self.audit.record(
+                AuditAction.USER_CREATED,
+                actor_user_id=None,
+                resource_type="user",
+                resource_id=user.id,
+                details={"system_admin": is_system_admin},
+            )
             await self.session.commit()
         except IntegrityError as error:
             await self.session.rollback()
@@ -150,6 +159,13 @@ class AuthenticationService:
         )
         self.session.add(stored)
         try:
+            await self.session.flush()
+            self.audit.record(
+                AuditAction.LOGIN,
+                actor_user_id=user.id,
+                resource_type="user_session",
+                resource_id=stored.id,
+            )
             await self.session.commit()
         except Exception:
             await self.session.rollback()
@@ -192,6 +208,12 @@ class AuthenticationService:
         stored = await self.session.get(UserSession, session_id)
         if stored is not None and stored.revoked_at is None:
             stored.revoked_at = self.clock()
+            self.audit.record(
+                AuditAction.LOGOUT,
+                actor_user_id=stored.user_id,
+                resource_type="user_session",
+                resource_id=stored.id,
+            )
             await self.session.commit()
 
     async def list_sessions(self, user_id: uuid.UUID) -> list[UserSession]:
@@ -219,5 +241,13 @@ class AuthenticationService:
             .values(revoked_at=self.clock())
             .execution_options(synchronize_session=False)
         )
+        revoked = int(result.rowcount)  # type: ignore[attr-defined]
+        self.audit.record(
+            AuditAction.LOGOUT_ALL,
+            actor_user_id=user_id,
+            resource_type="user",
+            resource_id=user_id,
+            details={"revoked_sessions": revoked},
+        )
         await self.session.commit()
-        return int(result.rowcount)  # type: ignore[attr-defined]
+        return revoked

@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from signalscope.core.errors import ConflictError, ForbiddenError, InvalidInputError, NotFoundError
 from signalscope.db.errors import is_unique_violation
+from signalscope.domain.audit.service import AuditAction, DetailValue, SecurityAuditService
 from signalscope.domain.organizations.membership import OrganizationMembership, OrganizationRole
 from signalscope.domain.organizations.model import (
     ORGANIZATION_NAME_MAX_LENGTH,
@@ -62,6 +63,7 @@ class OrganizationService:
                     role=OrganizationRole.OWNER,
                 )
             )
+            self._record(AuditAction.ORGANIZATION_CREATED, actor, organization.id)
             await self.session.commit()
         except IntegrityError as error:
             await self.session.rollback()
@@ -129,6 +131,9 @@ class OrganizationService:
             organization_id=organization_id, user_id=user_id, role=role
         )
         self.session.add(membership)
+        self._record(
+            AuditAction.MEMBER_ADDED, actor, organization_id, {"user_id": user_id, "role": role}
+        )
         try:
             await self.session.commit()
         except IntegrityError as error:
@@ -152,6 +157,12 @@ class OrganizationService:
         )
         if membership.role is OrganizationRole.OWNER and role is not OrganizationRole.OWNER:
             await self._keep_an_owner(organization_id)
+        self._record(
+            AuditAction.MEMBER_ROLE_CHANGED,
+            actor,
+            organization_id,
+            {"user_id": user_id, "old_role": membership.role, "new_role": role},
+        )
         membership.role = role
         await self._commit()
         return membership
@@ -164,8 +175,30 @@ class OrganizationService:
         await self._check_manager(actor, organization_id, current_role=membership.role)
         if membership.role is OrganizationRole.OWNER:
             await self._keep_an_owner(organization_id)
+        self._record(
+            AuditAction.MEMBER_REMOVED,
+            actor,
+            organization_id,
+            {"user_id": user_id, "role": membership.role},
+        )
         await self.session.delete(membership)
         await self._commit()
+
+    def _record(
+        self,
+        action: AuditAction,
+        actor: User,
+        organization_id: uuid.UUID,
+        details: dict[str, DetailValue] | None = None,
+    ) -> None:
+        SecurityAuditService(self.session).record(
+            action,
+            actor_user_id=actor.id,
+            resource_type="organization",
+            resource_id=organization_id,
+            organization_id=organization_id,
+            details=details,
+        )
 
     async def _lock(self, actor: User, organization_id: uuid.UUID) -> None:
         """Lock the organization row for a membership change, or say it was not found."""
