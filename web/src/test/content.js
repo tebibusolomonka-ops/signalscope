@@ -181,3 +181,33 @@ export function researchSession(overrides = {}) {
     ...overrides,
   };
 }
+
+/** One numbered evidence piece of a research turn, context or answer. */
+export function researchEvidence(id, overrides = {}) {
+  return {
+    evidence_id: id,
+    document_id: `d-${id}`,
+    chunk_id: `c-${id}`,
+    source_id: "s-1",
+    title: `Report ${id}`,
+    url: null,
+    excerpt: `Excerpt of ${id}.`,
+    chunk_metadata: { page_number: 1 },
+    ...overrides,
+  };
+}
+
+export function turn(sequence, overrides = {}) {
+  const evidence = [researchEvidence("E1"), researchEvidence("E2")];
+  return {
+    id: `t-${sequence}`,
+    sequence,
+    question: `Question number ${sequence}?`,
+    answer: "The harbour closed [E1].",
+    citation_ids: ["E1"],
+    citations: [evidence[0]],
+    evidence,
+    created_at: "2026-09-12T08:00:00Z",
+    ...overrides,
+  };
+}
