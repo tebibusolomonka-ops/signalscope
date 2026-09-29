@@ -1,8 +1,10 @@
 # Current State
 
-Last updated at commit 308. Batch 273 to 292 (identity and authorization
-foundation) ended at commit 293 (`68f9284`), with one corrective commit.
-Current batch: 294 to 313 (administration and the admin web app). Alembic
+Last updated at commit 313, the end of batch 294 to 313 (administration
+and the admin web app). The batch before, 273 to 292, ended at commit 293
+(`68f9284`) with one corrective commit. This batch ends at repository commit
+313, "Add security dashboard workspace" (a commit cannot name its own hash;
+see `git log`). A later corrective commit must update this line. Alembic
 head: `23438041f111` (Create organization invitations).
 
 ## Done
@@ -43,6 +45,9 @@ head: `23438041f111` (Create organization invitations).
 - Admin session controls under `/admin/users/{id}/sessions`.
 - Organization access summary (`GET /organizations/{id}/access-summary`).
 - An administration end to end test covers the whole backend flow.
+- The admin web app in `web/` (React, JavaScript, Vite): sign in, dashboard,
+  organizations with members, invitations and access summary, users, and
+  security (audit log and sessions). CI lints, tests and builds it.
 - Content data (sources, documents, chunks, entities, events, claims) is not
   split by organization. This is deliberate; see [[07 Decisions]].
 

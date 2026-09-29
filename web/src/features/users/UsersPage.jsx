@@ -4,6 +4,7 @@ import { useAuth } from "../../app/useAuth.js";
 import { PageHeading } from "../../components/PageHeading.jsx";
 import { ErrorMessage, Loading } from "../../components/Status.jsx";
 import { useResource } from "../../lib/useResource.js";
+import { UserSessions } from "./UserSessions.jsx";
 
 const PAGE_SIZE = 20;
 const CHOICES = [
@@ -30,6 +31,7 @@ function UserAdministration() {
   const { api } = useAuth();
   const [filters, setFilters] = useState({ query: "", is_active: "", is_system_admin: "" });
   const [offset, setOffset] = useState(0);
+  const [selected, setSelected] = useState(null);
   const [actionError, setActionError] = useState(null);
   const load = useCallback(
     () => api.get("/admin/users", { query: { ...filters, limit: PAGE_SIZE, offset } }),
@@ -114,13 +116,16 @@ function UserAdministration() {
                     <td>{item.email}</td>
                     <td>{item.is_active ? "Yes" : "No"}</td>
                     <td>{item.is_system_admin ? "Yes" : "No"}</td>
-                    <td>
+                    <td className="form-row">
                       <button
                         type="button"
                         className="secondary"
                         onClick={() => setActive(item, !item.is_active)}
                       >
                         {item.is_active ? "Deactivate" : "Reactivate"} {item.display_name}
+                      </button>
+                      <button type="button" className="secondary" onClick={() => setSelected(item)}>
+                        Sessions of {item.display_name}
                       </button>
                     </td>
                   </tr>
@@ -153,6 +158,7 @@ function UserAdministration() {
           </>
         )}
       </section>
+      {selected && <UserSessions key={selected.id} user={selected} />}
       <CreateUser onCreated={reload} />
     </>
   );

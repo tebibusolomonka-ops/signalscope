@@ -162,3 +162,12 @@ td {
   font-size: 1.5rem;
   font-weight: 600;
 }
+
+.bar {
+  margin-left: 0.5rem;
+  vertical-align: middle;
+}
+
+.bar rect {
+  fill: var(--accent);
+}

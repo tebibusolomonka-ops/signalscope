@@ -117,6 +117,15 @@ Decisions that should hold unless there is a clear reason to change them.
   than an explicit one that does not exist yet.
 - **Admin summaries are counts.** The access summary has no risk or trust
   scores and no ranking of users.
+- **The admin app is React in JavaScript, not TypeScript**, with Vite, a
+  small router and plain CSS. No component framework.
+- **The bearer token lives in sessionStorage** for this first internal app:
+  it is cleared with the browser session and is never in localStorage, URLs,
+  logs or the page. A production web deployment should review HttpOnly
+  cookie sessions, CSRF protection and a strong Content Security Policy.
+- **Invitation tokens in the app live in component state only**, shown once.
+- **The backend stays the authority.** The app may hide actions it expects
+  to fail, but every rule is enforced by the API.
 - **Only investigations are protected so far.** Search, timeline, sources,
   documents and extraction APIs stay open until data tenancy is designed.
 - **Exports replay history, not live data.** A research session export uses

@@ -78,6 +78,12 @@ and viewers; system admins may manage any organization's invitations.
   admins: must name an organization they manage (422 without, 404 for other
   organizations). Members, viewers and others: 403.
 
+## Admin web app
+
+`web/` uses the routes above under `/auth`, `/admin/users`,
+`/organizations`, `/organization-invitations`, `/security` and
+`/dashboard`. It adds no backend routes.
+
 ## Health
 
 - `GET /health`

@@ -1,6 +1,6 @@
 # Known Issues
 
-Open problems as of commit 308. Remove an item when it is fixed.
+Open problems as of commit 313. Remove an item when it is fixed.
 
 ## Events
 
@@ -65,6 +65,16 @@ Open problems as of commit 308. Remove an item when it is fixed.
   visible to system admins.
 - `GET /auth/sessions` shows at most the 100 newest sessions; run
   `cleanup-auth-sessions` regularly.
+
+## Admin web app
+
+- It keeps the bearer token in sessionStorage, readable by scripts on the
+  page. HttpOnly cookies, CSRF protection and a strict Content Security
+  Policy are still to be reviewed before any public deployment.
+- The API sends no CORS headers, so the app must be served from the API's
+  origin (the development server proxies `/api`).
+- There are no pages yet for investigations or research sessions.
+- Content data is still not split by organization (see [[07 Decisions]]).
 
 ## Code
 

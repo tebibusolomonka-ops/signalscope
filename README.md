@@ -240,6 +240,17 @@ so serve the built app and the API from one origin, for example behind one
 reverse proxy. Checks: `npm run lint`, `npm test -- --run` and
 `npm run build`.
 
+Pages: sign in, the dashboard (counts and daily activity), organizations
+(members, invitations and the access summary), users (system admins: search,
+create, deactivate and see another user's sessions), security (the audit log
+for system admins and organization owners and admins, and your own sessions)
+and accept invitation, where you paste a token you were sent.
+
+The app keeps your session token in the browser's sessionStorage, never
+localStorage, so it is gone when the browser session ends. A new invitation
+token is only shown on screen once and is never stored. The app hides actions
+you cannot use, but the API makes every permission decision.
+
 ## Command line
 
 Fetch new content for one RSS or web source. This needs

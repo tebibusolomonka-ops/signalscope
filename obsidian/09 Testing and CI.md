@@ -36,10 +36,20 @@ stops at the first failure, and checks that Alembic has one head.
   local dataset, by hand, with the real model. It is not part of CI, and there
   are no built-in thresholds.
 
+## Web tests
+
+`web/` uses Vitest with jsdom and React Testing Library. Tests talk to a fake
+`fetch` (`src/test/fakeApi.js`), never a real API. `AdminFlow.test.jsx` walks
+through sign in, the dashboard, an organization, its invitations, the audit
+log and sign out. Run `npm run lint`, `npm test -- --run` and
+`npm run build` in `web/`.
+
 ## CI
 
 GitHub Actions (`.github/workflows/ci.yml`) runs the same checks on Python
 3.12 with a PostgreSQL 17 + pgvector service, so all database tests run there.
+
+A second job, `web`, runs `npm ci`, lint, tests and build on Node 24.
 
 On the current developer machine there is no local PostgreSQL, so database
 tests only run in CI.

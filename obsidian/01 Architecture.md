@@ -58,6 +58,25 @@ One Python package, `src/signalscope`, with one PostgreSQL database. See
   relation extraction evaluation (`evaluation/extraction/`), against local
   datasets.
 
+## Admin web app
+
+`web/` is a React app in plain JavaScript (no TypeScript), built with Vite
+and tested with Vitest and React Testing Library. It is internal and
+admin-focused.
+
+- `src/lib/`: `api.js` (a fetch wrapper that sends JSON and the bearer
+  token, and turns error answers into `ApiError`), `config.js`
+  (`VITE_SIGNALSCOPE_API_URL`, default `/api`), `session.js` (the token in
+  sessionStorage) and `useResource.js` (load, error and reload state).
+- `src/app/`: routes, the shell with navigation, `AuthProvider` (restores a
+  session with `GET /auth/me`, logs in and out) and `RequireAuth`.
+- `src/features/`: auth, dashboard, organizations, invitations, users and
+  security pages.
+- The development server proxies `/api` to the API, which has no CORS
+  support; production must serve both from one origin.
+- The API decides every permission. The app may hide actions, but it never
+  holds role rules that act as a security boundary.
+
 ## Patterns
 
 - Optional libraries are imported inside a loader, so SignalScope runs without
