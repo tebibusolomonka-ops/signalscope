@@ -17,17 +17,18 @@ def test_routes_are_in_openapi(app: FastAPI) -> None:
 
     for path in ("/dashboard/overview", "/dashboard/sources", "/dashboard/events"):
         assert set(paths[path]) == {"get"}
-    assert [
+    assert {
         parameter["name"] for parameter in paths["/dashboard/sources"]["get"]["parameters"]
-    ] == [
-        "days",
-        "source_id",
-    ]
-    assert [parameter["name"] for parameter in paths["/dashboard/events"]["get"]["parameters"]] == [
+    } == {"days", "source_id", "organization_id"}
+    assert {parameter["name"] for parameter in paths["/dashboard/events"]["get"]["parameters"]} == {
         "days",
         "event_type",
         "source_id",
-    ]
+        "organization_id",
+    }
+    assert [
+        parameter["name"] for parameter in paths["/dashboard/overview"]["get"]["parameters"]
+    ] == ["organization_id"]
     assert set(schemas["EventActivityDayRead"]["properties"]) == {
         "date",
         "events",

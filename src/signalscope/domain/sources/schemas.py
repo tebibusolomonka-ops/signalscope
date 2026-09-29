@@ -83,6 +83,8 @@ class SourceComparisonRequest(BaseModel):
 
     # 2 to 10 different sources. The response keeps this order.
     source_ids: list[uuid.UUID] = Field(min_length=2, max_length=10)
+    # With authentication on, every source must belong to this organization.
+    organization_id: uuid.UUID | None = None
 
     @model_validator(mode="after")
     def check_unique(self) -> Self:

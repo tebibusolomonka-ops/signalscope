@@ -11,6 +11,7 @@ from signalscope.dashboard.series import day_range, end_of, fill, start_of, utc_
 from signalscope.domain.documents.model import Document
 from signalscope.domain.sources.model import Source
 from signalscope.domain.sources.scheduling import Clock, utc_now
+from signalscope.domain.tenancy.scope import ContentScope
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,22 +31,32 @@ class SourceActivityService:
         self.session = session
         self.clock = clock
 
-    async def daily(self, days: int, source_id: uuid.UUID | None = None) -> list[SourceActivityDay]:
+    async def daily(
+        self,
+        days: int,
+        source_id: uuid.UUID | None = None,
+        scope: ContentScope | None = None,
+    ) -> list[SourceActivityDay]:
         """One entry per UTC day, oldest first, ending today, with 0 for quiet days."""
+        scope = scope or ContentScope.unrestricted()
         dates = day_range(days, self.clock())
         if source_id is not None and await self.session.get(Source, source_id) is None:
             raise NotFoundError("Source was not found.")
-        created = await self._counts(Document.created_at, dates, source_id)
-        published = await self._counts(Document.published_at, dates, source_id)
+        created = await self._counts(Document.created_at, dates, source_id, scope)
+        published = await self._counts(Document.published_at, dates, source_id, scope)
         return [SourceActivityDay(day, created[day], published[day]) for day in dates]
 
     async def _counts(
-        self, column: Any, dates: list[date], source_id: uuid.UUID | None
+        self, column: Any, dates: list[date], source_id: uuid.UUID | None, scope: ContentScope
     ) -> dict[date, int]:
         day = utc_day(column)
         statement = (
             select(day, func.count())
-            .where(column >= start_of(dates[0]), column < end_of(dates[-1]))
+            .where(
+                column >= start_of(dates[0]),
+                column < end_of(dates[-1]),
+                scope.source_condition(Document.source_id),
+            )
             .group_by(day)
         )
         if source_id is not None:

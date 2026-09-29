@@ -60,7 +60,7 @@ async def list_sources(page: Pagination, sources: Sources, scope: ReadScope) -> 
 
 @router.post("/compare")
 async def compare_sources(
-    request: SourceComparisonRequest, session: DatabaseSession
+    request: SourceComparisonRequest, session: DatabaseSession, policy: Policy
 ) -> SourceComparisonRead:
     """Show 2 to 10 sources side by side, with what they have in common.
 
@@ -68,8 +68,11 @@ async def compare_sources(
     profile, in the order asked. The shared counts say how many event
     clusters, entities and claims two or more of the sources have in common.
     This is a description, not a judgement: sources are not scored or ranked.
+    With authentication on, organization_id is required and every source must
+    belong to it; sources of two organizations are never compared.
     """
-    comparison = await SourceComparisonService(session).compare(request.source_ids)
+    scope = await policy.scope(request.organization_id)
+    comparison = await SourceComparisonService(session).compare(request.source_ids, scope)
     return SourceComparisonRead(
         sources=[
             ComparedSourceRead(
@@ -90,15 +93,20 @@ async def get_source(source_id: uuid.UUID, policy: Policy) -> SourceRead:
 
 
 @router.get("/{source_id}/provenance")
-async def source_provenance(source_id: uuid.UUID, session: DatabaseSession) -> SourceProvenanceRead:
+async def source_provenance(
+    source_id: uuid.UUID, session: DatabaseSession, policy: Policy
+) -> SourceProvenanceRead:
     """Counts and dates that SignalScope has observed for one source.
 
     These are provenance signals: how many documents, entities, claims and
     events came from the source, when, and how many of its events other
     sources also report. They are not a credibility score, and sources are
-    not ranked against each other.
+    not ranked against each other. Other sources only count when they belong
+    to the same organization.
     """
-    profile = await SourceProvenanceService(session).profile(source_id)
+    source = await policy.authorize_source(source_id)
+    scope = policy.resource_scope(source.organization_id)
+    profile = await SourceProvenanceService(session).profile(source_id, scope)
     return SourceProvenanceRead.model_validate(profile)
 
 

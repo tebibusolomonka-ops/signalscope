@@ -16,6 +16,7 @@ from signalscope.domain.entities.mention import EntityMention
 from signalscope.domain.events.cluster import EventClusterMember
 from signalscope.domain.events.model import EventEvidence
 from signalscope.domain.sources.model import Source
+from signalscope.domain.tenancy.scope import ContentScope
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,7 +53,15 @@ class SourceProvenanceService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def profile(self, source_id: uuid.UUID) -> SourceProvenance:
+    async def profile(
+        self, source_id: uuid.UUID, scope: ContentScope | None = None
+    ) -> SourceProvenance:
+        """The counts of one source.
+
+        Only one count looks beyond the source: clusters other sources also
+        report. In a scope, only other sources in that scope count there.
+        """
+        scope = scope or ContentScope.unrestricted()
         if await self.session.get(Source, source_id) is None:
             raise NotFoundError("Source was not found.")
         own = Document.source_id == source_id
@@ -78,7 +87,7 @@ class SourceProvenanceService:
             ),
             select(clusters).where(EventClusterMember.event_id.in_(events)),
             select(clusters).where(
-                EventClusterMember.event_id.in_(events), _reported_elsewhere(source_id)
+                EventClusterMember.event_id.in_(events), _reported_elsewhere(source_id, scope)
             ),
             select(func.count())
             .select_from(DocumentRevision)
@@ -90,8 +99,8 @@ class SourceProvenanceService:
         return SourceProvenance(source_id, *row)
 
 
-def _reported_elsewhere(source_id: uuid.UUID) -> Exists:
-    """True when the cluster of the outer member row has evidence from another source."""
+def _reported_elsewhere(source_id: uuid.UUID, scope: ContentScope) -> Exists:
+    """True when the cluster of the outer member row has evidence from another source in scope."""
     member = aliased(EventClusterMember)
     evidence = aliased(EventEvidence)
     chunk = aliased(DocumentChunk)
@@ -102,4 +111,5 @@ def _reported_elsewhere(source_id: uuid.UUID) -> Exists:
         chunk.id == evidence.chunk_id,
         document.id == chunk.document_id,
         document.source_id != source_id,
+        scope.source_condition(document.source_id),
     )

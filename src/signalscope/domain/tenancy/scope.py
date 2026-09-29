@@ -44,6 +44,11 @@ class ContentScope:
     def legacy(cls) -> "ContentScope":
         return cls(ScopeKind.LEGACY)
 
+    @classmethod
+    def owned_by(cls, organization_id: uuid.UUID | None) -> "ContentScope":
+        """The scope of content owned by organization_id, or legacy content for None."""
+        return cls.legacy() if organization_id is None else cls.organization(organization_id)
+
     @property
     def is_unrestricted(self) -> bool:
         return self.kind is ScopeKind.UNRESTRICTED

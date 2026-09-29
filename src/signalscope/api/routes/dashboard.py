@@ -5,6 +5,7 @@ from fastapi import APIRouter, Query
 from pydantic import StringConstraints
 
 from signalscope.api.dependencies import DatabaseSession
+from signalscope.api.tenancy import Policy, ReadScope
 from signalscope.dashboard.events import EventActivityService
 from signalscope.dashboard.overview import DashboardOverviewService
 from signalscope.dashboard.schemas import (
@@ -33,21 +34,28 @@ TypeQuery = Annotated[
 
 
 @router.get("/overview")
-async def dashboard_overview(session: DatabaseSession) -> DashboardOverviewRead:
+async def dashboard_overview(session: DatabaseSession, scope: ReadScope) -> DashboardOverviewRead:
     """How many records of each kind exist, and how many jobs are waiting or running.
 
-    Aggregate counts only. There are no scores, rankings or judgements.
+    Aggregate counts only. There are no scores, rankings or judgements. With
+    authentication on, every count covers the organization_id organization
+    only; there is no view across organizations.
     """
-    overview = await DashboardOverviewService(session).overview()
+    overview = await DashboardOverviewService(session).overview(scope)
     return DashboardOverviewRead.model_validate(overview)
 
 
 @router.get("/sources")
 async def dashboard_sources(
-    session: DatabaseSession, days: Days = DEFAULT_DAYS, source_id: uuid.UUID | None = None
+    session: DatabaseSession,
+    scope: ReadScope,
+    policy: Policy,
+    days: Days = DEFAULT_DAYS,
+    source_id: uuid.UUID | None = None,
 ) -> SourceActivityRead:
-    """Documents stored and published per UTC day, for all sources or one."""
-    items = await SourceActivityService(session).daily(days, source_id)
+    """Documents stored and published per UTC day, for all sources in scope or one."""
+    await policy.check_source_filter(source_id)
+    items = await SourceActivityService(session).daily(days, source_id, scope)
     return SourceActivityRead(
         days=days,
         source_id=source_id,
@@ -58,6 +66,8 @@ async def dashboard_sources(
 @router.get("/events")
 async def dashboard_events(
     session: DatabaseSession,
+    scope: ReadScope,
+    policy: Policy,
     days: Days = DEFAULT_DAYS,
     event_type: TypeQuery = None,
     source_id: uuid.UUID | None = None,
@@ -65,9 +75,11 @@ async def dashboard_events(
     """Events and event clusters per UTC day, by when they happened.
 
     cross_source_clusters counts the clusters that two or more sources report.
-    Undated events are not counted.
+    Undated events are not counted. With authentication on, only the
+    organization_id organization's events and sources count.
     """
-    items = await EventActivityService(session).daily(days, event_type, source_id)
+    await policy.check_source_filter(source_id)
+    items = await EventActivityService(session).daily(days, event_type, source_id, scope)
     return EventActivityRead(
         days=days,
         event_type=event_type,

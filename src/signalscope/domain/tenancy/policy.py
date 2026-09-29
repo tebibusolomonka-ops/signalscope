@@ -136,6 +136,12 @@ class ContentAccessPolicy:
         await self.require(source.organization_id, capability, not_found)
         return source
 
+    def resource_scope(self, organization_id: uuid.UUID | None) -> ContentScope:
+        """The scope of an authorized resource's own organization, for its related data."""
+        if self._active_actor() is None:
+            return ContentScope.unrestricted()
+        return ContentScope.owned_by(organization_id)
+
     async def check_source_filter(self, source_id: uuid.UUID | None) -> None:
         """A source_id filter must name a source the actor may read.
 

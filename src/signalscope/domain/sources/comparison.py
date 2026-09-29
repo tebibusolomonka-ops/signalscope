@@ -14,6 +14,7 @@ from signalscope.domain.events.cluster import EventClusterMember
 from signalscope.domain.events.model import EventEvidence
 from signalscope.domain.sources.model import Source
 from signalscope.domain.sources.provenance import SourceProvenance, SourceProvenanceService
+from signalscope.domain.tenancy.scope import ContentScope
 
 MIN_COMPARED_SOURCES = 2
 MAX_COMPARED_SOURCES = 10
@@ -51,7 +52,11 @@ class SourceComparisonService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def compare(self, source_ids: Sequence[uuid.UUID]) -> SourceComparison:
+    async def compare(
+        self, source_ids: Sequence[uuid.UUID], scope: ContentScope | None = None
+    ) -> SourceComparison:
+        """Compare sources that are all in scope. A source outside it is not found."""
+        scope = scope or ContentScope.unrestricted()
         if len(set(source_ids)) != len(source_ids):
             raise InvalidInputError("Each source can only be compared once.")
         if not MIN_COMPARED_SOURCES <= len(source_ids) <= MAX_COMPARED_SOURCES:
@@ -61,7 +66,9 @@ class SourceComparisonService:
         found = {
             source.id: source
             for source in await self.session.scalars(
-                select(Source).where(Source.id.in_(source_ids))
+                select(Source).where(
+                    Source.id.in_(source_ids), scope.owner_condition(Source.organization_id)
+                )
             )
         }
         missing = [source_id for source_id in source_ids if source_id not in found]
@@ -70,7 +77,9 @@ class SourceComparisonService:
         provenance = SourceProvenanceService(self.session)
         compared = []
         for source_id in source_ids:
-            compared.append(ComparedSource(found[source_id], await provenance.profile(source_id)))
+            compared.append(
+                ComparedSource(found[source_id], await provenance.profile(source_id, scope))
+            )
         chunk_source = (
             select(DocumentChunk.id, Document.source_id)
             .join(Document, Document.id == DocumentChunk.document_id)
