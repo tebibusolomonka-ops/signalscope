@@ -12,6 +12,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from signalscope.api.dependencies import DatabaseSession
 from signalscope.core.errors import ServiceUnavailableError, UnauthenticatedError
 from signalscope.domain.users.authentication import AuthenticationService, ResolvedSession
+from signalscope.domain.users.model import User
 from signalscope.domain.users.passwords import PasswordHasher
 
 AUTH_DISABLED = "Authentication is not enabled. Set SIGNALSCOPE_AUTH_ENABLED=true."
@@ -42,15 +43,35 @@ def authentication_service(request: Request, session: DatabaseSession) -> Authen
 Authentication = Annotated[AuthenticationService, Depends(authentication_service)]
 
 
-async def current_session(
-    _: AuthEnabled,
-    service: Authentication,
-    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
-) -> ResolvedSession:
-    """The signed in session and user. 401 without a valid token, 503 when auth is off."""
+Credentials = Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)]
+
+
+async def resolve(service: AuthenticationService, credentials: Credentials) -> ResolvedSession:
     if credentials is None or credentials.scheme.lower() != "bearer":
         raise UnauthenticatedError()
     return await service.resolve_session(credentials.credentials)
 
 
+async def current_session(
+    _: AuthEnabled, service: Authentication, credentials: Credentials
+) -> ResolvedSession:
+    """The signed in session and user. 401 without a valid token, 503 when auth is off."""
+    return await resolve(service, credentials)
+
+
 CurrentSession = Annotated[ResolvedSession, Depends(current_session)]
+
+
+async def current_actor(
+    request: Request, service: Authentication, credentials: Credentials
+) -> User | None:
+    """The signed in user, or None when authentication is disabled.
+
+    For routes that stay open while authentication is disabled.
+    """
+    if not auth_enabled(request):
+        return None
+    return (await resolve(service, credentials)).user
+
+
+Actor = Annotated[User | None, Depends(current_actor)]

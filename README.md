@@ -467,8 +467,15 @@ Without `--output` it prints to standard output. An existing file is only
 replaced with `--overwrite`, and a file is written in full before it replaces
 anything.
 
-There are no users yet, so investigations are global: everyone who can reach
-the API sees all of them.
+With authentication disabled, investigations are global: everyone who can
+reach the API sees all of them. With authentication enabled, the investigation
+routes need a bearer token, a new investigation needs the `organization_id` of
+an organization you belong to, and you become its owner. Organization owners
+and admins can do everything with the investigations of their organization.
+Other members need an investigation role: `owner` (everything), `editor` (edit,
+items and research sessions) or `viewer` (read and export). Investigations made
+before accounts existed have no organization and only system admins see them.
+The command line export is a local tool and is not checked.
 
 ### Dashboard
 

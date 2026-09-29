@@ -24,6 +24,8 @@ class InvestigationCreate(BaseModel):
 
     title: Title
     description: Description | None = None
+    # Required when authentication is enabled, and not allowed when it is disabled.
+    organization_id: uuid.UUID | None = None
 
 
 class InvestigationUpdate(BaseModel):
@@ -47,6 +49,9 @@ class InvestigationRead(BaseModel):
     title: str
     description: str | None
     status: InvestigationStatus
+    # Both are null for legacy investigations, made before accounts existed.
+    organization_id: uuid.UUID | None
+    created_by_user_id: uuid.UUID | None
     created_at: datetime
     updated_at: datetime
 

@@ -20,6 +20,8 @@ def investigation(description: str | None = None) -> InvestigationRead:
         title="Harbour floods",
         description=description,
         status=InvestigationStatus.OPEN,
+        organization_id=None,
+        created_by_user_id=None,
         created_at=SAVED,
         updated_at=SAVED,
     )

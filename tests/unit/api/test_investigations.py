@@ -25,12 +25,13 @@ def test_routes_are_in_openapi(app: FastAPI) -> None:
         "limit",
         "offset",
     }
-    # No owner: there are no users yet.
     assert set(schemas["InvestigationRead"]["properties"]) == {
         "id",
         "title",
         "description",
         "status",
+        "organization_id",
+        "created_by_user_id",
         "created_at",
         "updated_at",
     }
@@ -123,3 +124,29 @@ def test_export_bad_format() -> None:
 
     assert status_code == 422
     assert result["error"]["details"][0]["loc"] == ["query", "format"]
+
+
+def test_organization_needs_auth_enabled() -> None:
+    body = {"title": "Floods", "organization_id": str(uuid.uuid4())}
+    status_code, result = send("POST", "/investigations", body)
+
+    assert status_code == 422
+    assert "authentication is enabled" in result["error"]["message"]
+
+
+@pytest.mark.parametrize(
+    ("method", "path"),
+    [
+        ("GET", "/investigations"),
+        ("POST", "/investigations"),
+        ("GET", f"/investigations/{uuid.uuid4()}/export"),
+        ("DELETE", f"/investigations/{uuid.uuid4()}/items/{uuid.uuid4()}"),
+    ],
+)
+def test_needs_a_token_when_auth_is_enabled(method: str, path: str) -> None:
+    app = create_app(Settings(database_url=FAKE_DATABASE_URL, auth_enabled=True))
+    with TestClient(app) as client:
+        response = client.request(method, path, json={"title": "Floods"})
+
+    assert response.status_code == 401
+    assert response.headers["WWW-Authenticate"] == "Bearer"

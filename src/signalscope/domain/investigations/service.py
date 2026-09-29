@@ -7,20 +7,34 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from signalscope.core.errors import ConflictError, NotFoundError
+from signalscope.core.errors import ConflictError, InvalidInputError, NotFoundError
 from signalscope.db.errors import is_unique_violation
 from signalscope.domain.claims.model import Claim
 from signalscope.domain.documents.model import Document
 from signalscope.domain.entities.model import Entity
 from signalscope.domain.events.cluster import EventCluster
 from signalscope.domain.events.model import Event
+from signalscope.domain.investigations.access import (
+    NOT_FOUND,
+    InvestigationAccess,
+    InvestigationPermission,
+    visible_to,
+)
+from signalscope.domain.investigations.collaborator import (
+    CollaboratorRole,
+    InvestigationCollaborator,
+)
 from signalscope.domain.investigations.item import InvestigationItem, InvestigationItemType
 from signalscope.domain.investigations.model import Investigation, InvestigationStatus
+from signalscope.domain.organizations.membership import OrganizationMembership
+from signalscope.domain.organizations.model import Organization
 from signalscope.domain.research.session import ResearchSession
 from signalscope.domain.research.turn import ResearchTurn
 from signalscope.domain.sources.model import Source
+from signalscope.domain.users.model import User
 
 CLOSED_ERROR = "Investigation is closed. Reopen it to change it."
+ORGANIZATION_REQUIRED = "organization_id is required."
 
 # Takes the session and a reference ID. Returns the snapshot, or None when the
 # record does not exist.
@@ -38,28 +52,69 @@ class InvestigationService:
     document text, vectors, files or prompts.
 
     Writes commit before they return.
+
+    The actor is the signed in user, checked with InvestigationAccess. It is
+    None when authentication is disabled and for local commands, and then
+    every investigation may be read and changed.
     """
 
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(self, session: AsyncSession, actor: User | None = None) -> None:
         self.session = session
+        self.actor = actor
+        self.access = InvestigationAccess(session)
 
-    async def create(self, title: str, description: str | None = None) -> Investigation:
-        investigation = Investigation(title=title, description=description)
+    async def create(
+        self,
+        title: str,
+        description: str | None = None,
+        *,
+        organization_id: uuid.UUID | None = None,
+    ) -> Investigation:
+        """Create an investigation. The actor, if any, becomes its owner collaborator.
+
+        A signed in actor must name an organization they belong to.
+        """
+        if self.actor is not None:
+            if organization_id is None:
+                raise InvalidInputError(ORGANIZATION_REQUIRED)
+            await self._check_organization(self.actor, organization_id)
+        investigation = Investigation(
+            title=title,
+            description=description,
+            organization_id=organization_id,
+            created_by_user_id=None if self.actor is None else self.actor.id,
+        )
         self.session.add(investigation)
+        if self.actor is not None:
+            await self.session.flush()
+            self.session.add(
+                InvestigationCollaborator(
+                    investigation_id=investigation.id,
+                    user_id=self.actor.id,
+                    role=CollaboratorRole.OWNER,
+                )
+            )
         await self._commit()
         return investigation
 
-    async def get(self, investigation_id: uuid.UUID) -> Investigation:
+    async def get(
+        self,
+        investigation_id: uuid.UUID,
+        permission: InvestigationPermission = InvestigationPermission.VIEW,
+    ) -> Investigation:
         investigation = await self.session.get(Investigation, investigation_id)
         if investigation is None:
-            raise NotFoundError("Investigation was not found.")
+            raise NotFoundError(NOT_FOUND)
+        await self.access.require(self.actor, investigation, permission)
         return investigation
 
     async def list_page(
         self, status: InvestigationStatus | None, limit: int, offset: int
     ) -> tuple[list[Investigation], int]:
-        """Newest first, with the total that match."""
+        """Newest first, with the total that match. Only those the actor may view."""
         conditions = [] if status is None else [Investigation.status == status]
+        if self.actor is not None:
+            conditions.append(visible_to(self.actor))
         items = await self.session.scalars(
             select(Investigation)
             .where(*conditions)
@@ -82,7 +137,7 @@ class InvestigationService:
         status: InvestigationStatus | None = None,
     ) -> Investigation:
         """Change the given fields. A closed investigation must be reopened in the same call."""
-        investigation = await self._locked(investigation_id)
+        investigation = await self._locked(investigation_id, InvestigationPermission.EDIT)
         if status is not None:
             investigation.status = status
         changes_details = title is not None or description is not None or clear_description
@@ -104,7 +159,7 @@ class InvestigationService:
 
     async def delete(self, investigation_id: uuid.UUID) -> None:
         """Delete an open investigation and its items. The saved records stay."""
-        investigation = await self._open(investigation_id)
+        investigation = await self._open(investigation_id, InvestigationPermission.DELETE)
         await self.session.delete(investigation)
         await self._commit()
 
@@ -116,7 +171,7 @@ class InvestigationService:
         label: str | None = None,
     ) -> InvestigationItem:
         """Save a reference to an existing record, with a snapshot of it now."""
-        await self._open(investigation_id)
+        await self._open(investigation_id, InvestigationPermission.EDIT)
         snapshot = await SNAPSHOT_READERS[item_type](self.session, reference_id)
         if snapshot is None:
             await self.session.rollback()
@@ -149,7 +204,7 @@ class InvestigationService:
         Returns the item and whether it was saved now. Saving the same session
         again returns the item saved before, with its first snapshot.
         """
-        await self._open(investigation_id)
+        await self._open(investigation_id, InvestigationPermission.EDIT)
         existing = await self.session.scalar(
             select(InvestigationItem).where(
                 InvestigationItem.investigation_id == investigation_id,
@@ -170,7 +225,7 @@ class InvestigationService:
         return item, True
 
     async def remove_item(self, investigation_id: uuid.UUID, item_id: uuid.UUID) -> None:
-        await self._open(investigation_id)
+        await self._open(investigation_id, InvestigationPermission.EDIT)
         item = await self.session.get(InvestigationItem, item_id)
         if item is None or item.investigation_id != investigation_id:
             await self.session.rollback()
@@ -188,18 +243,33 @@ class InvestigationService:
         )
         return list(items)
 
-    async def _locked(self, investigation_id: uuid.UUID) -> Investigation:
+    async def _check_organization(self, actor: User, organization_id: uuid.UUID) -> None:
+        organization = await self.session.get(Organization, organization_id)
+        membership = await self.session.get(OrganizationMembership, (organization_id, actor.id))
+        if organization is None or (membership is None and not actor.is_system_admin):
+            raise NotFoundError("Organization was not found.")
+
+    async def _locked(
+        self, investigation_id: uuid.UUID, permission: InvestigationPermission
+    ) -> Investigation:
         investigation = await self.session.get(
             Investigation, investigation_id, with_for_update=True, populate_existing=True
         )
         if investigation is None:
             await self.session.rollback()
-            raise NotFoundError("Investigation was not found.")
+            raise NotFoundError(NOT_FOUND)
+        try:
+            await self.access.require(self.actor, investigation, permission)
+        except Exception:
+            await self.session.rollback()
+            raise
         return investigation
 
-    async def _open(self, investigation_id: uuid.UUID) -> Investigation:
+    async def _open(
+        self, investigation_id: uuid.UUID, permission: InvestigationPermission
+    ) -> Investigation:
         # The lock keeps the investigation from being closed while it changes.
-        investigation = await self._locked(investigation_id)
+        investigation = await self._locked(investigation_id, permission)
         if investigation.status is InvestigationStatus.CLOSED:
             await self.session.rollback()
             raise ConflictError(CLOSED_ERROR)
