@@ -79,7 +79,7 @@ class SecurityAuditQueryService:
         total = await self.session.scalar(
             select(func.count()).select_from(event).where(*conditions)
         )
-        found = [AuditEventWithActor(row, user) for row, user in rows.tuples()]
+        found = [AuditEventWithActor(row, user) for row, user in rows]
         return found, total or 0
 
     async def _check_access(self, organization_id: uuid.UUID | None) -> None:

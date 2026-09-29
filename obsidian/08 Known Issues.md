@@ -78,10 +78,6 @@ Open problems as of commit 313. Remove an item when it is fixed.
 
 ## Code
 
-- `Result.tuples()` in `domain/investigations/members.py` and
-  `domain/audit/query.py` is deprecated in SQLAlchemy 2.1 and gives warnings
-  in CI.
-
 - The entity, event and claim queues, repositories, workers and coverage
   services are close copies of each other.
 

@@ -61,7 +61,7 @@ class InvestigationMemberService:
             .where(InvestigationCollaborator.investigation_id == investigation_id)
             .order_by(InvestigationCollaborator.created_at, User.id)
         )
-        found = [CollaboratorWithUser(collaborator, user) for collaborator, user in rows.tuples()]
+        found = [CollaboratorWithUser(collaborator, user) for collaborator, user in rows]
         order = list(CollaboratorRole)
         return sorted(found, key=lambda item: order.index(item.collaborator.role))
 
