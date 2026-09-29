@@ -77,9 +77,8 @@ async def world(
     found.b_only_event = await report_event(
         session_factory, b_source, "Harbour flood warning", occurred_at=DAY
     )
+    await EventLinkingService(session_factory).link_unclustered()
     async with session_factory() as session:
-        await EventLinkingService(session).link_unclustered()
-        await session.commit()
         cluster = await session.scalar(
             select(EventClusterMember.cluster_id).where(
                 EventClusterMember.event_id == found.a_event

@@ -37,9 +37,7 @@ async def world(
         session_factory, b_source, "Harbour flood", occurred_at=DAY, evidence_count=2
     )
     await report_event(session_factory, b_source, "Bridge closed", occurred_at=DAY)
-    async with session_factory() as session:
-        await EventLinkingService(session).link_unclustered()
-        await session.commit()
+    await EventLinkingService(session_factory).link_unclustered()
     return found
 
 
