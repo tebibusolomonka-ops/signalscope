@@ -214,8 +214,9 @@ async def visit(
         responses[f"save {item_type}"] = await client.post(
             items, json={"item_type": item_type, "reference_id": reference}, headers=member
         )
+    # The member owns the investigation; a viewer without a role there cannot open it.
     responses["investigation export"] = await client.get(
-        items.replace("/items", "/export"), headers=viewer
+        items.replace("/items", "/export"), headers=member
     )
     return responses
 

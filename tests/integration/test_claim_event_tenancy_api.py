@@ -68,8 +68,7 @@ async def world(
     _, found.claim = await add_findings(session_factory, found.a_chunk)
     for chunk in found.b_chunks:
         await add_findings(session_factory, chunk)
-    # The same event title and day in both organizations. The linker from
-    # before organizations puts them in one cluster.
+    # The same event title and day in both organizations.
     found.a_event = await report_event(session_factory, a_source, "Harbour flood", occurred_at=DAY)
     found.b_event = await report_event(
         session_factory, b_source, "Harbour flood", occurred_at=DAY, evidence_count=2
@@ -135,8 +134,8 @@ async def test_cluster_detail_hides_other_members(
     assert [member["event_id"] for member in body["members"]] == [str(world.a_event)]
     assert (body["event_count"], body["source_count"], body["evidence_count"]) == (1, 1, 1)
     assert "b feed" not in as_a.text and str(world.b_event) not in as_a.text
-    assert [member["event_id"] for member in as_b.json()["members"]] == [str(world.b_event)]
-    assert as_b.json()["evidence_count"] == 2
+    # Clusters keep to one organization, so A's cluster has nothing B may see.
+    assert as_b.status_code == 404
 
 
 async def test_suggestions_stay_inside(
