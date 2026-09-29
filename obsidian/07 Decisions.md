@@ -164,6 +164,18 @@ Decisions that should hold unless there is a clear reason to change them.
   `organization_id` and treats an investigation of another organization as
   not found, even when the user may view it, so nothing of one organization
   appears under another.
+- **Exports are downloaded, not rebuilt.** The web app asks the export routes
+  for JSON or Markdown and saves the answer in the browser as it is; the
+  Markdown is never rewritten in JavaScript, nothing is searched or answered
+  again, and file names come from fixed words and the record ID, never a
+  title.
+- **Answers are conversation, evidence is evidence.** Research pages show
+  earlier answers in the conversation and the saved evidence in a separate
+  panel; citation buttons move focus to the cited evidence. A turn without
+  an answer model says that evidence was collected and no answer written.
+- **One-shot research is not saved.** `/research/new` only calls
+  `POST /research/context` or `POST /research/answer`; starting a session
+  from it would run the answer again, so there is no such button.
 - **Link suggestions stay advisory in the web app.** They load only when
   asked for, are labelled as suggestions, show the raw cosine similarity,
   and have no merge or link control.

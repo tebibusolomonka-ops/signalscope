@@ -13,12 +13,23 @@ Batch 314 to 333, organization content tenancy, is done: every content
 route is scoped, event clusters and research sessions have organizations,
 legacy sources can be assigned, and the web app has an active organization.
 
-Current batch, 340 to 359: the tenant research workspace in the web app.
-Done: content navigation, sources and their operations, documents with
-detail and file import, search, entities, claims, the timeline, event
-clusters, source comparison, and investigations with saved items. To do:
-investigation collaborators, research sessions, one-shot research and
-exports.
+Batch 340 to 359 is done: the web app now covers the tenant research
+workflow (sources, documents, file import, search, entities, claims, events,
+clusters, source comparison, investigations with items and collaborators,
+research sessions, one-shot research and exports), one organization at a
+time. What stays as it was:
+
+- Knowledge graph persistence remains deferred; no relation edges are stored.
+- Real model evaluation (GLiNER2, E5, the reranker, Qwen) is still separate
+  work on a suitable machine; no real numbers exist yet.
+- Deployment is still same-origin: the API sends no CORS headers.
+- The bearer token still lives in sessionStorage.
+
+Next planned area: add organization-scoped operational administration and
+retention, improve the frontend document and search research experience,
+run the real GLiNER2, E5, reranker and Qwen smoke and evaluation workflows
+on a suitable machine, and use those measured results before deciding
+whether knowledge-graph relation persistence is justified.
 
 ## Next batch
 

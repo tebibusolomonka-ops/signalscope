@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router";
 
 import { useOrganization } from "../../app/useOrganization.js";
 import { ConfirmAction } from "../../components/ConfirmAction.jsx";
+import { ExportActions } from "../../components/ExportActions.jsx";
 import { PageHeading } from "../../components/PageHeading.jsx";
 import { ErrorMessage, Loading } from "../../components/Status.jsx";
 import { formatTime } from "../../lib/format.js";
@@ -115,6 +116,11 @@ function Overview({ investigation, onChange }) {
         )}
       </div>
       <ErrorMessage error={error} />
+      <ExportActions
+        path={`/investigations/${investigation.id}/export`}
+        kind="investigation"
+        id={investigation.id}
+      />
     </section>
   );
 }

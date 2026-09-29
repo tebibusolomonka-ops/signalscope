@@ -1,9 +1,12 @@
 # Current State
 
-Batch 314 to 333 (organization content tenancy) needed six corrective
-commits and ended at repository commit 339 (`5b1fcaa`). Current batch: 340
-to 359, the tenant research workspace in the web app. Alembic head:
-`a809b1740bcd` (Add event cluster organization).
+Last updated at planned commit 359, the end of batch 340 to 359 (the
+tenant research workspace in the web app). No corrective commit was needed
+before this one, so the batch ends at repository commit 359, "Add research
+and investigation exports", unless a later corrective commit follows (see
+`git log`). Batch 314 to 333 needed six corrective commits and ended at
+commit 339 (`5b1fcaa`). Alembic head: `a809b1740bcd` (Add event cluster
+organization); this batch added no migration.
 
 ## Done
 
@@ -60,15 +63,18 @@ to 359, the tenant research workspace in the web app. Alembic head:
   A route audit test checks every content route for leaks between
   organizations. The web app has an active organization picker and a
   dashboard scoped to it.
-- Tenant research workspace in the web app, in progress: content
-  navigation that needs an active organization, sources (list, create,
+- Tenant research workspace in the web app, done: content navigation that
+  needs an active organization, sources (list, create,
   detail, provenance, ingest now, schedule, run history, delete), documents
   (list, detail, revisions, delete), file import, search in all four modes,
   entities, claims, the event timeline, event clusters, source comparison,
-  and investigations with saved items. `POST /ingestion-runs` now also queues the ingestion
+  investigations with saved items and collaborators, research sessions with
+  multi-turn questions, one-shot research, and JSON and Markdown exports of
+  sessions and investigations. `POST /ingestion-runs` now also queues the ingestion
   job, for web and RSS sources only. `POST /documents/files` stores an
   uploaded file like `import-file`. `GET /investigations` takes an optional
-  `organization_id`.
+  `organization_id`. `GET /research/sessions` lists an organization's
+  sessions.
 
 - Sources, scheduled network ingestion (RSS, web), file import, blob storage.
 - Processing jobs, parsers, document revisions, section-aware chunks.

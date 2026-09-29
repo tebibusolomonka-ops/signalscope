@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
 
 import { useOrganization } from "../../app/useOrganization.js";
+import { ExportActions } from "../../components/ExportActions.jsx";
 import { PageHeading } from "../../components/PageHeading.jsx";
 import { ErrorMessage, Loading } from "../../components/Status.jsx";
 import { formatTime } from "../../lib/format.js";
@@ -97,6 +98,11 @@ function Session({ session, initialTurns }) {
         <div className="page-actions">
           <SaveToInvestigation itemType="research_session" referenceId={session.id} />
         </div>
+        <ExportActions
+          path={`/research/sessions/${session.id}/export`}
+          kind="research-session"
+          id={session.id}
+        />
       </section>
       <div className="research-layout">
         <section className="panel" aria-labelledby="conversation">

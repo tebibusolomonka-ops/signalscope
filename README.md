@@ -258,16 +258,38 @@ so serve the built app and the API from one origin, for example behind one
 reverse proxy. Checks: `npm run lint`, `npm test -- --run` and
 `npm run build`.
 
-Pages: sign in, the dashboard (counts and daily activity), organizations
-(members, invitations and the access summary), users (system admins: search,
-create, deactivate and see another user's sessions), security (the audit log
-for system admins and organization owners and admins, and your own sessions)
-and accept invitation, where you paste a token you were sent.
+Content pages, for the active organization:
+
+| Route | What it does |
+| --- | --- |
+| `/dashboard` | Counts and daily activity |
+| `/sources`, `/sources/<id>` | Sources: add (owners and admins), configuration, provenance, ingest now, schedule, recent runs, delete |
+| `/sources/compare` | 2 to 10 sources side by side, observed counts only |
+| `/documents`, `/documents/<id>` | Filtered document list; text, revisions and delete |
+| `/documents/import` | Upload a file into an upload source (members and up) |
+| `/search` | Lexical, semantic, hybrid or reranked search, in the API's order |
+| `/entities`, `/entities/<id>` | Entities with this organization's mentions |
+| `/claims`, `/claims/<id>` | Claims with their evidence; no truth labels |
+| `/events`, `/event-clusters/<id>` | Timeline, clusters and advisory similar events |
+| `/investigations`, `/investigations/<id>` | Investigations, saved items, collaborators, exports |
+| `/research`, `/research/<id>` | Research sessions: questions, answers, citations, evidence, exports |
+| `/research/new` | One question without a session: evidence, or evidence and an answer |
+
+Records can be saved to an open investigation from their pages. Exports are
+the API's JSON and Markdown, downloaded in the browser with names made from
+the record ID; nothing is searched or answered again.
+
+Administration pages: organizations (members, invitations and the access
+summary), users (system admins: search, create, deactivate and see another
+user's sessions), security (the audit log for system admins and organization
+owners and admins, and your own sessions) and accept invitation, where you
+paste a token you were sent.
 
 The shell has an **Active organization** picker with the organizations you
-belong to. The dashboard and other content pages show only that
-organization's data and reload when you switch; there is no combined view of
-several organizations, also not for system admins. The choice is remembered
+belong to. Content pages need one and show only that organization's data;
+switching clears them before the new organization loads, so no page shows
+the old organization's data. There is no combined view of several
+organizations, also not for system admins. The choice is remembered
 for the browser tab in sessionStorage; it is not a secret, because the API
 checks every request. Sign in, users, organization management and security
 pages keep their own organization rules.
@@ -350,6 +372,11 @@ The content type is guessed from the file name. Pass `--content-type` when the
 name does not tell. The command stores the file and queues it for processing,
 then prints the document, asset and processing job IDs. It does not parse the
 file itself.
+
+The API does the same with `POST /documents/files?source_id=<id>&filename=<name>`:
+the request body is the raw file and `Content-Type` its type (at most 50 MB,
+only types with a parser; `GET /documents/files/limits` lists them). The web
+app's import page uses it.
 
 Parse one queued file:
 

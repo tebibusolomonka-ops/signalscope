@@ -174,7 +174,9 @@ system admins.
 - `POST /research/context`: numbered evidence, no answer.
 - `POST /research/answer`: answer with checked citations. 503 unless local
   answers are enabled.
-- `POST /research/sessions`, `GET /research/sessions/{id}`
+- `POST /research/sessions`, `GET /research/sessions` (the
+  `organization_id` organization's sessions, newest first, paged; any role),
+  `GET /research/sessions/{id}`
 - `GET /research/sessions/{id}/turns`, `POST /research/sessions/{id}/turns`:
   each turn has its question, answer (or null without a model), citations and
   evidence summaries. Prompts and chunk text are not returned.

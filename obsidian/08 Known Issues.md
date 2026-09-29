@@ -1,6 +1,6 @@
 # Known Issues
 
-Open problems as of commit 354. Remove an item when it is fixed.
+Open problems as of commit 359. Remove an item when it is fixed.
 
 ## Events
 
@@ -76,8 +76,11 @@ Open problems as of commit 354. Remove an item when it is fixed.
   Policy are still to be reviewed before any public deployment.
 - The API sends no CORS headers, so the app must be served from the API's
   origin (the development server proxies `/api`).
-- Web pages for investigation collaborators, research sessions and exports
-  are still being built.
+- Collaborator management offers members of the active organization; the
+  API decides who may change roles and keeps the last owner.
+- Research session pages load all turns at once; there is no paging.
+- Ingestion runs and research turns are not refreshed while a worker or
+  the answer model is busy; reload the page to see new states.
 - Saving to an investigation offers the first 100 open investigations of the
   organization.
 - Entity and claim evidence rows link to their document but do not show its

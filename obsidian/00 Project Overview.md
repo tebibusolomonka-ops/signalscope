@@ -26,7 +26,9 @@ follow the code and fix the note.
   investigations shared with collaborators, user administration for system
   admins, and a security audit log.
 - Administer users, organizations, invitations, sessions and the audit log in
-  the admin web app.
+  the web app, and do the research work there too: sources, documents, file
+  import, search, entities, claims, events, source comparison,
+  investigations and research sessions, one organization at a time.
 
 ## Data flow
 
@@ -43,8 +45,8 @@ See [[01 Architecture]] for the layers and [[05 Workers and Queues]] for the job
 
 ## Maturity
 
-Early development. There is an HTTP API, a command line and a small internal
-admin web app (`web/`). Optional authentication (off by default) adds accounts,
+Early development. There is an HTTP API, a command line and an internal web
+app (`web/`) for research and administration. Optional authentication (off by default) adds accounts,
 organizations and shared investigations, and splits all content by
 organization. Local models are optional and off
 by default. Real model quality has not been measured yet; see

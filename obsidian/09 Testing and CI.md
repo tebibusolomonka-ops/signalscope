@@ -53,7 +53,12 @@ and `organizations.js` build content answers and two organizations; every
 content page has a test that switches organization while the new answer is
 held back and checks that nothing of the old organization stays visible.
 `test_document_file_api.py` covers the upload route with file storage in a
-temporary folder. `AdminFlow.test.jsx` walks
+temporary folder. `ResearchFlow.test.jsx` walks one organization's workflow
+from sign in through a source, a document, search, an entity saved to an
+investigation, a research follow-up with citations, and both exports.
+`OrganizationSwitch.test.jsx` checks search, entities, claims, events,
+investigations and research turns with the new organization's answers held
+back. `src/test/downloads.js` records browser downloads. `AdminFlow.test.jsx` walks
 through sign in, the dashboard, an organization, its invitations, the audit
 log and sign out. Run `npm run lint`, `npm test -- --run` and
 `npm run build` in `web/`.

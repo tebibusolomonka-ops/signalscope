@@ -38,13 +38,17 @@ export function fakeApi(routes = {}) {
     const handler = routes[`${options.method} ${path}`];
     if (!handler) return answer(404, { error: { code: "not_found", message: "Not found." } });
     const result = typeof handler === "function" ? await handler(request) : handler;
-    return answer(result.status ?? 200, result.body);
+    return answer(result.status ?? 200, result.body, result.type);
   });
   return { fetchImpl, calls };
 }
 
-function answer(status, body) {
+// type "text" sends body as plain text, like a Markdown export.
+function answer(status, body, type) {
   if (status === 204 || body === undefined) return new Response(null, { status });
+  if (type === "text") {
+    return new Response(body, { status, headers: { "Content-Type": "text/markdown" } });
+  }
   return new Response(JSON.stringify(body), {
     status,
     headers: { "Content-Type": "application/json" },

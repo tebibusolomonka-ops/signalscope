@@ -95,11 +95,14 @@ admin-focused.
   detail with text and revisions, delete, file import), search (four modes,
   query kept in the URL with its organization), entities and claims (lists
   and evidence), the event timeline and cluster pages (with on-demand,
-  advisory link suggestions), source comparison, and investigations (list,
-  create, detail with saved items, close, reopen, delete). A shared
-  `SaveToInvestigation` control saves sources, documents, events, clusters,
-  entities, claims and research sessions into an open investigation of the
-  active organization.
+  advisory link suggestions), source comparison, investigations (list,
+  create, detail with saved items, collaborators, close, reopen, delete),
+  research sessions (list, start, multi-turn conversation with citations and
+  a separate evidence panel) and one-shot research (`/research/new`). A
+  shared `SaveToInvestigation` control saves sources, documents, events,
+  clusters, entities, claims and research sessions into an open
+  investigation of the active organization. `ExportActions` downloads the
+  backend's JSON and Markdown exports in the browser, named by record ID.
 - The development server proxies `/api` to the API, which has no CORS
   support; production must serve both from one origin.
 - The API decides every permission. The app may hide actions, but it never
