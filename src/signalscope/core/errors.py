@@ -30,6 +30,12 @@ class InvalidInputError(SignalScopeError):
     default_message = "Input is not valid."
 
 
+class ForbiddenError(SignalScopeError):
+    """Signed in, but not allowed to do this."""
+
+    default_message = "You do not have permission to do this."
+
+
 class UnauthenticatedError(SignalScopeError):
     """No valid sign in. The message never says why, so it cannot reveal accounts."""
 
