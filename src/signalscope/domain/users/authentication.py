@@ -4,11 +4,16 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from signalscope.core.errors import ConflictError, InvalidInputError, UnauthenticatedError
+from signalscope.core.errors import (
+    ConflictError,
+    InvalidInputError,
+    NotFoundError,
+    UnauthenticatedError,
+)
 from signalscope.db.errors import is_unique_violation
 from signalscope.domain.sources.scheduling import Clock, utc_now
 from signalscope.domain.users.credential import UserPasswordCredential
@@ -25,6 +30,8 @@ DEFAULT_SESSION_DAYS = 7
 LAST_SEEN_INTERVAL = timedelta(minutes=15)
 # 32 random bytes, as URL-safe text.
 TOKEN_BYTES = 32
+# Old sessions are removed by cleanup-auth-sessions, so this is only a guard.
+MAX_LISTED_SESSIONS = 100
 
 
 class InvalidCredentialsError(UnauthenticatedError):
@@ -186,3 +193,31 @@ class AuthenticationService:
         if stored is not None and stored.revoked_at is None:
             stored.revoked_at = self.clock()
             await self.session.commit()
+
+    async def list_sessions(self, user_id: uuid.UUID) -> list[UserSession]:
+        """A user's sessions, newest first, including revoked and expired ones."""
+        found = await self.session.scalars(
+            select(UserSession)
+            .where(UserSession.user_id == user_id)
+            .order_by(UserSession.created_at.desc(), UserSession.id)
+            .limit(MAX_LISTED_SESSIONS)
+        )
+        return list(found)
+
+    async def revoke_user_session(self, user_id: uuid.UUID, session_id: uuid.UUID) -> None:
+        """Revoke one of the user's own sessions. Another user's session is not found."""
+        stored = await self.session.get(UserSession, session_id)
+        if stored is None or stored.user_id != user_id:
+            raise NotFoundError("Session was not found.")
+        await self.revoke_session(session_id)
+
+    async def revoke_all_sessions(self, user_id: uuid.UUID) -> int:
+        """Revoke every active session of the user, and say how many."""
+        result = await self.session.execute(
+            update(UserSession)
+            .where(UserSession.user_id == user_id, UserSession.revoked_at.is_(None))
+            .values(revoked_at=self.clock())
+            .execution_options(synchronize_session=False)
+        )
+        await self.session.commit()
+        return int(result.rowcount)  # type: ignore[attr-defined]

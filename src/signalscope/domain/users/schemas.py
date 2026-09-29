@@ -40,3 +40,16 @@ class CurrentUserRead(BaseModel):
     user: UserRead
     session_id: uuid.UUID
     expires_at: datetime
+
+
+class SessionRead(BaseModel):
+    """A login session. The token and its hash are never shown."""
+
+    session_id: uuid.UUID
+    created_at: datetime
+    expires_at: datetime
+    last_seen_at: datetime
+    revoked: bool
+    revoked_at: datetime | None
+    # True for the session of the token used for this request.
+    current_session: bool

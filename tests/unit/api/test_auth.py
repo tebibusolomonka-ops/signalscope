@@ -18,6 +18,12 @@ def test_routes_are_in_openapi(app: FastAPI) -> None:
     assert set(paths["/auth/login"]) == {"post"}
     assert set(paths["/auth/logout"]) == {"post"}
     assert set(paths["/auth/me"]) == {"get"}
+    assert set(paths["/auth/sessions"]) == {"get"}
+    assert set(paths["/auth/sessions/{session_id}"]) == {"delete"}
+    assert set(paths["/auth/logout-all"]) == {"post"}
+    session = openapi["components"]["schemas"]["SessionRead"]["properties"]
+    assert not any("token" in name or "hash" in name for name in session)
+    assert "current_session" in session
     # There is no self registration.
     assert not any("register" in path for path in paths)
     assert openapi["components"]["securitySchemes"]["HTTPBearer"]["scheme"] == "bearer"
@@ -50,8 +56,10 @@ def call(
         ("POST", "/auth/login", {"json": {"email": "a@b.org", "password": "x" * 12}}),
         ("GET", "/auth/me", {"headers": {"Authorization": "Bearer abc"}}),
         ("POST", "/auth/logout", {}),
+        ("GET", "/auth/sessions", {}),
+        ("POST", "/auth/logout-all", {}),
     ],
-    ids=["login", "me", "logout"],
+    ids=["login", "me", "logout", "sessions", "logout all"],
 )
 def test_auth_disabled_answers_503(method: str, path: str, options: dict[str, Any]) -> None:
     status_code, body, _ = call(method, path, auth_enabled=False, **options)

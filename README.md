@@ -93,6 +93,10 @@ There is no option that takes the password itself, so it never lands in shell
 history. Passwords must be 12 to 1024 characters. There is no self
 registration.
 
+Signed in users can see their sessions with `GET /auth/sessions` (never the
+tokens), revoke one with `DELETE /auth/sessions/{session_id}`, and end every
+session, the current one included, with `POST /auth/logout-all`.
+
 ## Command line
 
 Fetch new content for one RSS or web source. This needs
