@@ -100,3 +100,16 @@ export function revision(version, overrides = {}) {
     ...overrides,
   };
 }
+
+export function hit(overrides = {}) {
+  return {
+    document_id: "d-1",
+    chunk_id: "c-1",
+    source_id: "s-1",
+    title: "Storm closes the harbour",
+    url: "https://harbour.example/storm",
+    excerpt: "The harbour closed at noon after the storm.",
+    chunk_metadata: { page_number: 2, section_kind: "page", section_index: 1 },
+    ...overrides,
+  };
+}

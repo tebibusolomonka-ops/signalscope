@@ -230,3 +230,41 @@ button.danger {
 .fact-pair {
   display: contents;
 }
+
+.grow {
+  flex: 1 1 16rem;
+}
+
+.results {
+  display: grid;
+  gap: 1rem;
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.result h3 {
+  margin: 0 0 0.25rem;
+  font-size: 1.05rem;
+}
+
+.result p {
+  margin: 0.25rem 0;
+}
+
+.scores {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.25rem;
+  margin: 0.25rem 0 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.scores div {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.scores dd {
+  margin: 0;
+}

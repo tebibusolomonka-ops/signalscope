@@ -8,6 +8,7 @@ import { DocumentsPage } from "../features/documents/DocumentsPage.jsx";
 import { AcceptInvitationPage } from "../features/invitations/AcceptInvitationPage.jsx";
 import { OrganizationDetailPage } from "../features/organizations/OrganizationDetailPage.jsx";
 import { OrganizationsPage } from "../features/organizations/OrganizationsPage.jsx";
+import { SearchPage } from "../features/search/SearchPage.jsx";
 import { SecurityPage } from "../features/security/SecurityPage.jsx";
 import { SourceDetailPage } from "../features/sources/SourceDetailPage.jsx";
 import { SourcesPage } from "../features/sources/SourcesPage.jsx";
@@ -42,7 +43,7 @@ export function AppRoutes() {
             <Route path="/documents" element={<DocumentsPage />} />
             <Route path="/documents/import" element={<FileImportPage />} />
             <Route path="/documents/:documentId" element={<DocumentDetailPage />} />
-            <Route path="/search" element={<Placeholder title="Search" />} />
+            <Route path="/search" element={<SearchPage />} />
             <Route path="/entities" element={<Placeholder title="Entities" />} />
             <Route path="/claims" element={<Placeholder title="Claims" />} />
             <Route path="/events" element={<Placeholder title="Events" />} />
