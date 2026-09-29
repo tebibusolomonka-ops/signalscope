@@ -25,7 +25,11 @@ def normalize_event_title(title: str) -> str:
 
 
 class EventCluster(UUIDPrimaryKeyMixin, TimestampMixin, Base):
-    """One real event, as reported by events from one or more documents."""
+    """One real event, as reported by events from one or more documents.
+
+    A cluster belongs to the organization of its events, so it never holds
+    events of two organizations. Clusters of legacy events have none.
+    """
 
     __tablename__ = "event_clusters"
     __table_args__ = (
@@ -42,6 +46,10 @@ class EventCluster(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     normalized_title: Mapped[str] = mapped_column(String(EVENT_TITLE_MAX_LENGTH))
     # The earliest known time of its events, when any is known.
     occurred_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # None for clusters of legacy events.
+    organization_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("organizations.id", ondelete="RESTRICT"), index=True
+    )
 
 
 class EventClusterMember(Base):

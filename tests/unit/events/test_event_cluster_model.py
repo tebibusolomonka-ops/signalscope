@@ -25,7 +25,11 @@ def test_event_clusters_table() -> None:
     ]:
         assert column in sql
     indexes = {index.name for index in EventCluster.__table__.indexes}
-    assert indexes == {"ix_event_clusters_event_type_normalized_title"}
+    assert indexes == {
+        "ix_event_clusters_event_type_normalized_title",
+        "ix_event_clusters_organization_id",
+    }
+    assert "REFERENCES organizations (id) ON DELETE RESTRICT" in sql
     assert Base.metadata.tables["event_clusters"] is EventCluster.__table__
 
 
