@@ -27,6 +27,7 @@ from signalscope.domain.research.turn import ResearchTurn
 from signalscope.domain.search.embedding_job import EmbeddingJob
 from signalscope.domain.search.embedding_model import ChunkEmbedding
 from signalscope.domain.sources.model import Source
+from signalscope.domain.users.model import User
 
 __all__ = [
     "Base",
@@ -57,4 +58,5 @@ __all__ = [
     "ResearchSession",
     "ResearchTurn",
     "Source",
+    "User",
 ]

@@ -1,6 +1,7 @@
 # Current State
 
-Last updated at commit 271 (270 planned plus one fix). Alembic head: `ca4da746adef` (Create investigation items).
+Last updated at commit 273. Batch 251 to 270 ended at commit 272 (`40f2d5c`),
+with two corrective commits. Alembic head: `ca4da746adef` (Create investigation items).
 
 ## Done
 
