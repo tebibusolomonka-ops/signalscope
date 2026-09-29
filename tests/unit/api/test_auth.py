@@ -21,6 +21,8 @@ def test_routes_are_in_openapi(app: FastAPI) -> None:
     assert set(paths["/auth/sessions"]) == {"get"}
     assert set(paths["/auth/sessions/{session_id}"]) == {"delete"}
     assert set(paths["/auth/logout-all"]) == {"post"}
+    assert set(paths["/auth/change-password"]) == {"post"}
+    assert paths["/auth/change-password"]["post"]["security"] == [{"HTTPBearer": []}]
     session = openapi["components"]["schemas"]["SessionRead"]["properties"]
     assert not any("token" in name or "hash" in name for name in session)
     assert "current_session" in session

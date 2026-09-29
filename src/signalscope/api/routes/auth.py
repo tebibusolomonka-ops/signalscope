@@ -7,6 +7,7 @@ from signalscope.domain.users.schemas import (
     CurrentUserRead,
     LoginRequest,
     LoginResponse,
+    PasswordChange,
     SessionRead,
     UserRead,
 )
@@ -79,3 +80,15 @@ async def revoke_session(
 async def logout_all(current: CurrentSession, service: Authentication) -> None:
     """Revoke every session of the signed in user, including the current one."""
     await service.revoke_all_sessions(current.user.id)
+
+
+@router.post("/change-password", status_code=status.HTTP_204_NO_CONTENT)
+async def change_password(
+    request: PasswordChange, current: CurrentSession, service: Authentication
+) -> None:
+    """Change your password. Every other session is revoked; this one stays.
+
+    A wrong current password answers 403 with one message. The new password
+    must be 12 to 1024 characters and differ from the current one (422).
+    """
+    await service.change_password(current, request.current_password, request.new_password)

@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from signalscope.core.errors import (
     ConflictError,
+    ForbiddenError,
     InvalidInputError,
     NotFoundError,
     UnauthenticatedError,
@@ -26,6 +27,8 @@ from signalscope.domain.users.session import UserSession
 # The same answer for an unknown email, a wrong password and an inactive
 # account, so a failed login never shows whether an account exists.
 INVALID_CREDENTIALS = "Email or password is not correct."
+WRONG_CURRENT_PASSWORD = "The current password is not correct."
+SAME_PASSWORD = "The new password must be different from the current one."
 DEFAULT_SESSION_DAYS = 7
 # last_seen_at is only written when it is older than this, not on every request.
 LAST_SEEN_INTERVAL = timedelta(minutes=15)
@@ -259,4 +262,57 @@ class AuthenticationService:
             details={"revoked_sessions": revoked},
         )
         await self.session.commit()
+        return revoked
+
+    async def change_password(
+        self, current: ResolvedSession, current_password: str, new_password: str
+    ) -> int:
+        """Replace the user's password and revoke their other sessions, in one commit.
+
+        The session used for the request stays signed in. A wrong current
+        password gives one message that never says why. Returns how many
+        other sessions were revoked.
+        """
+        user_id = current.user.id
+        credential = await self.session.get(
+            UserPasswordCredential, user_id, with_for_update=True, populate_existing=True
+        )
+        if (
+            credential is None
+            or not self.hasher.verify_password(current_password, credential.password_hash).valid
+        ):
+            await self.session.rollback()
+            raise ForbiddenError(WRONG_CURRENT_PASSWORD)
+        try:
+            if self.hasher.verify_password(new_password, credential.password_hash).valid:
+                raise InvalidInputError(SAME_PASSWORD)
+            credential.password_hash = self.hasher.hash_password(new_password)
+        except InvalidInputError:
+            await self.session.rollback()
+            raise
+        now = self.clock()
+        credential.password_changed_at = now
+        result = await self.session.execute(
+            update(UserSession)
+            .where(
+                UserSession.user_id == user_id,
+                UserSession.id != current.session.id,
+                UserSession.revoked_at.is_(None),
+            )
+            .values(revoked_at=now)
+            .execution_options(synchronize_session=False)
+        )
+        revoked = int(result.rowcount)  # type: ignore[attr-defined]
+        self.audit.record(
+            AuditAction.PASSWORD_CHANGED,
+            actor_user_id=user_id,
+            resource_type="user",
+            resource_id=user_id,
+            details={"revoked_sessions": revoked},
+        )
+        try:
+            await self.session.commit()
+        except Exception:
+            await self.session.rollback()
+            raise
         return revoked

@@ -80,3 +80,13 @@ class UserStatusUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     is_active: bool
+
+
+class PasswordChange(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    current_password: Annotated[
+        str, StringConstraints(min_length=1, max_length=PASSWORD_MAX_LENGTH)
+    ]
+    # The policy (12 to 1024 characters) is checked by the service.
+    new_password: Annotated[str, StringConstraints(min_length=1, max_length=PASSWORD_MAX_LENGTH)]
