@@ -10,7 +10,7 @@ from signalscope.api.dependencies import (
     EmbeddingProviders,
 )
 from signalscope.api.pagination import Page, Pagination
-from signalscope.api.tenancy import ReadScope
+from signalscope.api.tenancy import OrganizationFilter, Policy, ReadScope
 from signalscope.core.errors import InvalidInputError, NotFoundError
 from signalscope.domain.events.coverage import EventCoverageService
 from signalscope.domain.events.model import EVENT_TYPE_MAX_LENGTH
@@ -72,17 +72,24 @@ async def list_events(
 # Declared before /{event_id}, so "coverage" is not read as an event ID.
 @router.get("/coverage")
 async def event_coverage(
-    session_factory: DatabaseSessionFactory, document_id: uuid.UUID | None = None
+    session_factory: DatabaseSessionFactory,
+    policy: Policy,
+    organization_id: OrganizationFilter = None,
+    document_id: uuid.UUID | None = None,
 ) -> EventCoverageRead:
     """Count the chunks the local GLiNER2 model has read for events.
 
     The numbers come from the database, so the model does not need to be
-    installed or loaded. document_id limits them to one document.
+    installed or loaded. document_id limits them to one document. With
+    authentication on, the counts cover the organization_id organization, or
+    the document's organization when document_id is given.
     """
     service = EventCoverageService(session_factory)
     if document_id is None:
-        coverage = await service.overall(GLINER2_PROVIDER, GLINER2_MODEL)
+        scope = await policy.scope(organization_id)
+        coverage = await service.overall(GLINER2_PROVIDER, GLINER2_MODEL, scope)
     else:
+        await policy.authorize_document(document_id)
         coverage = await service.for_document(document_id, GLINER2_PROVIDER, GLINER2_MODEL)
     return EventCoverageRead(
         provider=GLINER2_PROVIDER,

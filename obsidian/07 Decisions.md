@@ -129,6 +129,18 @@ Decisions that should hold unless there is a clear reason to change them.
   never every organization at once. Single records use the organization on
   their source, never one the caller sends. Content the caller may not see
   is 404, a missing role 403, a missing `organization_id` 422.
+- **Scope filters run in SQL before any limit.** Search, vector search,
+  hybrid fusion and reranking only ever see chunks in scope, so another
+  organization's rows can take no place in a ranking, a limit or a count, and
+  no other organization's text reaches a model. The HNSW scan keeps its
+  iterative scan, so a filtered query still fills its limit.
+- **Entities and claims stay shared rows.** One `Entity` or `Claim` row may be
+  backed by mentions or evidence from several organizations. The row is not
+  proof of access: in a scope it appears only with mentions or evidence in
+  that scope, and its counts and details come from those only.
+- **Events are seen through their evidence.** Until clusters get an
+  organization, cluster details and the timeline show only the member events
+  and evidence in scope.
 - **No new legacy content through the API.** With auth on, creating a source
   needs an organization, also for system admins.
 - **Admin summaries are counts.** The access summary has no risk or trust

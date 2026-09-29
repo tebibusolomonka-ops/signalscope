@@ -10,11 +10,11 @@ password change, invitations, audit API, cleanup, admin session controls,
 access summary) and the first React admin web app.
 
 Current batch, 314 to 333: organization content tenancy. Done: the result
-warning fix, source ownership, the content policy, and scoped source and
-document routes. To do: search, entities, claims, events, coverage,
-timeline, provenance, comparison, dashboard, research, investigation
-references, file import, event clusters, the legacy assignment command, a
-route audit and the web organization context.
+warning fix, source ownership, the content policy, and scoped sources,
+documents, search, entities, claims, events, coverage and timeline. To do:
+provenance, comparison, dashboard, research, investigation references, file
+import, event clusters, the legacy assignment command, a route audit and the
+web organization context.
 
 ## Next batch
 

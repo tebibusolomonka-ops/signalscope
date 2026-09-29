@@ -1,6 +1,6 @@
 # Known Issues
 
-Open problems as of commit 318. Remove an item when it is fixed.
+Open problems as of commit 323. Remove an item when it is fixed.
 
 ## Events
 
@@ -57,8 +57,10 @@ Open problems as of commit 318. Remove an item when it is fixed.
 - There is no way to delete an organization or a user through the API.
 - Invitations are shared by hand: there is no email sending.
 - Content tenancy is being added in batch 314 to 333. Until it is done,
-  search, extracted data, timelines, dashboards and research routes are not
-  yet scoped by organization.
+  provenance, comparison, dashboards, research and file import are not yet
+  scoped, and the exact event linker can still put events of two
+  organizations into one cluster (the views already hide the other
+  organization's members).
 - The saved records an investigation points at are not checked against the
   organization: any record ID can be saved and its snapshot read.
 - Audit events have no retention rule yet, and failed logins are not

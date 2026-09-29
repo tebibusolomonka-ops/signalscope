@@ -6,7 +6,7 @@ from pydantic import StringConstraints
 
 from signalscope.api.dependencies import DatabaseSession, DatabaseSessionFactory
 from signalscope.api.pagination import Page, Pagination
-from signalscope.api.tenancy import ReadScope
+from signalscope.api.tenancy import OrganizationFilter, Policy, ReadScope
 from signalscope.core.errors import NotFoundError
 from signalscope.domain.claims.coverage import ClaimCoverageService
 from signalscope.domain.claims.model import CLAIM_TEXT_MAX_LENGTH, CLAIM_TYPE_MAX_LENGTH, Claim
@@ -60,17 +60,24 @@ async def list_claims(
 # Declared before /{claim_id}, so "coverage" is not read as a claim ID.
 @router.get("/coverage")
 async def claim_coverage(
-    session_factory: DatabaseSessionFactory, document_id: uuid.UUID | None = None
+    session_factory: DatabaseSessionFactory,
+    policy: Policy,
+    organization_id: OrganizationFilter = None,
+    document_id: uuid.UUID | None = None,
 ) -> ClaimCoverageRead:
     """Count the chunks the local GLiNER2 model has read for claims.
 
     The numbers come from the database, so the model does not need to be
-    installed or loaded. document_id limits them to one document.
+    installed or loaded. document_id limits them to one document. With
+    authentication on, the counts cover the organization_id organization, or
+    the document's organization when document_id is given.
     """
     service = ClaimCoverageService(session_factory)
     if document_id is None:
-        coverage = await service.overall(GLINER2_PROVIDER, GLINER2_MODEL)
+        scope = await policy.scope(organization_id)
+        coverage = await service.overall(GLINER2_PROVIDER, GLINER2_MODEL, scope)
     else:
+        await policy.authorize_document(document_id)
         coverage = await service.for_document(document_id, GLINER2_PROVIDER, GLINER2_MODEL)
     return ClaimCoverageRead(
         provider=GLINER2_PROVIDER,

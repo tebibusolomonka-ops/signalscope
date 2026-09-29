@@ -24,6 +24,7 @@ def test_route_is_in_openapi(app: FastAPI) -> None:
         "order",
         "limit",
         "offset",
+        "organization_id",
     }
     # A summary per cluster. Evidence rows are not listed.
     assert set(schemas["TimelineItemRead"]["properties"]) == {

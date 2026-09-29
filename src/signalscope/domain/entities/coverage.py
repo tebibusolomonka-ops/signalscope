@@ -10,6 +10,7 @@ from signalscope.domain.documents.model import Document
 from signalscope.domain.entities.job import EntityExtractionJob, EntityExtractionJobStatus
 from signalscope.domain.entities.mention import EntityMention
 from signalscope.domain.entities.queue import ACTIVE_STATUSES
+from signalscope.domain.tenancy.scope import ContentScope
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,13 +38,20 @@ class EntityCoverageService:
                 raise NotFoundError("Document was not found.")
             return await _coverage(session, provider, model, document_id)
 
-    async def overall(self, provider: str, model: str) -> EntityCoverage:
+    async def overall(
+        self, provider: str, model: str, scope: ContentScope | None = None
+    ) -> EntityCoverage:
+        """Count over every chunk in scope, or every chunk when there is no scope."""
         async with self.session_factory() as session:
-            return await _coverage(session, provider, model)
+            return await _coverage(session, provider, model, scope=scope)
 
 
 async def _coverage(
-    session: AsyncSession, provider: str, model: str, document_id: uuid.UUID | None = None
+    session: AsyncSession,
+    provider: str,
+    model: str,
+    document_id: uuid.UUID | None = None,
+    scope: ContentScope | None = None,
 ) -> EntityCoverage:
     mentions = select(EntityMention.id).where(
         EntityMention.chunk_id == DocumentChunk.id,
@@ -79,6 +87,8 @@ async def _coverage(
     )
     if document_id is not None:
         statement = statement.where(DocumentChunk.document_id == document_id)
+    if scope is not None:
+        statement = statement.where(scope.document_condition(DocumentChunk.document_id))
     chunks, extracted, pending, failed = (await session.execute(statement)).one()
     return EntityCoverage(
         chunk_count=chunks, extracted_count=extracted, pending_count=pending, failed_count=failed

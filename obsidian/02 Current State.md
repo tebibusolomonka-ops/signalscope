@@ -1,8 +1,9 @@
 # Current State
 
-Last updated at commit 318. Batch 294 to 313 (administration and the admin
-web app) ended at commit 313 (`0fbf1cc`) with no corrective commit. Current
-batch: 314 to 333, organization content tenancy. Alembic head:
+Last updated at planned commit 323 (repository commit 324: checkpoint 1
+needed one corrective commit, `9c61b65`). Batch 294 to 313 (administration
+and the admin web app) ended at commit 313 (`0fbf1cc`) with no corrective
+commit. Current batch: 314 to 333, organization content tenancy. Alembic head:
 `7ae71d53471b` (Add source organization).
 
 ## Done
@@ -47,10 +48,12 @@ batch: 314 to 333, organization content tenancy. Alembic head:
   organizations with members, invitations and access summary, users, and
   security (audit log and sessions). CI lints, tests and builds it.
 - Content tenancy, in progress: sources have an organization (NULL for
-  legacy sources), `ContentAccessPolicy` decides access, and the source,
-  ingestion run and document routes are scoped. Search, extracted data,
-  timelines, dashboards and research are not scoped yet; the rest of batch
-  314 to 333 does that.
+  legacy sources), `ContentAccessPolicy` decides access, and these routes
+  are scoped: sources, ingestion runs, documents and revisions, all four
+  search modes, entities, claims, events, event cluster detail, link
+  suggestions, the four coverage routes and the timeline. Provenance,
+  comparison, dashboards, research, investigation references and file
+  import are not scoped yet; the rest of batch 314 to 333 does that.
 
 - Sources, scheduled network ingestion (RSS, web), file import, blob storage.
 - Processing jobs, parsers, document revisions, section-aware chunks.

@@ -6,7 +6,7 @@ from pydantic import StringConstraints
 
 from signalscope.api.dependencies import DatabaseSession, DatabaseSessionFactory
 from signalscope.api.pagination import Page, Pagination
-from signalscope.api.tenancy import ReadScope
+from signalscope.api.tenancy import OrganizationFilter, Policy, ReadScope
 from signalscope.core.errors import NotFoundError
 from signalscope.domain.entities.coverage import EntityCoverageService
 from signalscope.domain.entities.model import (
@@ -64,18 +64,25 @@ async def list_entities(
 # Declared before /{entity_id}, so "coverage" is not read as an entity ID.
 @router.get("/coverage")
 async def entity_coverage(
-    session_factory: DatabaseSessionFactory, document_id: uuid.UUID | None = None
+    session_factory: DatabaseSessionFactory,
+    policy: Policy,
+    organization_id: OrganizationFilter = None,
+    document_id: uuid.UUID | None = None,
 ) -> EntityCoverageRead:
     """Count the chunks the local GLiNER model has read.
 
     The numbers come from the database, so the model does not need to be
-    installed or loaded. document_id limits them to one document.
+    installed or loaded. document_id limits them to one document. With
+    authentication on, the counts cover the organization_id organization, or
+    the document's organization when document_id is given.
     """
     spec = GLINER_MULTI
     service = EntityCoverageService(session_factory)
     if document_id is None:
-        coverage = await service.overall(spec.provider, spec.model)
+        scope = await policy.scope(organization_id)
+        coverage = await service.overall(spec.provider, spec.model, scope)
     else:
+        await policy.authorize_document(document_id)
         coverage = await service.for_document(document_id, spec.provider, spec.model)
     return EntityCoverageRead(
         provider=spec.provider,

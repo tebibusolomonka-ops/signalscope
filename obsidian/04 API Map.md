@@ -114,11 +114,22 @@ and viewers; system admins may manage any organization's invitations.
 
 ## Search and embeddings
 
+Scoped with auth on: `organization_id` picks the organization (system admins
+without it get legacy content); `source_id` must be a source the caller may
+read. The filter is in the SQL, before ranking, fusion, reranking and limits.
+
 - `GET /search` (lexical), `GET /search/semantic`, `GET /search/hybrid`,
   `GET /search/reranked`
 - `GET /embeddings/coverage`
 
 ## Entities, events and claims
+
+Scoped with auth on through `organization_id`. Entities and claims are shared
+rows: they are listed only with mentions or evidence in the organization, and
+counts and details show only those. Events need evidence in it. Cluster
+details show only member events and evidence in it. Link suggestions compare
+only events in it. Coverage routes count its chunks, or check the document's
+organization when `document_id` is given.
 
 All read only. Coverage routes read the database and never load a model.
 
@@ -129,6 +140,9 @@ All read only. Coverage routes read the database and never load a model.
 - `GET /claims`, `GET /claims/coverage`, `GET /claims/{id}`
 
 ## Timeline
+
+Scoped with auth on: only clusters with member evidence in the organization,
+with counts and sources from that evidence only.
 
 - `GET /timeline`: event clusters in time order, with event, source and
   evidence counts.

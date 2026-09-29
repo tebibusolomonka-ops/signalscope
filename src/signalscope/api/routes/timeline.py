@@ -6,6 +6,7 @@ from pydantic import AwareDatetime, StringConstraints
 
 from signalscope.api.dependencies import DatabaseSession
 from signalscope.api.pagination import Page, Pagination
+from signalscope.api.tenancy import Policy, ReadScope
 from signalscope.core.errors import InvalidInputError
 from signalscope.domain.events.model import EVENT_TYPE_MAX_LENGTH
 from signalscope.domain.events.schemas import TimelineItemRead, TimelineSourceRead
@@ -25,6 +26,8 @@ TimeQuery = Annotated[AwareDatetime | None, Query(description="A time with a tim
 async def event_timeline(
     session: DatabaseSession,
     page: Pagination,
+    scope: ReadScope,
+    policy: Policy,
     occurred_from: TimeQuery = None,
     occurred_to: TimeQuery = None,
     event_type: TypeQuery = None,
@@ -37,12 +40,15 @@ async def event_timeline(
     many events, sources and evidence rows back it. Items without a known time
     come last. With occurred_from or occurred_to, they are left out. source_id
     keeps the clusters that source reports. The timeline only describes what
-    was reported: it does not rank events by importance.
+    was reported: it does not rank events by importance. With authentication on,
+    only clusters with evidence in the organization_id organization, counted
+    from that evidence only.
     """
+    await policy.check_source_filter(source_id)
     if occurred_from is not None and occurred_to is not None and occurred_from >= occurred_to:
         raise InvalidInputError("occurred_from must be before occurred_to.")
     entries, total = await EventTimelineService(session).page(
-        TimelineFilters(occurred_from, occurred_to, event_type, source_id),
+        TimelineFilters(occurred_from, occurred_to, event_type, source_id, scope),
         page.limit,
         page.offset,
         order,

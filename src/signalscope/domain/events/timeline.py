@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 
-from sqlalchemy import ColumnElement, exists, func, select
+from sqlalchemy import ColumnElement, and_, exists, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
@@ -11,7 +11,9 @@ from signalscope.domain.documents.chunk import DocumentChunk
 from signalscope.domain.documents.model import Document
 from signalscope.domain.events.cluster import EventCluster, EventClusterMember
 from signalscope.domain.events.model import EventEvidence
+from signalscope.domain.events.repository import UNRESTRICTED, visible_events
 from signalscope.domain.sources.model import Source
+from signalscope.domain.tenancy.scope import ContentScope
 
 
 class TimelineOrder(StrEnum):
@@ -28,6 +30,8 @@ class TimelineFilters:
     event_type: str | None = None
     # Clusters with at least one piece of evidence from this source.
     source_id: uuid.UUID | None = None
+    # Only member events with evidence in scope are shown and counted.
+    scope: ContentScope = UNRESTRICTED
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,7 +59,9 @@ class EventTimelineService:
 
     The timeline describes what was reported. It does not rank events by
     importance. Clusters without a known time come after the dated ones, in
-    either order.
+    either order. In a scope, a cluster appears only with a member event that
+    has evidence in the scope, and its counts and sources come from that
+    evidence only.
     """
 
     def __init__(self, session: AsyncSession) -> None:
@@ -70,6 +76,7 @@ class EventTimelineService:
     ) -> tuple[list[TimelineEntry], int]:
         """One page of the timeline and how many clusters match in all."""
         conditions = _conditions(filters)
+        scope = filters.scope
         occurred = (
             EventCluster.occurred_at.desc()
             if order is TimelineOrder.NEWEST_FIRST
@@ -85,8 +92,20 @@ class EventTimelineService:
                 func.count(Document.source_id.distinct()),
                 func.count(EventEvidence.id.distinct()),
             )
-            .join(EventClusterMember, EventClusterMember.cluster_id == EventCluster.id)
-            .outerjoin(EventEvidence, EventEvidence.event_id == EventClusterMember.event_id)
+            .join(
+                EventClusterMember,
+                and_(
+                    EventClusterMember.cluster_id == EventCluster.id,
+                    visible_events(scope, EventClusterMember.event_id),
+                ),
+            )
+            .outerjoin(
+                EventEvidence,
+                and_(
+                    EventEvidence.event_id == EventClusterMember.event_id,
+                    scope.chunk_condition(EventEvidence.chunk_id),
+                ),
+            )
             .outerjoin(DocumentChunk, DocumentChunk.id == EventEvidence.chunk_id)
             .outerjoin(Document, Document.id == DocumentChunk.document_id)
             .where(*conditions)
@@ -118,14 +137,22 @@ class EventTimelineService:
         total = await self.session.scalar(
             select(func.count())
             .select_from(EventCluster)
-            .where(*conditions, exists().where(EventClusterMember.cluster_id == EventCluster.id))
+            .where(
+                *conditions,
+                exists().where(
+                    EventClusterMember.cluster_id == EventCluster.id,
+                    visible_events(scope, EventClusterMember.event_id),
+                ),
+            )
         )
-        sources = await self._sources([entry.cluster_id for entry in entries])
+        sources = await self._sources([entry.cluster_id for entry in entries], scope)
         for entry in entries:
             entry.sources.extend(sources.get(entry.cluster_id, []))
         return entries, total or 0
 
-    async def _sources(self, cluster_ids: list[uuid.UUID]) -> dict[uuid.UUID, list[TimelineSource]]:
+    async def _sources(
+        self, cluster_ids: list[uuid.UUID], scope: ContentScope
+    ) -> dict[uuid.UUID, list[TimelineSource]]:
         if not cluster_ids:
             return {}
         rows = await self.session.execute(
@@ -134,7 +161,10 @@ class EventTimelineService:
             .join(DocumentChunk, DocumentChunk.id == EventEvidence.chunk_id)
             .join(Document, Document.id == DocumentChunk.document_id)
             .join(Source, Source.id == Document.source_id)
-            .where(EventClusterMember.cluster_id.in_(cluster_ids))
+            .where(
+                EventClusterMember.cluster_id.in_(cluster_ids),
+                scope.owner_condition(Source.organization_id),
+            )
             .distinct()
             .order_by(EventClusterMember.cluster_id, Source.name, Source.id)
         )

@@ -69,7 +69,10 @@ def test_coverage_route_is_in_openapi(app: FastAPI) -> None:
     get = app.openapi()["paths"]["/events/coverage"]["get"]
     schema = app.openapi()["components"]["schemas"]["EventCoverageRead"]
 
-    assert [parameter["name"] for parameter in get["parameters"]] == ["document_id"]
+    assert [parameter["name"] for parameter in get["parameters"]] == [
+        "organization_id",
+        "document_id",
+    ]
     assert set(schema["properties"]) == {
         "provider",
         "model",

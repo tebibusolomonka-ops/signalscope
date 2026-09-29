@@ -9,6 +9,7 @@ from signalscope.domain.documents.chunk import DocumentChunk
 from signalscope.domain.documents.model import Document
 from signalscope.domain.search.embedding_job import EmbeddingJob, EmbeddingJobStatus
 from signalscope.domain.search.embedding_model import ChunkEmbedding
+from signalscope.domain.tenancy.scope import ContentScope
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,14 +37,20 @@ class EmbeddingCoverageService:
                 raise NotFoundError("Document was not found.")
             return await _coverage(session, provider, model, document_id)
 
-    async def overall(self, provider: str, model: str) -> EmbeddingCoverage:
-        """Count over every chunk of every document."""
+    async def overall(
+        self, provider: str, model: str, scope: ContentScope | None = None
+    ) -> EmbeddingCoverage:
+        """Count over every chunk in scope, or every chunk when there is no scope."""
         async with self.session_factory() as session:
-            return await _coverage(session, provider, model)
+            return await _coverage(session, provider, model, scope=scope)
 
 
 async def _coverage(
-    session: AsyncSession, provider: str, model: str, document_id: uuid.UUID | None = None
+    session: AsyncSession,
+    provider: str,
+    model: str,
+    document_id: uuid.UUID | None = None,
+    scope: ContentScope | None = None,
 ) -> EmbeddingCoverage:
     # Each chunk has at most one embedding and one job per model, so the joins
     # never count a chunk twice.
@@ -78,6 +85,8 @@ async def _coverage(
     )
     if document_id is not None:
         statement = statement.where(DocumentChunk.document_id == document_id)
+    if scope is not None:
+        statement = statement.where(scope.document_condition(DocumentChunk.document_id))
     chunks, embedded, pending, failed = (await session.execute(statement)).one()
     return EmbeddingCoverage(
         chunk_count=chunks, embedded_count=embedded, pending_count=pending, failed_count=failed
