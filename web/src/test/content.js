@@ -71,3 +71,19 @@ export function run(overrides = {}) {
     ...overrides,
   };
 }
+
+export function doc(overrides = {}) {
+  return {
+    id: "d-1",
+    source_id: "s-1",
+    external_id: null,
+    url: "https://harbour.example/storm",
+    title: "Storm closes the harbour",
+    content: "The harbour closed at noon.",
+    language: "en",
+    published_at: "2026-09-05T06:00:00Z",
+    created_at: "2026-09-05T07:00:00Z",
+    updated_at: "2026-09-05T07:00:00Z",
+    ...overrides,
+  };
+}

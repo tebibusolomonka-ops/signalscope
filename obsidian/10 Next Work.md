@@ -13,11 +13,11 @@ Batch 314 to 333, organization content tenancy, is done: every content
 route is scoped, event clusters and research sessions have organizations,
 legacy sources can be assigned, and the web app has an active organization.
 
-Next planned area: expand the tenant-aware frontend over Sources, Documents,
-Search, Investigations and Research Sessions; add investigation and research
-workspaces; then plan organization-scoped retention, exports and
-operational administration before considering any knowledge-graph
-persistence.
+Current batch, 340 to 359: the tenant research workspace in the web app.
+Done: content navigation, sources and their operations, the document list.
+To do: document detail, file import, search, entities, claims, timeline,
+event clusters, source comparison, investigations with items and
+collaborators, research sessions, one-shot research and exports.
 
 ## Next batch
 

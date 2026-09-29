@@ -84,8 +84,8 @@ and viewers; system admins may manage any organization's invitations.
 ## Admin web app
 
 `web/` uses the routes above under `/auth`, `/admin/users`,
-`/organizations`, `/organization-invitations`, `/security` and
-`/dashboard`. It adds no backend routes.
+`/organizations`, `/organization-invitations` and `/security`, and the
+content routes below with the active organization's `organization_id`.
 
 ## Health
 
@@ -98,7 +98,9 @@ and viewers; system admins may manage any organization's invitations.
 - `GET /sources/{id}/provenance`: observed counts and dates, no score
 - `POST /sources/compare`: 2 to 10 sources side by side, with shared clusters,
   entities and claims; no score or ranking
-- `POST /ingestion-runs`, `GET /ingestion-runs`, `GET /ingestion-runs/{id}`
+- `POST /ingestion-runs` queues a run and its job for a worker (web and RSS
+  sources; other types 409), `GET /ingestion-runs` (oldest first),
+  `GET /ingestion-runs/{id}`
 - Scoped with auth on: lists need `organization_id` (system admins without it
   see legacy sources); creating a source needs `organization_id` and the
   owner or admin role; schedules, deletes and ingestion runs need owner or

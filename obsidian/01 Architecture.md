@@ -83,8 +83,16 @@ admin-focused.
   and the active one, remembered in sessionStorage).
 - `src/lib/tenantApi.js`: a client that adds `organization_id` to content
   calls. Sign in, user, organization and security calls use the plain client.
+- `src/app/RequireOrganization.jsx`: content pages sit under this route.
+  Without an active organization it explains that one must be chosen (also
+  for system admins). It keys the pages by the organization, so switching
+  unmounts them and their data before the new organization loads.
+- `src/lib/capabilities.js`: read, contribute and manage hints from the
+  active role, only for hiding buttons.
 - `src/features/`: auth, dashboard, organizations, invitations, users and
-  security pages.
+  security pages, and the content workspaces: sources (list, create, detail,
+  provenance, ingestion and schedule, delete) and documents (filtered,
+  paged list).
 - The development server proxies `/api` to the API, which has no CORS
   support; production must serve both from one origin.
 - The API decides every permission. The app may hide actions, but it never

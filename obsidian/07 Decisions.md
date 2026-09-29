@@ -153,6 +153,12 @@ Decisions that should hold unless there is a clear reason to change them.
   were.
 - **No combined view in the web app.** The admin app works in one active
   organization at a time, kept in sessionStorage; system admins pick one too.
+- **Switching organization remounts content pages.** The content routes are
+  keyed by the active organization, so no page, form or late answer of the
+  old organization survives a switch.
+- **Asking for ingestion queues it.** `POST /ingestion-runs` creates the run
+  and its job together, like the scheduler, so a requested run is really
+  picked up by a worker. Before, it only recorded a pending run.
 - **Research sessions belong to an organization.** A session searches many
   documents, so it has its own `organization_id` and every turn searches only
   that organization's content, like one-shot context and answers.

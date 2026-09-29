@@ -48,7 +48,10 @@ stops at the first failure, and checks that Alembic has one head.
 ## Web tests
 
 `web/` uses Vitest with jsdom and React Testing Library. Tests talk to a fake
-`fetch` (`src/test/fakeApi.js`), never a real API. `AdminFlow.test.jsx` walks
+`fetch` (`src/test/fakeApi.js`), never a real API. `src/test/content.js`
+and `organizations.js` build content answers and two organizations; every
+content page has a test that switches organization while the new answer is
+held back and checks that nothing of the old organization stays visible. `AdminFlow.test.jsx` walks
 through sign in, the dashboard, an organization, its invitations, the audit
 log and sign out. Run `npm run lint`, `npm test -- --run` and
 `npm run build` in `web/`.

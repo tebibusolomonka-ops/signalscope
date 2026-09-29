@@ -60,6 +60,11 @@ to 359, the tenant research workspace in the web app. Alembic head:
   A route audit test checks every content route for leaks between
   organizations. The web app has an active organization picker and a
   dashboard scoped to it.
+- Tenant research workspace in the web app, in progress: content
+  navigation that needs an active organization, sources (list, create,
+  detail, provenance, ingest now, schedule, run history, delete) and the
+  document list. `POST /ingestion-runs` now also queues the ingestion job,
+  for web and RSS sources only.
 
 - Sources, scheduled network ingestion (RSS, web), file import, blob storage.
 - Processing jobs, parsers, document revisions, section-aware chunks.
