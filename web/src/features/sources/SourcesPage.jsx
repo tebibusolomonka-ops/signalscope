@@ -28,6 +28,7 @@ export function SourcesPage() {
     <>
       <PageHeading title="Sources">
         <span className="muted">{active.name}</span>
+        <Link to="/sources/compare">Compare sources</Link>
       </PageHeading>
       <section className="panel" aria-labelledby="sources-heading">
         <h2 id="sources-heading">Sources</h2>

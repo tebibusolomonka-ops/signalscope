@@ -16,6 +16,7 @@ import { OrganizationDetailPage } from "../features/organizations/OrganizationDe
 import { OrganizationsPage } from "../features/organizations/OrganizationsPage.jsx";
 import { SearchPage } from "../features/search/SearchPage.jsx";
 import { SecurityPage } from "../features/security/SecurityPage.jsx";
+import { SourceComparePage } from "../features/sources/SourceComparePage.jsx";
 import { SourceDetailPage } from "../features/sources/SourceDetailPage.jsx";
 import { SourcesPage } from "../features/sources/SourcesPage.jsx";
 import { UsersPage } from "../features/users/UsersPage.jsx";
@@ -45,6 +46,7 @@ export function AppRoutes() {
           <Route element={<RequireOrganization />}>
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/sources" element={<SourcesPage />} />
+            <Route path="/sources/compare" element={<SourceComparePage />} />
             <Route path="/sources/:sourceId" element={<SourceDetailPage />} />
             <Route path="/documents" element={<DocumentsPage />} />
             <Route path="/documents/import" element={<FileImportPage />} />
