@@ -14,6 +14,8 @@ DetailValue = str | int | bool | uuid.UUID | None
 
 class AuditAction(StrEnum):
     USER_CREATED = "user.created"
+    USER_DEACTIVATED = "user.deactivated"
+    USER_REACTIVATED = "user.reactivated"
     LOGIN = "auth.login"
     LOGOUT = "auth.logout"
     LOGOUT_ALL = "auth.logout_all"

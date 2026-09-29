@@ -7,7 +7,7 @@ from signalscope.api.auth import CurrentSession
 from signalscope.api.dependencies import DatabaseSession
 from signalscope.api.pagination import Page, Pagination
 from signalscope.domain.users.administration import UserAdministrationService
-from signalscope.domain.users.schemas import AdminUserCreate, AdminUserRead
+from signalscope.domain.users.schemas import AdminUserCreate, AdminUserRead, UserStatusUpdate
 
 router = APIRouter(prefix="/admin/users", tags=["User administration"])
 
@@ -61,3 +61,20 @@ async def create_user(request: AdminUserCreate, service: Administration) -> Admi
 @router.get("/{user_id}")
 async def get_user(user_id: uuid.UUID, service: Administration) -> AdminUserRead:
     return AdminUserRead.model_validate(await service.get_user(user_id))
+
+
+@router.patch("/{user_id}/status")
+async def change_user_status(
+    user_id: uuid.UUID, request: UserStatusUpdate, service: Administration
+) -> AdminUserRead:
+    """Deactivate or reactivate a user.
+
+    Deactivating revokes every session of the user at once. Reactivating does
+    not bring old sessions back. The last active system admin cannot be
+    deactivated (409).
+    """
+    if request.is_active:
+        user = await service.reactivate_user(user_id)
+    else:
+        user = await service.deactivate_user(user_id)
+    return AdminUserRead.model_validate(user)

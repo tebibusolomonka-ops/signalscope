@@ -74,3 +74,9 @@ class AdminUserCreate(BaseModel):
     # The policy (12 to 1024 characters) is checked by the service.
     password: Annotated[str, StringConstraints(min_length=1, max_length=PASSWORD_MAX_LENGTH)]
     is_system_admin: bool = False
+
+
+class UserStatusUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    is_active: bool
