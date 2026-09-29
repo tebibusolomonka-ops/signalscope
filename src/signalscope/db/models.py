@@ -21,6 +21,7 @@ from signalscope.domain.events.model import Event, EventEvidence
 from signalscope.domain.ingestion.model import IngestionJob, IngestionRun
 from signalscope.domain.investigations.item import InvestigationItem
 from signalscope.domain.investigations.model import Investigation
+from signalscope.domain.organizations.membership import OrganizationMembership
 from signalscope.domain.organizations.model import Organization
 from signalscope.domain.processing.model import DocumentProcessingJob
 from signalscope.domain.research.session import ResearchSession
@@ -59,6 +60,7 @@ __all__ = [
     "Investigation",
     "InvestigationItem",
     "Organization",
+    "OrganizationMembership",
     "ResearchSession",
     "ResearchTurn",
     "Source",

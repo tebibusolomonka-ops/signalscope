@@ -42,3 +42,21 @@ def test_valid_slugs(slug: str, expected: str) -> None:
 def test_invalid_slugs(slug: str) -> None:
     with pytest.raises(InvalidSlugError):
         normalize_slug(slug)
+
+
+def test_membership_table() -> None:
+    from signalscope.domain.organizations.membership import (
+        OrganizationMembership,
+        OrganizationRole,
+    )
+
+    sql = str(CreateTable(OrganizationMembership.__table__).compile(dialect=postgresql.dialect()))
+
+    assert "PRIMARY KEY (organization_id, user_id)" in sql
+    assert "REFERENCES organizations (id) ON DELETE CASCADE" in sql
+    assert "REFERENCES users (id) ON DELETE RESTRICT" in sql
+    assert "CHECK (role IN ('owner', 'admin', 'member', 'viewer'))" in sql
+    assert [role.value for role in OrganizationRole] == ["owner", "admin", "member", "viewer"]
+    assert {index.name for index in OrganizationMembership.__table__.indexes} == {
+        "ix_organization_memberships_user_id"
+    }
