@@ -53,3 +53,21 @@ export function notFound(message = "Not found.") {
 export function forbidden(message = "You do not have permission to do this.") {
   return { status: 403, body: { error: { code: "forbidden", message } } };
 }
+
+export function run(overrides = {}) {
+  return {
+    id: "r-1",
+    source_id: "s-1",
+    status: "completed",
+    started_at: "2026-09-10T08:00:05Z",
+    finished_at: "2026-09-10T08:00:30Z",
+    error_message: null,
+    items_seen: 20,
+    documents_created: 4,
+    duplicates_skipped: 16,
+    attempt_count: 1,
+    created_at: "2026-09-10T08:00:00Z",
+    updated_at: "2026-09-10T08:00:30Z",
+    ...overrides,
+  };
+}

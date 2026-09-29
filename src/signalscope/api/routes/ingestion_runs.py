@@ -39,9 +39,12 @@ Filters = Annotated[IngestionRunFilters, Depends(get_ingestion_run_filters)]
 async def create_ingestion_run(
     data: IngestionRunCreate, runs: Runs, policy: Policy
 ) -> IngestionRunRead:
-    """Ask for a source to be ingested. Needs the owner or admin role for its source."""
+    """Queue a web or RSS source for ingestion by a worker now.
+
+    Needs the owner or admin role for its source. Other source types: 409.
+    """
     await policy.authorize_source(data.source_id, ContentCapability.MANAGE)
-    return IngestionRunRead.model_validate(await runs.create(data.source_id))
+    return IngestionRunRead.model_validate(await runs.request(data.source_id))
 
 
 @router.get("")

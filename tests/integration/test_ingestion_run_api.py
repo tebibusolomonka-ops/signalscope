@@ -3,8 +3,10 @@ from typing import Any
 
 import httpx
 import pytest
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from signalscope.domain.ingestion.model import IngestionJob, IngestionJobStatus, IngestionRun
 from signalscope.domain.ingestion.service import IngestionRunService
 
 pytestmark = pytest.mark.anyio
@@ -46,6 +48,32 @@ async def test_create_ingestion_run(client: httpx.AsyncClient, source_id: str) -
         0,
     )
     assert run["attempt_count"] == 0
+
+
+async def test_create_ingestion_run_queues_a_job(
+    client: httpx.AsyncClient,
+    source_id: str,
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    run = await create_run(client, source_id)
+
+    async with session_factory() as session:
+        jobs = (await session.scalars(select(IngestionJob))).all()
+    assert [(str(job.run_id), str(job.source_id)) for job in jobs] == [(run["id"], source_id)]
+    assert jobs[0].status is IngestionJobStatus.PENDING
+
+
+async def test_upload_source_cannot_be_queued(
+    client: httpx.AsyncClient, session_factory: async_sessionmaker[AsyncSession]
+) -> None:
+    upload = await client.post("/sources", json={"type": "upload", "name": "Uploads"})
+
+    response = await client.post("/ingestion-runs", json={"source_id": upload.json()["id"]})
+
+    assert response.status_code == 409
+    assert response.json()["error"]["message"] == "upload sources cannot be ingested by a worker."
+    async with session_factory() as session:
+        assert (await session.scalars(select(IngestionRun))).all() == []
 
 
 async def test_create_ingestion_run_for_unknown_source(client: httpx.AsyncClient) -> None:

@@ -4,9 +4,11 @@ from datetime import UTC, datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from signalscope.core.errors import ConflictError, NotFoundError, short_error_message
-from signalscope.domain.ingestion.model import IngestionRun, IngestionStatus
+from signalscope.domain.ingestion.job_repository import IngestionJobRepository
+from signalscope.domain.ingestion.model import IngestionJob, IngestionRun, IngestionStatus
 from signalscope.domain.ingestion.repository import IngestionRunFilters, IngestionRunRepository
 from signalscope.domain.sources.repository import SourceRepository
+from signalscope.domain.sources.scheduling import SCHEDULABLE_TYPES
 
 ALLOWED_CHANGES: dict[IngestionStatus, frozenset[IngestionStatus]] = {
     IngestionStatus.PENDING: frozenset({IngestionStatus.RUNNING}),
@@ -36,6 +38,30 @@ class IngestionRunService:
         run = IngestionRun(source_id=source_id, status=IngestionStatus.PENDING)
         try:
             await self.runs.add(run)
+            await self.session.commit()
+        except Exception:
+            await self.session.rollback()
+            raise
+        return run
+
+    async def request(self, source_id: uuid.UUID) -> IngestionRun:
+        """Create a pending run and queue a job for it, so a worker ingests the source now.
+
+        Only web and RSS sources can be fetched by a worker. The run and the
+        job are committed together, like the scheduler does.
+        """
+        try:
+            source = await self.sources.get(source_id)
+            if source is None:
+                raise NotFoundError("Source was not found.")
+            if source.type not in SCHEDULABLE_TYPES:
+                raise ConflictError(f"{source.type} sources cannot be ingested by a worker.")
+            run = await self.runs.add(
+                IngestionRun(source_id=source_id, status=IngestionStatus.PENDING)
+            )
+            await IngestionJobRepository(self.session).add(
+                IngestionJob(source_id=source_id, run_id=run.id, available_at=datetime.now(UTC))
+            )
             await self.session.commit()
         except Exception:
             await self.session.rollback()

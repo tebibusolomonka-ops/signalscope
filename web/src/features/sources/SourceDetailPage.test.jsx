@@ -17,6 +17,7 @@ function routes(extra = {}, role = "owner", user) {
         ? { body: source() }
         : notFound("Source was not found."),
     "GET /sources/s-1/provenance": { body: provenance() },
+    "GET /ingestion-runs": page([]),
     ...extra,
   };
 }

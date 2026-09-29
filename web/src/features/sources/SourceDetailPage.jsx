@@ -1,4 +1,4 @@
-import { Fragment, useCallback } from "react";
+import { Fragment, useCallback, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 
 import { useOrganization } from "../../app/useOrganization.js";
@@ -7,6 +7,7 @@ import { PageHeading } from "../../components/PageHeading.jsx";
 import { ErrorMessage, Loading } from "../../components/Status.jsx";
 import { formatTime } from "../../lib/format.js";
 import { useResource } from "../../lib/useResource.js";
+import { SourceOperations } from "./SourceOperations.jsx";
 import { scheduleText } from "./sourceText.js";
 
 /** One source: its configuration and what SignalScope has observed from it. */
@@ -15,7 +16,10 @@ export function SourceDetailPage() {
   const { tenantApi, can } = useOrganization();
   const navigate = useNavigate();
   const load = useCallback(() => tenantApi.get(`/sources/${sourceId}`), [tenantApi, sourceId]);
-  const { data: source, error, loading } = useResource(load);
+  const { data, error, loading } = useResource(load);
+  // A schedule change answers with the changed source.
+  const [changed, setChanged] = useState(null);
+  const source = changed ?? data;
 
   async function remove() {
     await tenantApi.delete(`/sources/${sourceId}`);
@@ -48,6 +52,7 @@ export function SourceDetailPage() {
               <dd>{formatTime(source.updated_at)}</dd>
             </dl>
           </section>
+          <SourceOperations source={source} onSourceChange={setChanged} />
           <Provenance sourceId={source.id} />
           {can.manage && (
             <section className="panel" aria-labelledby="source-delete">
