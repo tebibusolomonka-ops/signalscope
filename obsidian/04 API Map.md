@@ -3,8 +3,8 @@
 All routes are JSON over HTTP. With auth off, content routes stay open as
 before. With auth on, content routes take `organization_id` for lists and
 searches, and check the source's organization for single records (see
-[[07 Decisions]]); the move is done route group by route group in batch 314 to
-333, and the sections below say which are scoped. Routes that need the
+[[07 Decisions]]). Every content route is scoped; the sections below say
+how. System admins without `organization_id` get legacy content only. Routes that need the
 database answer 503 when it is not configured. Routes that need an optional
 model answer 503 when it is off. Lists are paged with `limit` and `offset`.
 

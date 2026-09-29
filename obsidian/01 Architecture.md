@@ -54,7 +54,11 @@ One Python package, `src/signalscope`, with one PostgreSQL database. See
   (unrestricted when auth is off, one organization, or legacy content) turns
   into SQL conditions through the source, and `ContentAccessPolicy` decides
   the scope for a request and checks single resources. Routes get the
-  policy and a read scope from `api/tenancy.py`.
+  policy and a read scope from `api/tenancy.py`. Normal content belongs
+  to its source's organization; event clusters and research sessions, which
+  span documents, have their own `organization_id`; entities and claims are
+  shared rows seen through scoped mentions and evidence.
+  `LegacySourceAssignmentService` moves a legacy source into an organization.
 - **Dashboard** (`dashboard/`): aggregate counts and zero-filled UTC daily
   series, built with SQL aggregates.
 - **Relations** (`relations/`): relation extraction interface and an
@@ -73,8 +77,12 @@ admin-focused.
   token, and turns error answers into `ApiError`), `config.js`
   (`VITE_SIGNALSCOPE_API_URL`, default `/api`), `session.js` (the token in
   sessionStorage) and `useResource.js` (load, error and reload state).
-- `src/app/`: routes, the shell with navigation, `AuthProvider` (restores a
-  session with `GET /auth/me`, logs in and out) and `RequireAuth`.
+- `src/app/`: routes, the shell with navigation and an active organization
+  picker, `AuthProvider` (restores a session with `GET /auth/me`, logs in and
+  out), `RequireAuth`, and `OrganizationProvider` (the user's organizations
+  and the active one, remembered in sessionStorage).
+- `src/lib/tenantApi.js`: a client that adds `organization_id` to content
+  calls. Sign in, user, organization and security calls use the plain client.
 - `src/features/`: auth, dashboard, organizations, invitations, users and
   security pages.
 - The development server proxies `/api` to the API, which has no CORS

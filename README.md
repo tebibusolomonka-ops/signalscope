@@ -112,9 +112,12 @@ curl http://localhost:8000/auth/me -H "Authorization: Bearer <token>"
 Sessions are opaque, server-side and revocable; only a hash of the token is
 stored, and no JWT is used. A failed login always gives the same answer.
 
-With authentication on, only the sign in, organization and investigation routes
-need a token. Search, timeline, sources, documents and the extraction APIs
-stay open, as before.
+With authentication on, every content route needs a token too, and content
+belongs to organizations through its source. Lists, searches, the timeline,
+dashboards and research take `organization_id` and only show that
+organization's content; a single source, document or session is checked
+against its own organization. With authentication off, everything stays open
+as before.
 
 ### Administration
 
@@ -260,6 +263,14 @@ Pages: sign in, the dashboard (counts and daily activity), organizations
 create, deactivate and see another user's sessions), security (the audit log
 for system admins and organization owners and admins, and your own sessions)
 and accept invitation, where you paste a token you were sent.
+
+The shell has an **Active organization** picker with the organizations you
+belong to. The dashboard and other content pages show only that
+organization's data and reload when you switch; there is no combined view of
+several organizations, also not for system admins. The choice is remembered
+for the browser tab in sessionStorage; it is not a secret, because the API
+checks every request. Sign in, users, organization management and security
+pages keep their own organization rules.
 
 The app keeps your session token in the browser's sessionStorage, never
 localStorage, so it is gone when the browser session ends. A new invitation

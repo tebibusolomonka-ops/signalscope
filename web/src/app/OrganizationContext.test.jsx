@@ -24,7 +24,7 @@ describe("active organization", () => {
 
     const picker = await screen.findByLabelText("Active organization");
     expect(picker).toHaveValue("org-a");
-    expect(sessionStorage.getItem(KEY)).toBe("org-a");
+    await waitFor(() => expect(sessionStorage.getItem(KEY)).toBe("org-a"));
   });
 
   it("restores the choice from sessionStorage and switches", async () => {

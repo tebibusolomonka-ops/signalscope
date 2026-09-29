@@ -45,7 +45,7 @@ See [[01 Architecture]] for the layers and [[05 Workers and Queues]] for the job
 
 Early development. There is an HTTP API, a command line and a small internal
 admin web app (`web/`). Optional authentication (off by default) adds accounts,
-organizations and shared investigations; other data is not yet split by
+organizations and shared investigations, and splits all content by
 organization. Local models are optional and off
 by default. Real model quality has not been measured yet; see
 [[08 Known Issues]].

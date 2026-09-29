@@ -304,3 +304,24 @@ async def test_normal_users_cannot_reach_legacy_content(
     assert no_organization.status_code == 422
     assert (legacy_source.status_code, legacy_document.status_code) == (404, 404)
     assert world.legacy.marker not in json.dumps([legacy_source.text, legacy_document.text])
+
+
+@pytest.mark.parametrize("side", ["a", "b"])
+async def test_dashboard_matches_what_the_organization_can_see(
+    client: httpx.AsyncClient, world: World, side: str
+) -> None:
+    tenant = world.tenants.a if side == "a" else world.tenants.b
+    viewer, q = tenant.headers["viewer"], tenant.query
+
+    overview = (await client.get(f"/dashboard/overview?{q}", headers=viewer)).json()
+    totals = {
+        name: (await client.get(f"/{name}?{q}", headers=viewer)).json()["total"]
+        for name in ("sources", "documents", "entities", "claims", "events")
+    }
+    searchable = await client.get(f"/search?q=harbour&limit=50&{q}", headers=viewer)
+    coverage = (await client.get(f"/embeddings/coverage?{q}", headers=viewer)).json()
+
+    assert {name: overview[name] for name in totals} == totals
+    assert overview["chunks"] == coverage["chunk_count"]
+    documents = {item["document_id"] for item in searchable.json()["items"]}
+    assert len(documents) == overview["documents"]

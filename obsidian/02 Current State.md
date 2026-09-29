@@ -1,10 +1,12 @@
 # Current State
 
-Last updated at planned commit 328 (repository commit 333: checkpoint 1
-needed one corrective commit and checkpoint 2 four). Batch 294 to 313 (administration
-and the admin web app) ended at commit 313 (`0fbf1cc`) with no corrective
-commit. Current batch: 314 to 333, organization content tenancy. Alembic head:
-`8a83722f5691` (Add research session organization).
+Last updated at planned commit 333, the end of batch 314 to 333
+(organization content tenancy). With five corrective commits (one at
+checkpoint 1, four at checkpoint 2) it ends at repository commit 338, "Scope
+admin dashboard by organization" (a commit cannot name its own hash; see
+`git log`). A later corrective commit must update this line. The batch
+before ended at commit 313 (`0fbf1cc`). Alembic head: `a809b1740bcd` (Add
+event cluster organization).
 
 ## Done
 
@@ -55,9 +57,12 @@ commit. Current batch: 314 to 333, organization content tenancy. Alembic head:
   comparison, the three dashboard routes, research context and answers, and
   research sessions (which now have their own organization). Investigation
   items must belong to the investigation's organization, and
-  `import-file --organization-id` checks the upload source. Still to do in
-  this batch: organization-owned event clusters, the legacy assignment
-  command, a route audit and the web organization context.
+  `import-file --organization-id` checks the upload source. Event clusters
+  have an organization and the linker never mixes organizations.
+  `signalscope assign-source-organization` moves a legacy source in, once.
+  A route audit test checks every content route for leaks between
+  organizations. The web app has an active organization picker and a
+  dashboard scoped to it.
 
 - Sources, scheduled network ingestion (RSS, web), file import, blob storage.
 - Processing jobs, parsers, document revisions, section-aware chunks.

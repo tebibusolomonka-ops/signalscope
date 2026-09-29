@@ -9,12 +9,15 @@ Batch 294 to 313 is done: the administration backend (users, lifecycle,
 password change, invitations, audit API, cleanup, admin session controls,
 access summary) and the first React admin web app.
 
-Current batch, 314 to 333: organization content tenancy. Done: the result
-warning fix, source ownership, the content policy, and scoped sources,
-documents, search, entities, claims, events, coverage, timeline,
-provenance, comparison, dashboard, research, investigation references and
-file import. To do: organization-owned event clusters, the legacy assignment
-command, a route audit and the web organization context.
+Batch 314 to 333, organization content tenancy, is done: every content
+route is scoped, event clusters and research sessions have organizations,
+legacy sources can be assigned, and the web app has an active organization.
+
+Next planned area: expand the tenant-aware frontend over Sources, Documents,
+Search, Investigations and Research Sessions; add investigation and research
+workspaces; then plan organization-scoped retention, exports and
+operational administration before considering any knowledge-graph
+persistence.
 
 ## Next batch
 

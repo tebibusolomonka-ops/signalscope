@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 
-import { useAuth } from "../../app/useAuth.js";
+import { useOrganization } from "../../app/useOrganization.js";
 import { PageHeading } from "../../components/PageHeading.jsx";
 import { ErrorMessage, Loading } from "../../components/Status.jsx";
 import { useResource } from "../../lib/useResource.js";
@@ -12,22 +12,42 @@ function label(key) {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
-/** Counts and daily activity from the dashboard API. No scores or rankings. */
+/**
+ * Counts and daily activity of the active organization. No scores or rankings.
+ *
+ * Every request carries the organization, and there is no view of several
+ * organizations together, also not for system admins.
+ */
 export function DashboardPage() {
-  const { api } = useAuth();
+  const { active, tenantApi } = useOrganization();
+  if (!tenantApi) {
+    return (
+      <>
+        <PageHeading title="Dashboard" />
+        <p className="muted">Choose an organization to see its dashboard.</p>
+      </>
+    );
+  }
+  return <OrganizationDashboard name={active.name} tenantApi={tenantApi} />;
+}
+
+function OrganizationDashboard({ name, tenantApi }) {
   const load = useCallback(async () => {
     const [overview, sources, events] = await Promise.all([
-      api.get("/dashboard/overview"),
-      api.get("/dashboard/sources", { query: { days: DAYS } }),
-      api.get("/dashboard/events", { query: { days: DAYS } }),
+      tenantApi.get("/dashboard/overview"),
+      tenantApi.get("/dashboard/sources", { query: { days: DAYS } }),
+      tenantApi.get("/dashboard/events", { query: { days: DAYS } }),
     ]);
     return { overview, sources, events };
-  }, [api]);
+  }, [tenantApi]);
+  // Switching organization gives a new load, so the old numbers disappear at once.
   const { data, error, loading } = useResource(load);
 
   return (
     <>
-      <PageHeading title="Dashboard" />
+      <PageHeading title="Dashboard">
+        <span className="muted">{name}</span>
+      </PageHeading>
       {loading && <Loading />}
       <ErrorMessage error={error} />
       {data && (

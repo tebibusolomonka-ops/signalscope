@@ -138,9 +138,21 @@ Decisions that should hold unless there is a clear reason to change them.
   backed by mentions or evidence from several organizations. The row is not
   proof of access: in a scope it appears only with mentions or evidence in
   that scope, and its counts and details come from those only.
-- **Events are seen through their evidence.** Until clusters get an
-  organization, cluster details and the timeline show only the member events
-  and evidence in scope.
+- **Events are seen through their evidence.** Cluster details and the
+  timeline show only member events and evidence in scope, which also covers
+  older clusters without an organization.
+- **Event clusters never mix organizations.** A cluster has the organization
+  of its events; the exact linker matches organization, type, title and day,
+  so legacy events only join legacy clusters. An event whose evidence spans
+  organizations is refused and left unclustered.
+- **Legacy content moves in once, by command.** `assign-source-organization`
+  only turns NULL into an organization, in one transaction, takes the
+  source's events out of legacy clusters and links them again, and gives the
+  source's source-limited legacy research sessions the same organization.
+  It never moves content between organizations. Investigations stay as they
+  were.
+- **No combined view in the web app.** The admin app works in one active
+  organization at a time, kept in sessionStorage; system admins pick one too.
 - **Research sessions belong to an organization.** A session searches many
   documents, so it has its own `organization_id` and every turn searches only
   that organization's content, like one-shot context and answers.
@@ -168,8 +180,6 @@ Decisions that should hold unless there is a clear reason to change them.
 - **Invitation tokens in the app live in component state only**, shown once.
 - **The backend stays the authority.** The app may hide actions it expects
   to fail, but every rule is enforced by the API.
-- **Only investigations are protected so far.** Search, timeline, sources,
-  documents and extraction APIs stay open until data tenancy is designed.
 - **Exports replay history, not live data.** A research session export uses
   each turn's saved evidence and never searches again. An investigation export
   uses item snapshots; its only live value is whether a record still exists.

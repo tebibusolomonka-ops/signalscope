@@ -32,6 +32,13 @@ stops at the first failure, and checks that Alembic has one head.
   the invitation token appears only in the answer that made it.
 - `tests/tenancy_helpers.py` makes organizations A and B with one user per
   role, plus a system admin and an outsider, for organization content tests.
+- `test_content_tenancy_audit.py` fills A and B with nearly the same content
+  plus marker words, calls every content route as each side, and checks that
+  no answer holds the other side's markers, IDs, names or counts. It also
+  checks that dashboard counts match the lists.
+- Database tests cannot run on the developer machine, so scoped queries are
+  compiled locally with a fake session before pushing, which catches SQL
+  shape errors such as ambiguous joins.
 - Concurrency rules (last owner, last system admin) have tests that run two
   sessions at once with `asyncio.gather`.
 - Extraction quality is measured with `signalscope evaluate-extraction` on a

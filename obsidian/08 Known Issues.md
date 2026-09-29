@@ -1,6 +1,6 @@
 # Known Issues
 
-Open problems as of commit 328. Remove an item when it is fixed.
+Open problems as of commit 333. Remove an item when it is fixed.
 
 ## Events
 
@@ -56,10 +56,11 @@ Open problems as of commit 328. Remove an item when it is fixed.
 - There is no password reset yet, only a change while signed in.
 - There is no way to delete an organization or a user through the API.
 - Invitations are shared by hand: there is no email sending.
-- Until event clusters get an organization later in this batch, the exact
-  linker can put events of two organizations into one cluster. Every view
-  already hides the other organization's members and counts.
-- There is no command yet to move legacy sources into an organization.
+- Clusters made before this batch that mix organizations keep no
+  organization. Views hide the other organization's members, but such a
+  cluster is only split by relinking its events by hand.
+- Legacy sources are moved one at a time; there is no bulk move and no move
+  between organizations.
 - The saved investigation items from before this batch were not checked
   against organizations; they keep their old snapshots.
 - Audit events have no retention rule yet, and failed logins are not
@@ -75,7 +76,8 @@ Open problems as of commit 328. Remove an item when it is fixed.
   Policy are still to be reviewed before any public deployment.
 - The API sends no CORS headers, so the app must be served from the API's
   origin (the development server proxies `/api`).
-- There are no pages yet for investigations or research sessions.
+- There are no pages yet for sources, documents, search, investigations or
+  research sessions; only the dashboard uses the active organization.
 
 ## Code
 

@@ -1,7 +1,7 @@
 # Database and Migrations
 
 PostgreSQL 17 with the pgvector extension. Current Alembic head:
-`8a83722f5691` (Add research session
+`a809b1740bcd` (Add event cluster
 organization).
 
 ## Rules
@@ -26,7 +26,9 @@ organization).
 - **Search**: `chunk_embeddings` (pgvector, HNSW index for the E5 model),
   `embedding_jobs`.
 - **Entities**: `entities`, `entity_mentions`, `entity_extraction_jobs`.
-- **Events**: `events`, `event_evidence`, `event_extraction_jobs`,
+- **Events** (event clusters have a nullable `organization_id`; the
+  migration only filled it for clusters whose evidence all came from one
+  organization): `events`, `event_evidence`, `event_extraction_jobs`,
   `event_clusters`, `event_cluster_members` (event ID is the key, so one
   cluster per event).
 - **Claims**: `claims` (unique on normalized text and type), `claim_evidence`
