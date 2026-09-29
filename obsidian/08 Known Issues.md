@@ -1,6 +1,6 @@
 # Known Issues
 
-Open problems as of commit 287. Remove an item when it is fixed.
+Open problems as of commit 292. Remove an item when it is fixed.
 
 ## Events
 
@@ -60,6 +60,10 @@ Open problems as of commit 287. Remove an item when it is fixed.
   even when auth is on, until data tenancy is designed.
 - The saved records an investigation points at are not checked against the
   organization: any record ID can be saved and its snapshot read.
+- Audit events have no read API or retention rule yet, and failed logins are
+  not recorded.
+- `GET /auth/sessions` shows at most the 100 newest sessions; run
+  `cleanup-auth-sessions` regularly.
 
 ## Code
 

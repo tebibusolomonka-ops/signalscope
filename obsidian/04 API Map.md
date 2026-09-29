@@ -14,6 +14,11 @@ Only when `SIGNALSCOPE_AUTH_ENABLED=true`; otherwise 503. Send the token as
   failure is the same 401.
 - `POST /auth/logout`: revokes the current session.
 - `GET /auth/me`: the signed in user.
+- `GET /auth/sessions`: my sessions, newest first, with `current_session`;
+  never tokens or hashes.
+- `DELETE /auth/sessions/{session_id}`: revoke one of mine; someone else's
+  gives 404.
+- `POST /auth/logout-all`: revoke all of mine, the current one included.
 - There is no registration route. Accounts come from the command line.
 
 ## Organizations

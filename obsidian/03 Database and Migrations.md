@@ -1,8 +1,8 @@
 # Database and Migrations
 
 PostgreSQL 17 with the pgvector extension. Current Alembic head:
-`8c633fbceb79` (Create investigation
-collaborators).
+`fb1d292a0ca2` (Create security audit
+events).
 
 ## Rules
 
@@ -43,6 +43,9 @@ collaborators).
 - **Organizations**: `organizations` (unique slug, creator), and
   `organization_memberships` (one role per user and organization, role as
   text with a check).
+- **Audit**: `security_audit_events` (actor, organization, action, resource
+  type and ID, JSONB `metadata` object, `created_at` only, since events are
+  history). Indexed by time, actor, organization and action.
 
 ## Deletion behavior
 
@@ -57,6 +60,11 @@ collaborators).
   no user delete API.
 - Deleting an organization deletes its memberships, but is refused while it
   has investigations.
+- Deleting a user or organization keeps its audit events and sets their
+  reference to NULL.
+- `cleanup-auth-sessions` deletes sessions that expired or were revoked more
+  than `SIGNALSCOPE_AUTH_SESSION_RETENTION_DAYS` days ago, at most `--limit`
+  per run.
 - Deleting an investigation deletes its items and collaborators, never the
   saved records. Deleting a user is refused while they created an
   investigation or collaborate on one.

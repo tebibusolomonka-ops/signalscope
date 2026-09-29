@@ -1,10 +1,14 @@
 # Next Work
 
-Current batch: commits 273 to 292, the identity and authorization
-foundation. Done: users, passwords, sessions, the auth API, the bootstrap
-command, organizations, investigation ownership, the access policy and
-collaborators. Still to do: session management, session cleanup, security
-audit and an end to end test.
+Batch 273 to 292, the identity and authorization foundation, is done: users,
+passwords, sessions, the auth API, the bootstrap command, organizations,
+investigation ownership, access policy and collaborators, session management
+and cleanup, and the security audit log.
+
+Next planned area: add organization-scoped data tenancy gradually,
+organization invitations and user administration, build the authenticated
+admin/frontend dashboard, expose security audit views, and later evaluate
+password reset/MFA/SSO requirements.
 
 ## Next batch
 

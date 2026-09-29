@@ -169,8 +169,8 @@ to `SIGNALSCOPE_LOCAL_EMBEDDING_CACHE_DIR` when that is set.
 
 `SIGNALSCOPE_AUTH_ENABLED=true` turns on sign in with email and password,
 organizations, and access rules for investigations. It is off by default, and
-then the existing APIs work without a login, as before; the sign in and
-organization routes answer 503.
+then the existing APIs work without a login, as before; the sign in,
+organization and investigation member routes answer 503.
 
 Sessions are opaque: a random bearer token is given once at login, and only
 its SHA-256 hash is stored. They last `SIGNALSCOPE_AUTH_SESSION_DAYS` days and

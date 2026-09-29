@@ -22,6 +22,8 @@ follow the code and fix the note.
 - Save sources, events, claims and research sessions into investigations,
   and export sessions and investigations as JSON or Markdown.
 - Read factual dashboard aggregates: counts and daily activity.
+- With authentication on: sign in, organizations with roles, and
+  investigations shared with collaborators, with a security audit log.
 
 ## Data flow
 
@@ -38,8 +40,10 @@ See [[01 Architecture]] for the layers and [[05 Workers and Queues]] for the job
 
 ## Maturity
 
-Early development. There is an HTTP API and a command line, no user interface,
-no authentication and no multi-user support. Local models are optional and off
+Early development. There is an HTTP API and a command line and no user
+interface. Optional authentication (off by default) adds accounts,
+organizations and shared investigations; other data is not yet split by
+organization. Local models are optional and off
 by default. Real model quality has not been measured yet; see
 [[08 Known Issues]].
 

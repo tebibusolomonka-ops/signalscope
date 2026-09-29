@@ -1,8 +1,9 @@
 # Current State
 
-Last updated at commit 287. Batch 251 to 270 ended at commit 272 (`40f2d5c`),
-with two corrective commits. Alembic head: `8c633fbceb79` (Create investigation
-collaborators).
+Last updated at commit 292, the end of batch 273 to 292 (identity and
+authorization foundation). The batch before ended at commit 272 (`40f2d5c`),
+with two corrective commits. Alembic head: `fb1d292a0ca2` (Create security
+audit events).
 
 ## Done
 
@@ -19,6 +20,14 @@ collaborators).
   on, the investigation API needs a token and filters by access, and
   `/investigations/{id}/members` manages collaborators. With auth off it works
   as before.
+- Session management (`GET /auth/sessions`, `DELETE /auth/sessions/{id}`,
+  `POST /auth/logout-all`) and `signalscope cleanup-auth-sessions`, which
+  deletes sessions that ended more than the retention period ago.
+- Security audit events for account creation, logins, logouts and changes to
+  organizations, members and collaborators, written in the same transaction
+  as the change. No read API yet.
+- An end to end test covers bootstrap, login, organizations, sharing,
+  logout-all and the audit log, plus the auth-off behavior.
 
 - Sources, scheduled network ingestion (RSS, web), file import, blob storage.
 - Processing jobs, parsers, document revisions, section-aware chunks.
@@ -42,7 +51,8 @@ collaborators).
   Exposed as `POST /sources/compare`.
 - Saved investigations (`/investigations`): open or closed, with items that
   reference sources, documents, events, clusters, entities, claims and
-  research sessions, each with a snapshot. Global, no owner.
+  research sessions, each with a snapshot. Global when auth is off; owned
+  by an organization and shared with collaborators when it is on.
 - Exports as JSON or Markdown: research sessions
   (`GET /research/sessions/{id}/export`, from each turn's saved evidence) and
   investigations (`GET /investigations/{id}/export`, from saved snapshots,

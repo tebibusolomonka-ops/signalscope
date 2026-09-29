@@ -91,7 +91,44 @@ export SIGNALSCOPE_AUTH_ENABLED=true
 `--password-stdin` reads it from the first line of standard input instead.
 There is no option that takes the password itself, so it never lands in shell
 history. Passwords must be 12 to 1024 characters. There is no self
-registration.
+registration: more accounts are made the same way, without `--system-admin`.
+
+Sign in with the email and password to get a bearer token. The token is shown
+only in this answer; keep it secret.
+
+```bash
+curl -X POST http://localhost:8000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "admin@example.org", "password": "<your password>"}'
+```
+
+Send it with every protected request, and end the session with
+`POST /auth/logout`:
+
+```bash
+curl http://localhost:8000/auth/me -H "Authorization: Bearer <token>"
+```
+
+Sessions are opaque, server-side and revocable; only a hash of the token is
+stored, and no JWT is used. A failed login always gives the same answer.
+
+With authentication on, only the sign in, organization and investigation routes
+need a token. Search, timeline, sources, documents and the extraction APIs
+stay open, as before.
+
+### Organizations
+
+`POST /organizations` makes an organization and you become its owner. Members
+are added by user ID with `POST /organizations/{id}/members`. Roles:
+
+- `owner`: manages everyone and has full access to the organization's
+  investigations. An organization always keeps at least one owner.
+- `admin`: manages members and viewers, with full access to investigations.
+- `member` and `viewer`: see only the investigations they collaborate on.
+
+Users who are not members get 404. System admins can manage any organization.
+
+### Sessions
 
 Signed in users can see their sessions with `GET /auth/sessions` (never the
 tokens), revoke one with `DELETE /auth/sessions/{session_id}`, and end every
@@ -107,6 +144,14 @@ signalscope cleanup-auth-sessions --limit 1000
 
 It prints how many sessions it checked and deleted. Active sessions are never
 deleted.
+
+### Security audit
+
+Account creation, logins, logouts, and changes to organizations, members and
+investigation collaborators are written to the `security_audit_events` table,
+in the same transaction as the change. Events hold IDs and roles only, never
+passwords, tokens or hashes. Failed logins are not recorded. There is no API
+to read them yet.
 
 ## Command line
 

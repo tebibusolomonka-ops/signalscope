@@ -23,6 +23,10 @@ stops at the first failure, and checks that Alembic has one head.
 - `tests/integration/test_dashboard_end_to_end.py` checks that the dashboard,
   source comparison, timeline, research export and investigation export agree
   on one dataset.
+- Auth tests use `tests/password_helpers.py` (test passwords and a cheap
+  Argon2id hasher, so production costs stay unchanged), `tests/auth_helpers.py`
+  (accounts, login, bearer headers) and the `auth_client` fixture, an app
+  with auth on. `test_auth_end_to_end.py` covers the whole flow.
 - Extraction quality is measured with `signalscope evaluate-extraction` on a
   local dataset, by hand, with the real model. It is not part of CI, and there
   are no built-in thresholds.

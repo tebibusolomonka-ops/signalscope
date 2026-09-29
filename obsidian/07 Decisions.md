@@ -75,6 +75,16 @@ Decisions that should hold unless there is a clear reason to change them.
 - **Closed investigations can be shared.** Collaborators can be changed while
   an investigation is closed, so it can be handed over or opened for reading
   without reopening it.
+- **Logout-all includes the current session.** It is meant for a lost device
+  or a leaked token, so nothing is left signed in.
+- **Ended sessions are kept for a while.** Expired and revoked sessions stay
+  `SIGNALSCOPE_AUTH_SESSION_RETENTION_DAYS` days (30) for inspection, then a
+  bounded command deletes them. Active sessions are never deleted.
+- **Audit events share the change's transaction.** An event is never written
+  for a refused or failed change, and a change is never saved without its
+  event. Details only take a fixed set of keys (IDs, roles, counts), so
+  passwords, tokens and hashes cannot land there. Failed logins are not
+  recorded yet. Deleting a user or organization keeps its events.
 - **Only investigations are protected so far.** Search, timeline, sources,
   documents and extraction APIs stay open until data tenancy is designed.
 - **Exports replay history, not live data.** A research session export uses
