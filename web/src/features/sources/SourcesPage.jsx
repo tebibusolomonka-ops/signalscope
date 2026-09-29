@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { Link } from "react-router";
 
 import { useOrganization } from "../../app/useOrganization.js";
 import { PageHeading } from "../../components/PageHeading.jsx";
@@ -65,7 +66,9 @@ function SourceTable({ sources }) {
       <tbody>
         {sources.map((source) => (
           <tr key={source.id}>
-            <td>{source.name}</td>
+            <td>
+              <Link to={`/sources/${source.id}`}>{source.name}</Link>
+            </td>
             <td>{source.type}</td>
             <td className="wrap">{source.url ?? "-"}</td>
             <td>{scheduleText(source)}</td>

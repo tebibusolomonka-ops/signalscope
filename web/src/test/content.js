@@ -27,3 +27,29 @@ export function held() {
   });
   return { ready, release };
 }
+
+export function provenance(overrides = {}) {
+  return {
+    source_id: "s-1",
+    document_count: 12,
+    first_document_at: "2026-09-01T08:00:00Z",
+    last_document_at: "2026-09-20T08:00:00Z",
+    first_published_at: null,
+    last_published_at: null,
+    entity_count: 30,
+    claim_count: 7,
+    event_count: 5,
+    event_cluster_count: 4,
+    cross_source_event_cluster_count: 2,
+    revision_count: 3,
+    ...overrides,
+  };
+}
+
+export function notFound(message = "Not found.") {
+  return { status: 404, body: { error: { code: "not_found", message } } };
+}
+
+export function forbidden(message = "You do not have permission to do this.") {
+  return { status: 403, body: { error: { code: "forbidden", message } } };
+}

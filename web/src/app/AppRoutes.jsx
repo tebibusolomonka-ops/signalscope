@@ -6,6 +6,7 @@ import { AcceptInvitationPage } from "../features/invitations/AcceptInvitationPa
 import { OrganizationDetailPage } from "../features/organizations/OrganizationDetailPage.jsx";
 import { OrganizationsPage } from "../features/organizations/OrganizationsPage.jsx";
 import { SecurityPage } from "../features/security/SecurityPage.jsx";
+import { SourceDetailPage } from "../features/sources/SourceDetailPage.jsx";
 import { SourcesPage } from "../features/sources/SourcesPage.jsx";
 import { UsersPage } from "../features/users/UsersPage.jsx";
 import { Placeholder } from "../features/workspace/Placeholder.jsx";
@@ -34,6 +35,7 @@ export function AppRoutes() {
           <Route element={<RequireOrganization />}>
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/sources" element={<SourcesPage />} />
+            <Route path="/sources/:sourceId" element={<SourceDetailPage />} />
             <Route path="/documents" element={<Placeholder title="Documents" />} />
             <Route path="/search" element={<Placeholder title="Search" />} />
             <Route path="/entities" element={<Placeholder title="Entities" />} />
