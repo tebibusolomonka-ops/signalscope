@@ -13,6 +13,7 @@ DATABASE_URL_PREFIX = "postgresql+asyncpg://"
 # A cap on answer length, so a typo cannot ask for a very long, slow generation.
 MAX_ANSWER_TOKENS = 4096
 MAX_AUTH_SESSION_DAYS = 365
+MAX_AUTH_SESSION_RETENTION_DAYS = 3650
 
 
 class SettingsError(SignalScopeError, ValueError):
@@ -76,6 +77,9 @@ class Settings:
     auth_enabled: bool = False
     # How long a login session lasts before it expires.
     auth_session_days: int = 7
+    # How long expired and revoked sessions are kept before cleanup-auth-sessions
+    # deletes them.
+    auth_session_retention_days: int = 30
 
     def __post_init__(self) -> None:
         if not self.app_name.strip():
@@ -102,6 +106,10 @@ class Settings:
             )
         if not 1 <= self.auth_session_days <= MAX_AUTH_SESSION_DAYS:
             raise SettingsError(f"auth_session_days must be from 1 to {MAX_AUTH_SESSION_DAYS}")
+        if not 1 <= self.auth_session_retention_days <= MAX_AUTH_SESSION_RETENTION_DAYS:
+            raise SettingsError(
+                f"auth_session_retention_days must be from 1 to {MAX_AUTH_SESSION_RETENTION_DAYS}"
+            )
         if self.database_url is not None and not self.database_url.startswith(DATABASE_URL_PREFIX):
             raise SettingsError(f"Database URL must start with {DATABASE_URL_PREFIX}")
 
@@ -169,6 +177,11 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
         auth_enabled=_read_bool(env, "SIGNALSCOPE_AUTH_ENABLED", defaults.auth_enabled),
         auth_session_days=_read_int(
             env, "SIGNALSCOPE_AUTH_SESSION_DAYS", defaults.auth_session_days
+        ),
+        auth_session_retention_days=_read_int(
+            env,
+            "SIGNALSCOPE_AUTH_SESSION_RETENTION_DAYS",
+            defaults.auth_session_retention_days,
         ),
     )
 

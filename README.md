@@ -97,6 +97,17 @@ Signed in users can see their sessions with `GET /auth/sessions` (never the
 tokens), revoke one with `DELETE /auth/sessions/{session_id}`, and end every
 session, the current one included, with `POST /auth/logout-all`.
 
+Expired and revoked sessions stay in the database for
+`SIGNALSCOPE_AUTH_SESSION_RETENTION_DAYS` days (30 by default). Delete older
+ones from a daily scheduled job:
+
+```bash
+signalscope cleanup-auth-sessions --limit 1000
+```
+
+It prints how many sessions it checked and deleted. Active sessions are never
+deleted.
+
 ## Command line
 
 Fetch new content for one RSS or web source. This needs

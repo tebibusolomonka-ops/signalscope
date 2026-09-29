@@ -71,9 +71,10 @@ from signalscope.domain.search.embedding_queue import EmbeddingQueueService
 from signalscope.domain.search.embedding_worker import EmbeddingWorker
 from signalscope.domain.sources.model import SourceType
 from signalscope.domain.sources.repository import SourceRepository
-from signalscope.domain.sources.scheduling import utc_now
+from signalscope.domain.sources.scheduling import Clock, utc_now
 from signalscope.domain.users.authentication import AuthenticationService
 from signalscope.domain.users.passwords import PasswordHasher
+from signalscope.domain.users.session_cleanup import SessionCleanupService
 from signalscope.embeddings.local import LocalEmbeddingsNotInstalledError
 from signalscope.embeddings.models import MULTILINGUAL_E5_SMALL
 from signalscope.embeddings.provider import EmbeddingInputRole, EmbeddingProvider, embed
@@ -155,6 +156,7 @@ from signalscope.workers.shutdown import stop_on_signals
 
 DEFAULT_SCHEDULE_LIMIT = 100
 DEFAULT_CLEANUP_LIMIT = 100
+DEFAULT_SESSION_CLEANUP_LIMIT = 1000
 DEFAULT_LINK_EVENTS_LIMIT = 1000
 # Events linked per transaction batch by link-events.
 LINK_EVENTS_BATCH = 200
@@ -258,6 +260,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 password_stdin=args.password_stdin,
             )
         )
+    if args.command == "cleanup-auth-sessions":
+        return asyncio.run(cleanup_auth_sessions(args.limit, settings))
     if args.command == "export-investigation":
         return asyncio.run(
             export_investigation(
@@ -374,6 +378,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--password-stdin",
         action="store_true",
         help="read the password from the first line of standard input, for automation",
+    )
+
+    session_cleanup = commands.add_parser(
+        "cleanup-auth-sessions", help="delete login sessions that expired or were revoked long ago"
+    )
+    session_cleanup.add_argument(
+        "--limit",
+        type=positive_int,
+        default=DEFAULT_SESSION_CLEANUP_LIMIT,
+        help=f"most sessions to delete (default: {DEFAULT_SESSION_CLEANUP_LIMIT})",
     )
 
     export_command = commands.add_parser(
@@ -707,6 +721,33 @@ async def queue_events(
     print(f"Jobs created: {result.jobs_created}", file=out)
     print(f"Already extracted: {result.already_extracted}", file=out)
     print(f"Already queued: {result.already_queued}", file=out)
+    return 0
+
+
+async def cleanup_auth_sessions(
+    limit: int,
+    settings: Settings,
+    out: TextIO | None = None,
+    err: TextIO | None = None,
+    *,
+    clock: Clock = utc_now,
+) -> int:
+    """Delete old expired and revoked sessions and print the counts. Returns the exit code.
+
+    Sessions are kept for SIGNALSCOPE_AUTH_SESSION_RETENTION_DAYS after they end.
+    """
+    out = sys.stdout if out is None else out
+    err = sys.stderr if err is None else err
+    if settings.database_url is None:
+        print(NO_DATABASE_ERROR, file=err)
+        return 1
+
+    async with _database(settings) as session_factory, session_factory() as session:
+        result = await SessionCleanupService(session, clock).run(
+            settings.auth_session_retention_days, limit
+        )
+    print(f"Checked: {result.checked}", file=out)
+    print(f"Deleted: {result.deleted}", file=out)
     return 0
 
 
