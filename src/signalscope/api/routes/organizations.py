@@ -4,10 +4,17 @@ from fastapi import APIRouter, status
 
 from signalscope.api.auth import CurrentSession
 from signalscope.api.dependencies import DatabaseSession
+from signalscope.domain.organizations.access_summary import OrganizationAccessSummaryService
 from signalscope.domain.organizations.membership import OrganizationMembership
 from signalscope.domain.organizations.schemas import (
+    CollaboratorCounts,
+    InvestigationCounts,
+    InvitationCounts,
+    MemberCounts,
+    MemberStatusCounts,
     MemberUserRead,
     MyOrganizationRead,
+    OrganizationAccessSummaryRead,
     OrganizationCreate,
     OrganizationMemberCreate,
     OrganizationMemberRead,
@@ -100,6 +107,36 @@ async def remove_organization_member(
 ) -> None:
     """Remove a member. The last owner cannot be removed."""
     await OrganizationService(session).remove_member(current.user, organization_id, user_id)
+
+
+@router.get("/{organization_id}/access-summary")
+async def get_access_summary(
+    organization_id: uuid.UUID, current: CurrentSession, session: DatabaseSession
+) -> OrganizationAccessSummaryRead:
+    """Counts of members, invitations, investigations and collaborators.
+
+    For organization owners and admins, and system admins. Other members get
+    403 and non-members 404.
+    """
+    found = await OrganizationAccessSummaryService(session, current.user).summary(organization_id)
+    return OrganizationAccessSummaryRead(
+        organization=OrganizationRead.model_validate(found.organization),
+        members=MemberCounts(
+            total=found.total_members, **{role.value: n for role, n in found.members.items()}
+        ),
+        member_status=MemberStatusCounts(
+            active=found.active_members, inactive=found.inactive_members
+        ),
+        invitations=InvitationCounts(
+            **{status.value: n for status, n in found.invitations.items()}
+        ),
+        investigations=InvestigationCounts(
+            **{status.value: n for status, n in found.investigations.items()}
+        ),
+        collaborators=CollaboratorCounts(
+            **{role.value: n for role, n in found.collaborators.items()}
+        ),
+    )
 
 
 async def _read(

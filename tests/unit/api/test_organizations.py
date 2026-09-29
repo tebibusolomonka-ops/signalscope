@@ -28,6 +28,16 @@ def test_routes_are_in_openapi(app: FastAPI) -> None:
     ):
         for operation in methods.values():
             assert operation["security"] == [{"HTTPBearer": []}]
+    assert set(paths["/organizations/{organization_id}/access-summary"]) == {"get"}
+    summary = app.openapi()["components"]["schemas"]["OrganizationAccessSummaryRead"]
+    assert set(summary["properties"]) == {
+        "organization",
+        "members",
+        "member_status",
+        "invitations",
+        "investigations",
+        "collaborators",
+    }
     roles = app.openapi()["components"]["schemas"]["OrganizationRole"]["enum"]
     assert roles == ["owner", "admin", "member", "viewer"]
 
@@ -39,6 +49,7 @@ def test_routes_are_in_openapi(app: FastAPI) -> None:
         ("POST", "/organizations"),
         ("GET", f"{ORGANIZATION}/members"),
         ("DELETE", f"{ORGANIZATION}/members/{uuid.uuid4()}"),
+        ("GET", f"{ORGANIZATION}/access-summary"),
     ],
 )
 def test_needs_auth_enabled(method: str, path: str) -> None:

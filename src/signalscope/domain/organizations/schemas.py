@@ -117,3 +117,45 @@ class InvitationAccept(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     token: Annotated[str, StringConstraints(min_length=1, max_length=200)]
+
+
+class MemberCounts(BaseModel):
+    total: int
+    owner: int
+    admin: int
+    member: int
+    viewer: int
+
+
+class MemberStatusCounts(BaseModel):
+    active: int
+    inactive: int
+
+
+class InvitationCounts(BaseModel):
+    pending: int
+    accepted: int
+    revoked: int
+    expired: int
+
+
+class InvestigationCounts(BaseModel):
+    open: int
+    closed: int
+
+
+class CollaboratorCounts(BaseModel):
+    owner: int
+    editor: int
+    viewer: int
+
+
+class OrganizationAccessSummaryRead(BaseModel):
+    """Counts only. No tokens, passwords, sessions or scores."""
+
+    organization: OrganizationRead
+    members: MemberCounts
+    member_status: MemberStatusCounts
+    invitations: InvitationCounts
+    investigations: InvestigationCounts
+    collaborators: CollaboratorCounts
