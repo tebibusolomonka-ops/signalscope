@@ -1,5 +1,5 @@
 import pytest
-from sqlalchemy import delete, select, text
+from sqlalchemy import delete, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -52,23 +52,22 @@ async def test_events_outlive_users_and_organizations(
     leaver = await create_account(session_factory, "leaver@example.org")
     async with session_factory() as session:
         organization = await OrganizationService(session).create(owner, "Harbour", "harbour")
-        session.add(
-            SecurityAuditEvent(
-                actor_user_id=leaver.id,
-                organization_id=organization.id,
-                action="organization.created",
-                resource_type="organization",
-                resource_id=organization.id,
-                details={"role": "owner"},
-            )
+        added = SecurityAuditEvent(
+            actor_user_id=leaver.id,
+            organization_id=organization.id,
+            action="organization.created",
+            resource_type="organization",
+            resource_id=organization.id,
+            details={"role": "owner"},
         )
+        session.add(added)
         await session.commit()
 
     async with session_factory() as session:
         await session.execute(delete(User).where(User.id == leaver.id))
         await session.execute(delete(Organization).where(Organization.id == organization.id))
         await session.commit()
-        event = await session.scalar(select(SecurityAuditEvent))
+        event = await session.get(SecurityAuditEvent, added.id, populate_existing=True)
 
     assert event is not None
     assert (event.actor_user_id, event.organization_id) == (None, None)
