@@ -18,6 +18,8 @@ class ResearchContextRequest(BaseModel):
     mode: ResearchMode = ResearchMode.HYBRID
     limit: Annotated[int, Field(ge=1, le=MAX_EVIDENCE_LIMIT)] = DEFAULT_EVIDENCE_LIMIT
     source_id: uuid.UUID | None = None
+    # With authentication on, the organization whose content is searched.
+    organization_id: uuid.UUID | None = None
 
 
 class ResearchEvidenceRead(BaseModel):

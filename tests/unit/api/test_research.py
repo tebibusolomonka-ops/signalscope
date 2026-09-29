@@ -22,6 +22,7 @@ def test_route_is_in_openapi(app: FastAPI) -> None:
         "mode",
         "limit",
         "source_id",
+        "organization_id",
     }
     assert set(schemas["ResearchContextResponse"]["properties"]) == {
         "query",

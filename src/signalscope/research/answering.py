@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from signalscope.core.errors import ServiceUnavailableError, SignalScopeError
+from signalscope.domain.tenancy.scope import ContentScope
 from signalscope.embeddings.registry import EmbeddingProviderRegistry
 from signalscope.reranking.registry import RerankerRegistry
 from signalscope.research.citations import validate_citations
@@ -72,10 +73,14 @@ class ResearchAnswerService:
         mode: ResearchMode = ResearchMode.HYBRID,
         limit: int = DEFAULT_EVIDENCE_LIMIT,
         source_id: uuid.UUID | None = None,
+        scope: ContentScope | None = None,
     ) -> ResearchAnswer:
+        """Answer from evidence in scope only; the model never sees anything else."""
         # Checked first, so no search runs when nothing could answer.
         generator = self.generators.only()
-        evidence = await self.evidence.build(question, mode=mode, limit=limit, source_id=source_id)
+        evidence = await self.evidence.build(
+            question, mode=mode, limit=limit, source_id=source_id, scope=scope
+        )
         if not evidence:
             return ResearchAnswer(answer=None, evidence=())
         answer = await answer_from_evidence(generator, question, evidence)

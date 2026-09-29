@@ -49,15 +49,24 @@ async def research_context(
     session: DatabaseSession,
     providers: EmbeddingProviders,
     rerankers: Rerankers,
+    policy: Policy,
 ) -> ResearchContextResponse:
     """Collect cited evidence for a query, ready for a later answer step.
 
     This only retrieves and arranges evidence. It does not write an answer or a
     summary. The reranked mode answers 503 when local reranking is off, and the
-    semantic, hybrid and reranked modes when local embeddings are off.
+    semantic, hybrid and reranked modes when local embeddings are off. With
+    authentication on, organization_id picks the organization whose content is
+    searched, and source_id must belong to it.
     """
+    scope = await policy.scope(request.organization_id)
+    await policy.check_source_filter(request.source_id)
     evidence = await ResearchEvidenceService(session, providers, rerankers).build(
-        request.query, mode=request.mode, limit=request.limit, source_id=request.source_id
+        request.query,
+        mode=request.mode,
+        limit=request.limit,
+        source_id=request.source_id,
+        scope=scope,
     )
     return ResearchContextResponse(
         query=request.query,
@@ -74,16 +83,24 @@ async def research_answer(
     providers: EmbeddingProviders,
     rerankers: Rerankers,
     generators: AnswerGenerators,
+    policy: Policy,
 ) -> ResearchAnswerResponse:
     """Answer a question from retrieved evidence, with checked citations.
 
     Answers 503 unless local answers are enabled, which they are not by default. When
     no evidence is found, the model is not asked and answer is null. An answer
     whose citations do not match the evidence is never returned: the request
-    fails with 503 instead.
+    fails with 503 instead. With authentication on, only the organization_id
+    organization's content is searched, and only that reaches the model.
     """
+    scope = await policy.scope(request.organization_id)
+    await policy.check_source_filter(request.source_id)
     result = await ResearchAnswerService(session, providers, rerankers, generators).answer(
-        request.query, mode=request.mode, limit=request.limit, source_id=request.source_id
+        request.query,
+        mode=request.mode,
+        limit=request.limit,
+        source_id=request.source_id,
+        scope=scope,
     )
     return ResearchAnswerResponse(
         query=request.query,
