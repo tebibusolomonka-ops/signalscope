@@ -143,6 +143,11 @@ There is no email sending yet, so invitations are shared by hand:
 3. `GET /organizations/{id}/invitations` lists invitations with a computed
    `status` (`pending`, `accepted`, `revoked` or `expired`), never the token.
    `DELETE /organizations/{id}/invitations/{invitation_id}` revokes one.
+4. The person signs in with the account for the invited address and sends
+   the token to `POST /organization-invitations/accept` as `{"token": "..."}`.
+   They join with the invited role. A token works once; unknown, expired,
+   revoked and used tokens all answer 404. Someone who is already a member
+   gets 409 and the invitation stays pending.
 
 Invitations expire after `SIGNALSCOPE_ORGANIZATION_INVITATION_DAYS` days (7 by
 default).

@@ -5,9 +5,11 @@ from datetime import datetime, timedelta
 from enum import StrEnum
 
 from sqlalchemy import ColumnElement, and_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from signalscope.core.errors import ConflictError, ForbiddenError, NotFoundError
+from signalscope.db.errors import is_unique_violation
 from signalscope.domain.audit.service import AuditAction, SecurityAuditService
 from signalscope.domain.organizations.invitation import InvitationRole, OrganizationInvitation
 from signalscope.domain.organizations.membership import OrganizationMembership, OrganizationRole
@@ -23,6 +25,8 @@ TOKEN_BYTES = 32
 ADMIN_INVITABLE_ROLES = frozenset({InvitationRole.MEMBER, InvitationRole.VIEWER})
 INVALID_INVITATION = "Invitation was not found or can no longer be used."
 NOT_ALLOWED = "You do not have permission to manage these invitations."
+OTHER_EMAIL = "This invitation is for a different email address."
+ALREADY_MEMBER = "You are already a member of this organization."
 
 
 class InvitationStatus(StrEnum):
@@ -189,6 +193,47 @@ class OrganizationInvitationService:
         if found is None or invitation_status(found, self.clock()) is not InvitationStatus.PENDING:
             raise NotFoundError(INVALID_INVITATION)
         return found
+
+    async def accept_invitation(self, token: str) -> OrganizationMembership:
+        """Join the organization of a pending invitation made for the actor's email.
+
+        The membership and the accepted time are saved in one commit, with
+        the invitation row locked, so a token works only once. A user who is
+        already a member gets a conflict and the invitation stays pending.
+        """
+        try:
+            invitation = await self.resolve_token(token, lock=True)
+        except NotFoundError:
+            await self.session.rollback()
+            raise
+        if invitation.normalized_email != self.actor.normalized_email:
+            await self.session.rollback()
+            raise ForbiddenError(OTHER_EMAIL)
+        existing = await self.session.get(
+            OrganizationMembership, (invitation.organization_id, self.actor.id)
+        )
+        if existing is not None:
+            await self.session.rollback()
+            raise ConflictError(ALREADY_MEMBER)
+        membership = OrganizationMembership(
+            organization_id=invitation.organization_id,
+            user_id=self.actor.id,
+            role=OrganizationRole(invitation.role.value),
+        )
+        self.session.add(membership)
+        invitation.accepted_at = self.clock()
+        self._record(AuditAction.INVITATION_ACCEPTED, invitation)
+        try:
+            await self.session.commit()
+        except IntegrityError as error:
+            await self.session.rollback()
+            if is_unique_violation(error):
+                raise ConflictError(ALREADY_MEMBER) from error
+            raise
+        except Exception:
+            await self.session.rollback()
+            raise
+        return membership
 
     async def _check_organization(self, organization_id: uuid.UUID) -> None:
         """Say the organization was not found to anyone outside it."""

@@ -23,6 +23,7 @@ def test_routes_are_in_openapi(app: FastAPI) -> None:
     assert schemas["InvitationStatus"]["enum"] == ["pending", "accepted", "revoked", "expired"]
     assert not any("token" in name for name in schemas["InvitationRead"]["properties"])
     assert set(schemas["InvitationCreated"]["properties"]) == {"invitation", "invitation_token"}
+    assert set(paths["/organization-invitations/accept"]) == {"post"}
 
 
 @pytest.mark.parametrize("method", ["GET", "POST"])

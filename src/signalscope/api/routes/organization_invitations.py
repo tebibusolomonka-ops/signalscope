@@ -9,10 +9,14 @@ from signalscope.domain.organizations.invitations import (
     InvitationStatus,
     OrganizationInvitationService,
 )
+from signalscope.domain.organizations.model import Organization
 from signalscope.domain.organizations.schemas import (
+    InvitationAccept,
     InvitationCreate,
     InvitationCreated,
     InvitationRead,
+    MyOrganizationRead,
+    OrganizationRead,
 )
 from signalscope.domain.sources.scheduling import utc_now
 
@@ -69,3 +73,20 @@ async def revoke_invitation(
 ) -> None:
     """Revoke a pending invitation, so its token stops working."""
     await service.revoke_invitation(organization_id, invitation_id)
+
+
+@router.post("/organization-invitations/accept")
+async def accept_invitation(
+    request: InvitationAccept, service: Invitations, session: DatabaseSession
+) -> MyOrganizationRead:
+    """Join an organization with an invitation token, after signing in.
+
+    The invitation must be pending and made for your email address. A token
+    works only once. Unknown, expired, revoked and used tokens all answer 404
+    with the same message. Already a member: 409.
+    """
+    membership = await service.accept_invitation(request.token)
+    organization = await session.get_one(Organization, membership.organization_id)
+    return MyOrganizationRead(
+        organization=OrganizationRead.model_validate(organization), role=membership.role
+    )

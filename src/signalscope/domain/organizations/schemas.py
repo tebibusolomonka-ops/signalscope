@@ -111,3 +111,9 @@ class InvitationCreated(BaseModel):
     # Shown only in this answer and never again. Share it with the invited
     # person over a secure channel; they accept it after signing in.
     invitation_token: str
+
+
+class InvitationAccept(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    token: Annotated[str, StringConstraints(min_length=1, max_length=200)]
