@@ -1,6 +1,9 @@
 # Next Work
 
-Batch 251 to 270 is done; see [[02 Current State]]. Nothing below is built yet.
+Current batch: commits 273 to 292, the identity and authorization
+foundation. Done: users, passwords, sessions and the auth API. Still to do: the
+user bootstrap command, organizations and roles, investigation ownership and
+collaborators, session management, session cleanup and security audit.
 
 ## Next batch
 

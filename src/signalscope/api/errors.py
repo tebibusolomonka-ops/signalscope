@@ -12,16 +12,27 @@ from signalscope.core.errors import (
     InvalidInputError,
     NotFoundError,
     ServiceUnavailableError,
+    UnauthenticatedError,
 )
 
 
 def add_error_handlers(app: FastAPI) -> None:
+    app.add_exception_handler(UnauthenticatedError, handle_unauthenticated)
     app.add_exception_handler(NotFoundError, handle_not_found)
     app.add_exception_handler(ConflictError, handle_conflict)
     app.add_exception_handler(InvalidInputError, handle_invalid_input)
     app.add_exception_handler(ServiceUnavailableError, handle_service_unavailable)
     app.add_exception_handler(RequestValidationError, handle_validation_error)
     app.add_exception_handler(HTTPException, handle_http_error)
+
+
+async def handle_unauthenticated(request: Request, exc: Exception) -> JSONResponse:
+    return error_response(
+        status.HTTP_401_UNAUTHORIZED,
+        "unauthenticated",
+        str(exc),
+        headers={"WWW-Authenticate": "Bearer"},
+    )
 
 
 async def handle_not_found(request: Request, exc: Exception) -> JSONResponse:

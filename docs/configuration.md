@@ -27,6 +27,7 @@ empty, keeps its default value. An invalid value raises `SettingsError`.
 | `SIGNALSCOPE_LOCAL_ANSWERS_ENABLED` | `false` | `true`, `false`, `1`, `0`, `yes`, `no`, `on`, `off` |
 | `SIGNALSCOPE_LOCAL_ANSWER_DEVICE` | `cpu` | A device name, such as `cpu` or `cuda` |
 | `SIGNALSCOPE_LOCAL_ANSWER_MAX_NEW_TOKENS` | `512` | A whole number from 1 to 4096 |
+| `SIGNALSCOPE_AUTH_ENABLED` | `false` | `true`, `false`, `1`, `0`, `yes`, `no`, `on`, `off` |
 | `SIGNALSCOPE_AUTH_SESSION_DAYS` | `7` | A whole number from 1 to 365 |
 
 Values are not case-sensitive, except for the app name, the database URL,
@@ -162,3 +163,14 @@ first time, only when it first answers. It is several gigabytes. Its files go
 to `SIGNALSCOPE_LOCAL_EMBEDDING_CACHE_DIR` when that is set.
 `SIGNALSCOPE_LOCAL_ANSWER_DEVICE` picks where it runs, and
 `SIGNALSCOPE_LOCAL_ANSWER_MAX_NEW_TOKENS` caps the length of an answer.
+
+## Authentication
+
+`SIGNALSCOPE_AUTH_ENABLED=true` turns on sign in with email and password,
+organizations, and access rules for investigations. It is off by default, and
+then the existing APIs work without a login, as before; the sign in and
+organization routes answer 503.
+
+Sessions are opaque: a random bearer token is given once at login, and only
+its SHA-256 hash is stored. They last `SIGNALSCOPE_AUTH_SESSION_DAYS` days and
+can be revoked. Passwords are hashed with Argon2id.

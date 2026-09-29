@@ -1,6 +1,6 @@
 # Known Issues
 
-Open problems as of commit 273. Remove an item when it is fixed.
+Open problems as of commit 277. Remove an item when it is fixed.
 
 ## Events
 
@@ -46,6 +46,13 @@ Open problems as of commit 273. Remove an item when it is fixed.
 - "Pending" job counts include running jobs; stale running jobs whose lease
   expired are counted until a worker recovers them.
 - Daily series use UTC days only; there is no local time zone option.
+
+## Authentication
+
+- Login has no rate limit or lockout yet.
+- There is no password change or reset yet.
+- Only investigations and organizations will be protected; other APIs stay
+  open even when auth is on, until data tenancy is designed.
 
 ## Code
 

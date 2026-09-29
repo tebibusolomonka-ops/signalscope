@@ -78,6 +78,18 @@ Decisions that should hold unless there is a clear reason to change them.
 - **GLiNER2 cache folder.** gliner2 2.0 uses `cache_dir` for the config file
   only, so SignalScope downloads the model snapshot into the cache folder itself
   and loads from that folder.
+- **Opaque server-side sessions, not JWT.** A login returns a random bearer
+  token once; only its SHA-256 hash is stored, so sessions can be revoked and a
+  database leak does not reveal tokens. Tokens, hashes, passwords and the
+  Authorization header are never logged or put in errors.
+- **Argon2id through pwdlib.** Library default costs in production; tests pass
+  a cheaper hasher instead of weakening the defaults. The password policy is
+  length only: 12 to 1024 characters.
+- **One answer for every failed login.** Unknown email, wrong password and
+  inactive account give the same 401, and an unknown email still runs a
+  password check.
+- **Auth is off by default.** `SIGNALSCOPE_AUTH_ENABLED=false` keeps every
+  existing API open, as before. There is no self registration.
 - **This vault is project memory**, updated at each five-commit checkpoint.
   The code wins when they disagree.
 - **Simple English, no AI attribution** in code, docs and commits (AGENTS.md).

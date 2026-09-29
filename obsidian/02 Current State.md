@@ -1,9 +1,14 @@
 # Current State
 
-Last updated at commit 273. Batch 251 to 270 ended at commit 272 (`40f2d5c`),
-with two corrective commits. Alembic head: `ca4da746adef` (Create investigation items).
+Last updated at commit 277. Batch 251 to 270 ended at commit 272 (`40f2d5c`),
+with two corrective commits. Alembic head: `cdff2a983cd3` (Create user sessions).
 
 ## Done
+
+- Authentication foundation (commits 273 to 277): users, Argon2id password
+  credentials, opaque server-side sessions, and `POST /auth/login`,
+  `POST /auth/logout`, `GET /auth/me`. Off by default
+  (`SIGNALSCOPE_AUTH_ENABLED=false`); then every existing API works as before.
 
 - Sources, scheduled network ingestion (RSS, web), file import, blob storage.
 - Processing jobs, parsers, document revisions, section-aware chunks.

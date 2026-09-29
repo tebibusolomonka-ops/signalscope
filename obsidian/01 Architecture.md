@@ -31,6 +31,9 @@ One Python package, `src/signalscope`, with one PostgreSQL database. See
 - **Research** (`research/`): evidence retrieval, numbered context, answer
   generation behind a protocol, and citation validation. Research sessions
   (`domain/research/`) save each turn with the evidence it was answered from.
+- **Users and authentication** (`domain/users/`, `api/auth.py`): accounts,
+  Argon2id password credentials, and opaque login sessions. The `CurrentSession`
+  dependency reads the bearer token. Off unless `SIGNALSCOPE_AUTH_ENABLED=true`.
 - **Investigations** (`domain/investigations/`): saved collections of
   references to records, each with a snapshot taken when it was saved.
 - **Dashboard** (`dashboard/`): aggregate counts and zero-filled UTC daily

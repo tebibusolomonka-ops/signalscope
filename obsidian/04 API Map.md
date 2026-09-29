@@ -4,6 +4,17 @@ All routes are JSON over HTTP, without authentication. Routes that need the
 database answer 503 when it is not configured. Routes that need an optional
 model answer 503 when it is off. Lists are paged with `limit` and `offset`.
 
+## Authentication
+
+Only when `SIGNALSCOPE_AUTH_ENABLED=true`; otherwise 503. Send the token as
+`Authorization: Bearer <token>`.
+
+- `POST /auth/login`: email and password, returns an opaque token once. Every
+  failure is the same 401.
+- `POST /auth/logout`: revokes the current session.
+- `GET /auth/me`: the signed in user.
+- There is no registration route. Accounts come from the command line.
+
 ## Health
 
 - `GET /health`

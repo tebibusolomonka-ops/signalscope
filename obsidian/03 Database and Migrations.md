@@ -1,7 +1,7 @@
 # Database and Migrations
 
 PostgreSQL 17 with the pgvector extension. Current Alembic head:
-`ca4da746adef` (Create investigation items).
+`cdff2a983cd3` (Create user sessions).
 
 ## Rules
 
@@ -34,6 +34,10 @@ PostgreSQL 17 with the pgvector extension. Current Alembic head:
   `reference_id` without a foreign key, JSONB snapshot, unique per
   investigation, type and reference).
 
+- **Users**: `users` (unique normalized email, active and system admin flags),
+  `user_password_credentials` (one Argon2id hash per user), `user_sessions`
+  (SHA-256 token hash only, expiry, revoked time).
+
 ## Deletion behavior
 
 - Deleting a chunk deletes its embeddings, mentions, evidence and jobs.
@@ -42,6 +46,8 @@ PostgreSQL 17 with the pgvector extension. Current Alembic head:
 - Claims with evidence cannot be deleted. Sources with documents, ingestion
   runs or research sessions cannot be deleted.
 - Deleting a research session deletes its turns.
+- Deleting a user deletes their password credential and sessions. There is no
+  user delete API.
 - Deleting an investigation deletes its items, never the saved records.
   Deleting a saved record leaves the item and its snapshot in place.
 

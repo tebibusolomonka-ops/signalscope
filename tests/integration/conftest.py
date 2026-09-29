@@ -1,3 +1,4 @@
+import dataclasses
 import os
 from collections.abc import AsyncIterator
 from pathlib import Path
@@ -9,6 +10,7 @@ from alembic.config import Config
 from sqlalchemy import make_url
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
+from password_helpers import fast_hasher
 from signalscope.api.app import create_app
 from signalscope.api.lifespan import lifespan
 from signalscope.core.settings import Settings
@@ -71,6 +73,20 @@ async def client(
 ) -> AsyncIterator[httpx.AsyncClient]:
     """An API client for the app running against the test database."""
     app = create_app(migrated_database)
+    async with lifespan(app):
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            yield client
+
+
+@pytest.fixture
+async def auth_client(
+    database_engine: AsyncEngine, migrated_database: Settings
+) -> AsyncIterator[httpx.AsyncClient]:
+    """An API client for an app with authentication turned on, and a fast password hasher."""
+    settings = dataclasses.replace(migrated_database, auth_enabled=True)
+    app = create_app(settings)
+    app.state.password_hasher = fast_hasher()
     async with lifespan(app):
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:

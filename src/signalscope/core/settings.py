@@ -71,6 +71,9 @@ class Settings:
     local_answer_device: str = "cpu"
     # The longest answer the model may write, in tokens.
     local_answer_max_new_tokens: int = 512
+    # Sign in and access rules for investigations and organizations. Off by
+    # default, so existing APIs keep working without a login.
+    auth_enabled: bool = False
     # How long a login session lasts before it expires.
     auth_session_days: int = 7
 
@@ -163,6 +166,7 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
             "SIGNALSCOPE_LOCAL_ANSWER_MAX_NEW_TOKENS",
             defaults.local_answer_max_new_tokens,
         ),
+        auth_enabled=_read_bool(env, "SIGNALSCOPE_AUTH_ENABLED", defaults.auth_enabled),
         auth_session_days=_read_int(
             env, "SIGNALSCOPE_AUTH_SESSION_DAYS", defaults.auth_session_days
         ),
