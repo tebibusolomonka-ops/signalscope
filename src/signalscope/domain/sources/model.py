@@ -1,7 +1,8 @@
+import uuid
 from datetime import datetime
 from enum import StrEnum
 
-from sqlalchemy import CheckConstraint, DateTime, String, Text, false
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, Text, false
 from sqlalchemy.orm import Mapped, mapped_column
 
 from signalscope.db.base import Base
@@ -21,7 +22,16 @@ class SourceType(StrEnum):
 
 
 class Source(UUIDPrimaryKeyMixin, TimestampMixin, Base):
-    """A place SignalScope gets content from, such as a feed or a website."""
+    """A place SignalScope gets content from, such as a feed or a website.
+
+    The source is the root of content ownership: its documents, chunks and
+    everything extracted from them belong to its organization. A source
+    without an organization is legacy content from before organizations
+    existed. An organization with sources cannot be deleted.
+
+    Names and URLs are not unique, so two organizations can each configure
+    the same feed.
+    """
 
     __tablename__ = "sources"
     __table_args__ = (
@@ -45,3 +55,7 @@ class Source(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     ingestion_enabled: Mapped[bool] = mapped_column(default=False, server_default=false())
     ingestion_interval_minutes: Mapped[int | None]
     next_ingestion_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # None for legacy sources. When authentication is on, only system admins see them.
+    organization_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("organizations.id", ondelete="RESTRICT"), index=True
+    )

@@ -54,3 +54,13 @@ def test_source_type_is_stored_as_its_value() -> None:
 
 def test_source_is_in_project_metadata() -> None:
     assert Base.metadata.tables["sources"] is Source.__table__
+
+
+def test_organization_column() -> None:
+    sql = str(CreateTable(Source.__table__).compile(dialect=DIALECT))
+
+    assert "organization_id UUID," in sql
+    assert "REFERENCES organizations (id) ON DELETE RESTRICT" in sql
+    assert "ix_sources_organization_id" in {index.name for index in Source.__table__.indexes}
+    # No uniqueness on name or URL, so organizations can share an external feed.
+    assert "UNIQUE" not in sql
