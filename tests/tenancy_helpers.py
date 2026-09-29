@@ -128,12 +128,14 @@ async def add_findings(
     session_factory: async_sessionmaker[AsyncSession],
     chunk_id: uuid.UUID,
     entity_name: str = "Porto",
-    claim_text: str = "Water rose",
-) -> tuple[uuid.UUID, uuid.UUID]:
-    """A mention of the entity and evidence for the claim in one chunk.
+    claim_text: str | None = "Water rose",
+    start: int = 0,
+) -> tuple[uuid.UUID, uuid.UUID | None]:
+    """A mention of the entity, and evidence for the claim unless it is None, in one chunk.
 
     The entity and claim rows are shared: an existing one with the same name or
-    text is reused, like the extraction workers do. Returns their IDs.
+    text is reused, like the extraction workers do. Returns their IDs. Spans are
+    unique per chunk, so a second finding in a chunk needs another start.
     """
     async with session_factory() as session:
         chunk = await session.get_one(DocumentChunk, chunk_id)
@@ -145,39 +147,42 @@ async def add_findings(
                 canonical_name=entity_name, normalized_name=entity_name.lower(), entity_type="city"
             )
             session.add(entity)
-        claim = await session.scalar(
-            select(Claim).where(Claim.normalized_text == claim_text.lower())
-        )
-        if claim is None:
-            claim = Claim(
-                text=claim_text, normalized_text=claim_text.lower(), claim_type="statistic"
+        claim = None
+        if claim_text is not None:
+            claim = await session.scalar(
+                select(Claim).where(Claim.normalized_text == claim_text.lower())
             )
-            session.add(claim)
+            if claim is None:
+                claim = Claim(
+                    text=claim_text, normalized_text=claim_text.lower(), claim_type="statistic"
+                )
+                session.add(claim)
         await session.flush()
-        session.add_all(
-            [
-                EntityMention(
-                    entity_id=entity.id,
-                    document_id=chunk.document_id,
-                    chunk_id=chunk.id,
-                    surface_text=chunk.text[:4],
-                    entity_type="city",
-                    start_char=0,
-                    end_char=4,
-                    provider="test",
-                    model="m",
-                    chunk_text_hash=chunk.text_hash,
-                ),
+        session.add(
+            EntityMention(
+                entity_id=entity.id,
+                document_id=chunk.document_id,
+                chunk_id=chunk.id,
+                surface_text=chunk.text[start : start + 4],
+                entity_type="city",
+                start_char=start,
+                end_char=start + 4,
+                provider="test",
+                model="m",
+                chunk_text_hash=chunk.text_hash,
+            )
+        )
+        if claim is not None:
+            session.add(
                 ClaimEvidence(
                     claim_id=claim.id,
                     chunk_id=chunk.id,
-                    surface_text=chunk.text[:4],
-                    start_char=0,
-                    end_char=4,
+                    surface_text=chunk.text[start : start + 4],
+                    start_char=start,
+                    end_char=start + 4,
                     provider="test",
                     model="m",
-                ),
-            ]
-        )
+                )
+            )
         await session.commit()
-        return entity.id, claim.id
+        return entity.id, None if claim is None else claim.id

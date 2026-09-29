@@ -33,7 +33,9 @@ async def world(
     found.shared_entity, _ = await add_findings(session_factory, found.a_chunk)
     for chunk in found.b_chunks:
         await add_findings(session_factory, chunk)
-    found.b_only_entity, _ = await add_findings(session_factory, found.b_chunks[0], "Lisbon")
+    found.b_only_entity, _ = await add_findings(
+        session_factory, found.b_chunks[0], "Lisbon", claim_text=None, start=4
+    )
     await add_findings(session_factory, legacy_chunk)
     return found
 
