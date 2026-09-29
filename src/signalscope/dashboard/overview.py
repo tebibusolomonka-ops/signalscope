@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Any
 
-from sqlalchemy import ColumnElement, Select, exists, func, select, true
+from sqlalchemy import ColumnElement, Select, exists, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from signalscope.domain.claims.job import ClaimExtractionJob, ClaimExtractionJobStatus
@@ -71,7 +71,7 @@ class DashboardOverviewService:
                     visible_events(scope, EventClusterMember.event_id),
                 ),
             ),
-            _count(ResearchSession, _research_sessions(scope)),
+            _count(ResearchSession, scope.owner_condition(ResearchSession.organization_id)),
             _count(Investigation, scope.owner_condition(Investigation.organization_id)),
             _pending(
                 IngestionJob, IngestionJobStatus, scope.source_condition(IngestionJob.source_id)
@@ -123,16 +123,6 @@ def _claims(scope: ContentScope) -> Select[Any]:
         return select(func.count()).select_from(Claim)
     return select(func.count(ClaimEvidence.claim_id.distinct())).where(
         scope.chunk_condition(ClaimEvidence.chunk_id)
-    )
-
-
-def _research_sessions(scope: ContentScope) -> ColumnElement[bool]:
-    # Sessions without a source have no organization yet, so only sessions
-    # limited to a source in scope are counted in a scope.
-    if scope.is_unrestricted:
-        return true()
-    return ResearchSession.source_id.is_not(None) & scope.source_condition(
-        ResearchSession.source_id
     )
 
 

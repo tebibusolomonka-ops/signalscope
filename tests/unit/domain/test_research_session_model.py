@@ -21,8 +21,10 @@ def test_research_sessions_table() -> None:
     assert "CHECK (retrieval_mode IN ('lexical', 'semantic', 'hybrid', 'reranked'))" in sql
     assert "FOREIGN KEY(source_id) REFERENCES sources (id) ON DELETE RESTRICT" in sql
     assert {index.name for index in ResearchSession.__table__.indexes} == {
-        "ix_research_sessions_source_id"
+        "ix_research_sessions_source_id",
+        "ix_research_sessions_organization_id",
     }
+    assert "FOREIGN KEY(organization_id) REFERENCES organizations (id) ON DELETE RESTRICT" in sql
     assert Base.metadata.tables["research_sessions"] is ResearchSession.__table__
 
 

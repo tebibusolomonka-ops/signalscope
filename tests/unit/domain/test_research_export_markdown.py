@@ -15,6 +15,7 @@ SESSION = ResearchSessionRead(
     title="Harbour floods",
     retrieval_mode=ResearchMode.HYBRID,
     source_id=None,
+    organization_id=None,
     created_at=CREATED,
     updated_at=CREATED,
 )

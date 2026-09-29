@@ -5,10 +5,11 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from signalscope.core.errors import NotFoundError
+from signalscope.core.errors import InvalidInputError, NotFoundError
 from signalscope.domain.research.session import ResearchSession
 from signalscope.domain.research.turn import ResearchTurn
 from signalscope.domain.sources.model import Source
+from signalscope.domain.tenancy.scope import ContentScope
 from signalscope.embeddings.registry import EmbeddingProviderRegistry
 from signalscope.reranking.registry import RerankerRegistry
 from signalscope.research.answering import answer_from_evidence
@@ -27,6 +28,9 @@ from signalscope.research.generation import (
 
 # How many earlier turns an answer model sees as conversation context.
 MAX_HISTORY_TURNS = 5
+
+
+SOURCE_IN_OTHER_ORGANIZATION = "The source belongs to another organization."
 
 
 def evidence_snapshot(evidence: Sequence[ResearchEvidence]) -> list[dict[str, Any]]:
@@ -83,10 +87,21 @@ class ResearchSessionService:
         title: str | None = None,
         retrieval_mode: ResearchMode = ResearchMode.HYBRID,
         source_id: uuid.UUID | None = None,
+        organization_id: uuid.UUID | None = None,
     ) -> ResearchSession:
-        if source_id is not None and await self.session.get(Source, source_id) is None:
-            raise NotFoundError("Source was not found.")
-        research = ResearchSession(title=title, retrieval_mode=retrieval_mode, source_id=source_id)
+        """Start a session. Its source, if any, must belong to the same organization."""
+        if source_id is not None:
+            source = await self.session.get(Source, source_id)
+            if source is None:
+                raise NotFoundError("Source was not found.")
+            if organization_id is not None and source.organization_id != organization_id:
+                raise InvalidInputError(SOURCE_IN_OTHER_ORGANIZATION)
+        research = ResearchSession(
+            title=title,
+            retrieval_mode=retrieval_mode,
+            source_id=source_id,
+            organization_id=organization_id,
+        )
         self.session.add(research)
         try:
             await self.session.commit()
@@ -112,14 +127,28 @@ class ResearchSessionService:
         return list(turns)
 
     async def add_turn(
-        self, session_id: uuid.UUID, question: str, limit: int = DEFAULT_EVIDENCE_LIMIT
+        self,
+        session_id: uuid.UUID,
+        question: str,
+        limit: int = DEFAULT_EVIDENCE_LIMIT,
+        scope: ContentScope | None = None,
     ) -> ResearchTurn:
-        """Answer question in the session and save it as the next turn."""
+        """Answer question in the session and save it as the next turn.
+
+        The evidence search stays inside scope, which the caller sets to the
+        session's organization when authentication is on.
+        """
         research = await self.get_session(session_id)
         history = await self._history(session_id)
         evidence = await ResearchEvidenceService(
             self.session, self.providers, self.rerankers
-        ).build(question, mode=research.retrieval_mode, limit=limit, source_id=research.source_id)
+        ).build(
+            question,
+            mode=research.retrieval_mode,
+            limit=limit,
+            source_id=research.source_id,
+            scope=scope,
+        )
         # End the read transaction, so none is open while the model writes.
         await self.session.commit()
         answer = await self._answer(question, evidence, history)

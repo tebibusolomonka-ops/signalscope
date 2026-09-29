@@ -8,6 +8,7 @@ from signalscope.api.dependencies import (
     EmbeddingProviders,
     Rerankers,
 )
+from signalscope.api.tenancy import Policy
 from signalscope.core.exports import MARKDOWN_MEDIA_TYPE, ExportFormat
 from signalscope.domain.research.export import (
     ResearchSessionExport,
@@ -22,6 +23,8 @@ from signalscope.domain.research.schemas import (
     ResearchTurnResponse,
 )
 from signalscope.domain.research.service import ResearchSessionService
+from signalscope.domain.research.session import ResearchSession
+from signalscope.domain.tenancy.policy import ContentAccessPolicy, ContentCapability
 from signalscope.research.answering import ResearchAnswerService
 from signalscope.research.context import context_text
 from signalscope.research.evidence import ResearchEvidence, ResearchEvidenceService
@@ -34,6 +37,8 @@ from signalscope.research.schemas import (
     ResearchContextResponse,
     ResearchEvidenceRead,
 )
+
+SESSION_NOT_FOUND = "Research session was not found."
 
 router = APIRouter(prefix="/research", tags=["Research"])
 
@@ -111,11 +116,25 @@ async def create_research_session(
     providers: EmbeddingProviders,
     rerankers: Rerankers,
     generators: AnswerGenerators,
+    policy: Policy,
 ) -> ResearchSessionRead:
-    """Start a research session. Every turn in it searches with its mode and source."""
+    """Start a research session. Every turn in it searches with its mode and source.
+
+    With authentication on, organization_id is required, you need the member
+    role or higher there, and a source_id must belong to the same organization.
+    Every turn then only searches that organization's content.
+    """
+    organization_id = await policy.new_content_owner(
+        request.organization_id, ContentCapability.CONTRIBUTE
+    )
+    if request.source_id is not None:
+        await policy.check_source_filter(request.source_id)
     service = ResearchSessionService(session, providers, rerankers, generators)
     research = await service.create_session(
-        title=request.title, retrieval_mode=request.retrieval_mode, source_id=request.source_id
+        title=request.title,
+        retrieval_mode=request.retrieval_mode,
+        source_id=request.source_id,
+        organization_id=organization_id,
     )
     return ResearchSessionRead.model_validate(research)
 
@@ -127,9 +146,10 @@ async def get_research_session(
     providers: EmbeddingProviders,
     rerankers: Rerankers,
     generators: AnswerGenerators,
+    policy: Policy,
 ) -> ResearchSessionRead:
     service = ResearchSessionService(session, providers, rerankers, generators)
-    return ResearchSessionRead.model_validate(await service.get_session(session_id))
+    return ResearchSessionRead.model_validate(await _readable(service, policy, session_id))
 
 
 @router.get("/sessions/{session_id}/turns")
@@ -139,9 +159,11 @@ async def list_research_turns(
     providers: EmbeddingProviders,
     rerankers: Rerankers,
     generators: AnswerGenerators,
+    policy: Policy,
 ) -> list[ResearchTurnRead]:
     """Every turn of a session, oldest first, with the evidence each was answered from."""
     service = ResearchSessionService(session, providers, rerankers, generators)
+    await _readable(service, policy, session_id)
     return [ResearchTurnRead.from_turn(turn) for turn in await service.list_turns(session_id)]
 
 
@@ -151,7 +173,10 @@ async def list_research_turns(
     responses={200: {"content": {"text/markdown": {}}}},
 )
 async def export_research_session(
-    session_id: uuid.UUID, session: DatabaseSession, format: ExportFormat = ExportFormat.JSON
+    session_id: uuid.UUID,
+    session: DatabaseSession,
+    policy: Policy,
+    format: ExportFormat = ExportFormat.JSON,
 ) -> ResearchSessionExport | Response:
     """The whole session: every turn with its answer, citations and the evidence it saw.
 
@@ -159,6 +184,10 @@ async def export_research_session(
     format=markdown returns the same content as Markdown text. Nothing is
     written on the server.
     """
+    research = await session.get(ResearchSession, session_id)
+    await policy.require_read(
+        None if research is None else research.organization_id, SESSION_NOT_FOUND
+    )
     export = await ResearchSessionExportService(session).export(session_id)
     if format is ExportFormat.MARKDOWN:
         return Response(session_markdown(export), media_type=MARKDOWN_MEDIA_TYPE)
@@ -173,21 +202,34 @@ async def add_research_turn(
     providers: EmbeddingProviders,
     rerankers: Rerankers,
     generators: AnswerGenerators,
+    policy: Policy,
 ) -> ResearchTurnResponse:
     """Ask the next question in a session.
 
     The question gets its own evidence search. Earlier turns are given to the
     answer model as conversation context, not as evidence: the answer can only
     cite this turn's evidence, and its citations are checked. Without an answer
-    model the turn is saved with its evidence and no answer.
+    model the turn is saved with its evidence and no answer. Needs the member
+    role or higher in the session's organization, and only searches its content.
     """
     service = ResearchSessionService(session, providers, rerankers, generators)
-    turn = await service.add_turn(session_id, request.question, request.limit)
+    research = await service.get_session(session_id)
+    await policy.require_contribute(research.organization_id, SESSION_NOT_FOUND)
+    scope = policy.resource_scope(research.organization_id)
+    turn = await service.add_turn(session_id, request.question, request.limit, scope)
     research = await service.get_session(session_id)
     return ResearchTurnResponse(
         session=ResearchSessionRead.model_validate(research),
         turn=ResearchTurnRead.from_turn(turn),
     )
+
+
+async def _readable(
+    service: ResearchSessionService, policy: ContentAccessPolicy, session_id: uuid.UUID
+) -> ResearchSession:
+    research = await service.get_session(session_id)
+    await policy.require_read(research.organization_id, SESSION_NOT_FOUND)
+    return research
 
 
 def _evidence_read(item: ResearchEvidence) -> ResearchEvidenceRead:

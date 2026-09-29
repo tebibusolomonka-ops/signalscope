@@ -21,6 +21,7 @@ from signalscope.domain.search.repository import PUBLIC_SEARCH_LIMIT
 from signalscope.domain.search.reranked_service import RerankedSearchService
 from signalscope.domain.search.semantic_service import SemanticSearchService
 from signalscope.domain.search.service import SearchService
+from signalscope.domain.tenancy.scope import ContentScope
 from signalscope.embeddings.models import MULTILINGUAL_E5_SMALL
 from signalscope.embeddings.registry import EmbeddingProviderRegistry
 from signalscope.reranking.models import MMARCO_MINILM
@@ -83,7 +84,11 @@ class EvidenceChunk:
 
 
 class ResearchEvidenceService:
-    """Finds and selects evidence chunks for a query. It never writes to the database."""
+    """Finds and selects evidence chunks for a query. It never writes to the database.
+
+    Every search mode runs inside the given scope, so no chunk outside it can
+    become evidence or reach a model.
+    """
 
     def __init__(
         self,
@@ -102,11 +107,16 @@ class ResearchEvidenceService:
         mode: ResearchMode = ResearchMode.HYBRID,
         limit: int = DEFAULT_EVIDENCE_LIMIT,
         source_id: uuid.UUID | None = None,
+        scope: ContentScope | None = None,
     ) -> list[ResearchEvidence]:
         if not 1 <= limit <= MAX_EVIDENCE_LIMIT:
             raise InvalidInputError(f"Limit must be between 1 and {MAX_EVIDENCE_LIMIT}.")
         candidates = await self._candidates(
-            query, mode, min(limit * CANDIDATE_MULTIPLIER, PUBLIC_SEARCH_LIMIT), source_id
+            query,
+            mode,
+            min(limit * CANDIDATE_MULTIPLIER, PUBLIC_SEARCH_LIMIT),
+            source_id,
+            scope or ContentScope.unrestricted(),
         )
         texts = await self._chunk_texts([candidate.chunk_id for candidate in candidates])
         chosen = select_evidence(candidates, texts, limit)
@@ -127,12 +137,17 @@ class ResearchEvidenceService:
         ]
 
     async def _candidates(
-        self, query: str, mode: ResearchMode, limit: int, source_id: uuid.UUID | None
+        self,
+        query: str,
+        mode: ResearchMode,
+        limit: int,
+        source_id: uuid.UUID | None,
+        scope: ContentScope,
     ) -> list[EvidenceCandidate]:
         provider, model = MULTILINGUAL_E5_SMALL.provider, MULTILINGUAL_E5_SMALL.model
         if mode is ResearchMode.LEXICAL:
             lexical = await SearchService(self.session).search(
-                query, limit=limit, source_id=source_id
+                query, limit=limit, source_id=source_id, scope=scope
             )
             return [
                 EvidenceCandidate(
@@ -149,7 +164,7 @@ class ResearchEvidenceService:
             ]
         if mode is ResearchMode.SEMANTIC:
             semantic = await SemanticSearchService(self.session, self.providers).search(
-                query, limit=limit, source_id=source_id, provider=provider, model=model
+                query, limit=limit, source_id=source_id, provider=provider, model=model, scope=scope
             )
             return [
                 EvidenceCandidate(
@@ -166,7 +181,7 @@ class ResearchEvidenceService:
             ]
         if mode is ResearchMode.HYBRID:
             hybrid = await HybridSearchService(self.session, self.providers).search(
-                query, limit=limit, source_id=source_id, provider=provider, model=model
+                query, limit=limit, source_id=source_id, provider=provider, model=model, scope=scope
             )
             return [
                 EvidenceCandidate(
@@ -193,6 +208,7 @@ class ResearchEvidenceService:
             reranker_model=MMARCO_MINILM.model,
             provider=provider,
             model=model,
+            scope=scope,
         )
         return [
             EvidenceCandidate(

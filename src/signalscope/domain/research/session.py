@@ -17,6 +17,10 @@ class ResearchSession(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     Every turn in the session searches the same way, so follow-up answers are
     comparable. A source with sessions cannot be deleted, so a session never
     loses its scope without notice.
+
+    A session searches many documents, so it belongs to an organization
+    itself, and every turn only searches that organization's content.
+    Sessions from before organizations have none and are legacy sessions.
     """
 
     __tablename__ = "research_sessions"
@@ -28,4 +32,8 @@ class ResearchSession(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     # When set, every turn only searches this source.
     source_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("sources.id", ondelete="RESTRICT"), index=True
+    )
+    # None for legacy sessions. An organization with sessions cannot be deleted.
+    organization_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("organizations.id", ondelete="RESTRICT"), index=True
     )

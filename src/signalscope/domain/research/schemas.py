@@ -21,6 +21,8 @@ class ResearchSessionCreate(BaseModel):
     retrieval_mode: ResearchMode = ResearchMode.HYBRID
     # When set, every turn only searches this source.
     source_id: uuid.UUID | None = None
+    # Required when authentication is on; not allowed when it is off.
+    organization_id: uuid.UUID | None = None
 
 
 class ResearchSessionRead(BaseModel):
@@ -30,6 +32,8 @@ class ResearchSessionRead(BaseModel):
     title: str | None
     retrieval_mode: ResearchMode
     source_id: uuid.UUID | None
+    # None for legacy sessions, from before organizations.
+    organization_id: uuid.UUID | None
     created_at: datetime
     updated_at: datetime
 
