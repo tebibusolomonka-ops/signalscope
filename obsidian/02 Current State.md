@@ -1,7 +1,8 @@
 # Current State
 
-Last updated at commit 277. Batch 251 to 270 ended at commit 272 (`40f2d5c`),
-with two corrective commits. Alembic head: `cdff2a983cd3` (Create user sessions).
+Last updated at commit 282. Batch 251 to 270 ended at commit 272 (`40f2d5c`),
+with two corrective commits. Alembic head: `f193df76c881` (Create organization
+memberships).
 
 ## Done
 
@@ -9,6 +10,10 @@ with two corrective commits. Alembic head: `cdff2a983cd3` (Create user sessions)
   credentials, opaque server-side sessions, and `POST /auth/login`,
   `POST /auth/logout`, `GET /auth/me`. Off by default
   (`SIGNALSCOPE_AUTH_ENABLED=false`); then every existing API works as before.
+- `signalscope create-user` makes accounts (the first system admin too); the
+  password is asked for or read from standard input, never an option.
+- Organizations with owner, admin, member and viewer roles, and
+  `/organizations` routes. Auth only.
 
 - Sources, scheduled network ingestion (RSS, web), file import, blob storage.
 - Processing jobs, parsers, document revisions, section-aware chunks.

@@ -90,6 +90,14 @@ Decisions that should hold unless there is a clear reason to change them.
   password check.
 - **Auth is off by default.** `SIGNALSCOPE_AUTH_ENABLED=false` keeps every
   existing API open, as before. There is no self registration.
+- **Organization roles.** Owners manage everyone; admins manage members and
+  viewers only; members and viewers manage nobody. System admins may manage any
+  organization as a recovery path. There is always at least one owner, checked
+  under a row lock on the organization. Non-members get 404, not 403, so
+  organizations do not leak. Members are added by user ID; there is no search
+  by email, to avoid account discovery.
+- **Accounts come from the command line.** The password is typed without echo
+  or read from standard input, never passed as an option.
 - **This vault is project memory**, updated at each five-commit checkpoint.
   The code wins when they disagree.
 - **Simple English, no AI attribution** in code, docs and commits (AGENTS.md).

@@ -15,6 +15,7 @@ from signalscope.api.routes import (
     health,
     ingestion_runs,
     investigations,
+    organizations,
     research,
     search,
     sources,
@@ -51,6 +52,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.add_middleware(RequestIDMiddleware)
     app.include_router(health.router)
     app.include_router(auth.router)
+    app.include_router(organizations.router)
     app.include_router(sources.router)
     app.include_router(documents.router)
     app.include_router(ingestion_runs.router)

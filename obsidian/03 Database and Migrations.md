@@ -1,7 +1,8 @@
 # Database and Migrations
 
 PostgreSQL 17 with the pgvector extension. Current Alembic head:
-`cdff2a983cd3` (Create user sessions).
+`f193df76c881` (Create organization
+memberships).
 
 ## Rules
 
@@ -37,6 +38,9 @@ PostgreSQL 17 with the pgvector extension. Current Alembic head:
 - **Users**: `users` (unique normalized email, active and system admin flags),
   `user_password_credentials` (one Argon2id hash per user), `user_sessions`
   (SHA-256 token hash only, expiry, revoked time).
+- **Organizations**: `organizations` (unique slug, creator), and
+  `organization_memberships` (one role per user and organization, role as
+  text with a check).
 
 ## Deletion behavior
 
@@ -46,8 +50,10 @@ PostgreSQL 17 with the pgvector extension. Current Alembic head:
 - Claims with evidence cannot be deleted. Sources with documents, ingestion
   runs or research sessions cannot be deleted.
 - Deleting a research session deletes its turns.
-- Deleting a user deletes their password credential and sessions. There is no
-  user delete API.
+- Deleting a user deletes their password credential and sessions, but is
+  refused while they created an organization or are a member of one. There is
+  no user delete API.
+- Deleting an organization deletes its memberships.
 - Deleting an investigation deletes its items, never the saved records.
   Deleting a saved record leaves the item and its snapshot in place.
 

@@ -9,6 +9,7 @@ from starlette.exceptions import HTTPException
 
 from signalscope.core.errors import (
     ConflictError,
+    ForbiddenError,
     InvalidInputError,
     NotFoundError,
     ServiceUnavailableError,
@@ -18,6 +19,7 @@ from signalscope.core.errors import (
 
 def add_error_handlers(app: FastAPI) -> None:
     app.add_exception_handler(UnauthenticatedError, handle_unauthenticated)
+    app.add_exception_handler(ForbiddenError, handle_forbidden)
     app.add_exception_handler(NotFoundError, handle_not_found)
     app.add_exception_handler(ConflictError, handle_conflict)
     app.add_exception_handler(InvalidInputError, handle_invalid_input)
@@ -33,6 +35,10 @@ async def handle_unauthenticated(request: Request, exc: Exception) -> JSONRespon
         str(exc),
         headers={"WWW-Authenticate": "Bearer"},
     )
+
+
+async def handle_forbidden(request: Request, exc: Exception) -> JSONResponse:
+    return error_response(status.HTTP_403_FORBIDDEN, "forbidden", str(exc))
 
 
 async def handle_not_found(request: Request, exc: Exception) -> JSONResponse:

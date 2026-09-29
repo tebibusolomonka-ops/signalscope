@@ -15,6 +15,17 @@ Only when `SIGNALSCOPE_AUTH_ENABLED=true`; otherwise 503. Send the token as
 - `GET /auth/me`: the signed in user.
 - There is no registration route. Accounts come from the command line.
 
+## Organizations
+
+Auth only: 503 when auth is off, 401 without a valid token.
+
+- `POST /organizations` (creator becomes owner), `GET /organizations` (mine,
+  with my role), `GET /organizations/{id}`
+- `GET /organizations/{id}/members`, `POST /organizations/{id}/members`
+  (by `user_id`), `PATCH` and `DELETE /organizations/{id}/members/{user_id}`
+- Not a member: 404. Member without the right role: 403. Removing or demoting
+  the last owner: 409.
+
 ## Health
 
 - `GET /health`

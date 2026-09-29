@@ -1,6 +1,6 @@
 # Known Issues
 
-Open problems as of commit 277. Remove an item when it is fixed.
+Open problems as of commit 282. Remove an item when it is fixed.
 
 ## Events
 
@@ -51,6 +51,8 @@ Open problems as of commit 277. Remove an item when it is fixed.
 
 - Login has no rate limit or lockout yet.
 - There is no password change or reset yet.
+- There is no way to deactivate a user or delete an organization through the
+  API yet, and no invitations.
 - Only investigations and organizations will be protected; other APIs stay
   open even when auth is on, until data tenancy is designed.
 

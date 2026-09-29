@@ -1,8 +1,8 @@
 # Next Work
 
 Current batch: commits 273 to 292, the identity and authorization
-foundation. Done: users, passwords, sessions and the auth API. Still to do: the
-user bootstrap command, organizations and roles, investigation ownership and
+foundation. Done: users, passwords, sessions, the auth API, the bootstrap
+command and organizations. Still to do: investigation ownership and
 collaborators, session management, session cleanup and security audit.
 
 ## Next batch

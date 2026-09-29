@@ -34,6 +34,8 @@ One Python package, `src/signalscope`, with one PostgreSQL database. See
 - **Users and authentication** (`domain/users/`, `api/auth.py`): accounts,
   Argon2id password credentials, and opaque login sessions. The `CurrentSession`
   dependency reads the bearer token. Off unless `SIGNALSCOPE_AUTH_ENABLED=true`.
+- **Organizations** (`domain/organizations/`): organizations, memberships with
+  roles, and `OrganizationService`, which holds the membership rules.
 - **Investigations** (`domain/investigations/`): saved collections of
   references to records, each with a snapshot taken when it was saved.
 - **Dashboard** (`dashboard/`): aggregate counts and zero-filled UTC daily
