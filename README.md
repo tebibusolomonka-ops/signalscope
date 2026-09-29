@@ -221,6 +221,25 @@ curl "http://localhost:8000/security/audit?organization_id=<id>&action=auth.logi
   -H "Authorization: Bearer <token>"
 ```
 
+## Admin web app
+
+`web/` holds a small React admin app, written in JavaScript and built with
+Vite. It needs Node.js 24 or newer. Start the API on port 8000 with
+authentication on, then:
+
+```bash
+cd web
+npm ci
+npm run dev
+```
+
+The development server proxies `/api` to `http://localhost:8000` (change it
+with `SIGNALSCOPE_API_TARGET`). `VITE_SIGNALSCOPE_API_URL` sets the API base
+URL the browser uses; it defaults to `/api`. The API sends no CORS headers,
+so serve the built app and the API from one origin, for example behind one
+reverse proxy. Checks: `npm run lint`, `npm test -- --run` and
+`npm run build`.
+
 ## Command line
 
 Fetch new content for one RSS or web source. This needs
