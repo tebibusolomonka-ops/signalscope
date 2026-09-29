@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
 import { ADMIN, TOKEN, signedIn } from "../../test/fakeApi.js";
+import { organizations } from "../../test/organizations.js";
 import { renderApp } from "../../test/renderApp.jsx";
 
 const PASSWORD = "a long test password";
@@ -59,7 +60,7 @@ describe("sign in", () => {
   });
 
   it("restores a stored session with GET /auth/me", async () => {
-    const { calls } = renderApp({ routes: signedIn() });
+    const { calls } = renderApp({ routes: { ...signedIn(), ...organizations() } });
 
     expect(await screen.findByRole("heading", { name: "Dashboard" })).toBeInTheDocument();
     expect(calls[0].path).toBe("/auth/me");
@@ -82,7 +83,7 @@ describe("sign in", () => {
   });
 
   it("signs out even when the API cannot be reached", async () => {
-    const routes = signedIn();
+    const routes = { ...signedIn(), ...organizations() };
     routes["POST /auth/logout"] = () => {
       throw new TypeError("Failed to fetch");
     };

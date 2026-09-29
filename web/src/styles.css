@@ -38,8 +38,16 @@ a {
   font-weight: 600;
 }
 
+.shell-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 2rem;
+  width: 100%;
+}
+
 .nav-list {
   display: flex;
+  flex-wrap: wrap;
   gap: 1rem;
   margin: 0;
   padding: 0;

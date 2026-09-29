@@ -24,7 +24,9 @@ describe("dashboard", () => {
     expect(within(overview).getByText("Pending ingestion")).toBeInTheDocument();
     const events = screen.getByRole("region", { name: /Events per day/ });
     expect(within(events).getByRole("rowheader", { name: "2026-10-01" })).toBeInTheDocument();
-    expect(within(events).getByRole("columnheader", { name: "Cross source clusters" })).toBeInTheDocument();
+    expect(
+      within(events).getByRole("columnheader", { name: "Cross source clusters" }),
+    ).toBeInTheDocument();
     for (const path of ["/dashboard/overview", "/dashboard/sources", "/dashboard/events"]) {
       const call = calls.find((item) => item.path === path);
       expect(call.query.get("organization_id")).toBe("org-a");
@@ -69,7 +71,9 @@ describe("dashboard", () => {
       routes: { ...signedIn(ADMIN), ...DASHBOARD_ROUTES, "GET /organizations": organizations() },
     });
 
-    expect(await screen.findByText("Choose an organization to see its dashboard.")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "No organization selected" }),
+    ).toBeInTheDocument();
     expect(calls.some((call) => call.path.startsWith("/dashboard"))).toBe(false);
   });
 

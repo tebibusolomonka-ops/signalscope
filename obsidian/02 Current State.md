@@ -1,12 +1,9 @@
 # Current State
 
-Last updated at planned commit 333, the end of batch 314 to 333
-(organization content tenancy). With five corrective commits (one at
-checkpoint 1, four at checkpoint 2) it ends at repository commit 338, "Scope
-admin dashboard by organization" (a commit cannot name its own hash; see
-`git log`). A later corrective commit must update this line. The batch
-before ended at commit 313 (`0fbf1cc`). Alembic head: `a809b1740bcd` (Add
-event cluster organization).
+Batch 314 to 333 (organization content tenancy) needed six corrective
+commits and ended at repository commit 339 (`5b1fcaa`). Current batch: 340
+to 359, the tenant research workspace in the web app. Alembic head:
+`a809b1740bcd` (Add event cluster organization).
 
 ## Done
 

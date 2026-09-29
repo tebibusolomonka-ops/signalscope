@@ -20,18 +20,7 @@ function label(key) {
  */
 export function DashboardPage() {
   const { active, tenantApi } = useOrganization();
-  if (!tenantApi) {
-    return (
-      <>
-        <PageHeading title="Dashboard" />
-        <p className="muted">Choose an organization to see its dashboard.</p>
-      </>
-    );
-  }
-  return <OrganizationDashboard name={active.name} tenantApi={tenantApi} />;
-}
-
-function OrganizationDashboard({ name, tenantApi }) {
+  const name = active.name;
   const load = useCallback(async () => {
     const [overview, sources, events] = await Promise.all([
       tenantApi.get("/dashboard/overview"),
