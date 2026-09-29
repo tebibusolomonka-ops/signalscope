@@ -1,0 +1,47 @@
+import { useCallback } from "react";
+import { useParams } from "react-router";
+
+import { useAuth } from "../../app/useAuth.js";
+import { PageHeading } from "../../components/PageHeading.jsx";
+import { ErrorMessage, Loading } from "../../components/Status.jsx";
+import { useResource } from "../../lib/useResource.js";
+import { AccessSummary } from "./AccessSummary.jsx";
+import { Members } from "./Members.jsx";
+
+export function OrganizationDetailPage() {
+  const { organizationId } = useParams();
+  const { api } = useAuth();
+  const load = useCallback(async () => {
+    const [organization, mine] = await Promise.all([
+      api.get(`/organizations/${organizationId}`),
+      api.get("/organizations"),
+    ]);
+    const role = mine.find((item) => item.organization.id === organizationId)?.role ?? null;
+    return { organization, role };
+  }, [api, organizationId]);
+  const { data, error, loading } = useResource(load);
+
+  if (loading) return <Loading />;
+  if (error) {
+    return (
+      <>
+        <PageHeading title="Organization" />
+        <ErrorMessage error={error} />
+      </>
+    );
+  }
+  const { organization, role } = data;
+  return (
+    <>
+      <PageHeading title={organization.name} />
+      <dl className="panel">
+        <dt>Slug</dt>
+        <dd>{organization.slug}</dd>
+        <dt>Your role</dt>
+        <dd>{role ?? "Not a member (system admin access)"}</dd>
+      </dl>
+      <Members organizationId={organizationId} />
+      <AccessSummary organizationId={organizationId} />
+    </>
+  );
+}
