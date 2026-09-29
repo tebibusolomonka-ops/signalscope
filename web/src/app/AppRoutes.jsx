@@ -8,6 +8,7 @@ import { OrganizationsPage } from "../features/organizations/OrganizationsPage.j
 import { SecurityPage } from "../features/security/SecurityPage.jsx";
 import { UsersPage } from "../features/users/UsersPage.jsx";
 import { AppShell } from "./AppShell.jsx";
+import { OrganizationProvider } from "./OrganizationContext.jsx";
 import { RequireAuth } from "./RequireAuth.jsx";
 
 function NotFound() {
@@ -19,7 +20,13 @@ export function AppRoutes() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route element={<RequireAuth />}>
-        <Route element={<AppShell />}>
+        <Route
+          element={
+            <OrganizationProvider>
+              <AppShell />
+            </OrganizationProvider>
+          }
+        >
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/organizations" element={<OrganizationsPage />} />

@@ -171,3 +171,9 @@ td {
 .bar rect {
   fill: var(--accent);
 }
+
+.picker {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
