@@ -168,3 +168,16 @@ export function savedItem(type, snapshot, overrides = {}) {
     ...overrides,
   };
 }
+
+export function researchSession(overrides = {}) {
+  return {
+    id: "rs-1",
+    title: "Closure questions",
+    retrieval_mode: "hybrid",
+    source_id: null,
+    organization_id: "org-a",
+    created_at: "2026-09-12T08:00:00Z",
+    updated_at: "2026-09-12T09:00:00Z",
+    ...overrides,
+  };
+}

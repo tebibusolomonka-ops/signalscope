@@ -116,6 +116,23 @@ class ResearchSessionService:
             raise NotFoundError("Research session was not found.")
         return research
 
+    async def list_sessions(
+        self, scope: ContentScope, limit: int, offset: int
+    ) -> tuple[list[ResearchSession], int]:
+        """Sessions in scope, newest first, with the total that match."""
+        condition = scope.owner_condition(ResearchSession.organization_id)
+        items = await self.session.scalars(
+            select(ResearchSession)
+            .where(condition)
+            .order_by(ResearchSession.created_at.desc(), ResearchSession.id)
+            .limit(limit)
+            .offset(offset)
+        )
+        total = await self.session.scalar(
+            select(func.count()).select_from(ResearchSession).where(condition)
+        )
+        return list(items), total or 0
+
     async def list_turns(self, session_id: uuid.UUID) -> list[ResearchTurn]:
         """Every turn of a session, oldest first."""
         await self.get_session(session_id)

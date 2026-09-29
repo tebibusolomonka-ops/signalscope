@@ -16,6 +16,7 @@ import { InvestigationsPage } from "../features/investigations/InvestigationsPag
 import { AcceptInvitationPage } from "../features/invitations/AcceptInvitationPage.jsx";
 import { OrganizationDetailPage } from "../features/organizations/OrganizationDetailPage.jsx";
 import { OrganizationsPage } from "../features/organizations/OrganizationsPage.jsx";
+import { ResearchPage } from "../features/research/ResearchPage.jsx";
 import { SearchPage } from "../features/search/SearchPage.jsx";
 import { SecurityPage } from "../features/security/SecurityPage.jsx";
 import { SourceComparePage } from "../features/sources/SourceComparePage.jsx";
@@ -62,7 +63,8 @@ export function AppRoutes() {
             <Route path="/event-clusters/:clusterId" element={<EventClusterPage />} />
             <Route path="/investigations" element={<InvestigationsPage />} />
             <Route path="/investigations/:investigationId" element={<InvestigationDetailPage />} />
-            <Route path="/research" element={<Placeholder title="Research" />} />
+            <Route path="/research" element={<ResearchPage />} />
+            <Route path="/research/:sessionId" element={<Placeholder title="Research session" />} />
           </Route>
           <Route path="/organizations" element={<OrganizationsPage />} />
           <Route path="/organizations/:organizationId" element={<OrganizationDetailPage />} />

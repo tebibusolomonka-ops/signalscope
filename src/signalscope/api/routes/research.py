@@ -8,7 +8,8 @@ from signalscope.api.dependencies import (
     EmbeddingProviders,
     Rerankers,
 )
-from signalscope.api.tenancy import Policy
+from signalscope.api.pagination import Page, Pagination
+from signalscope.api.tenancy import Policy, ReadScope
 from signalscope.core.exports import MARKDOWN_MEDIA_TYPE, ExportFormat
 from signalscope.domain.research.export import (
     ResearchSessionExport,
@@ -154,6 +155,30 @@ async def create_research_session(
         organization_id=organization_id,
     )
     return ResearchSessionRead.model_validate(research)
+
+
+@router.get("/sessions")
+async def list_research_sessions(
+    page: Pagination,
+    scope: ReadScope,
+    session: DatabaseSession,
+    providers: EmbeddingProviders,
+    rerankers: Rerankers,
+    generators: AnswerGenerators,
+) -> Page[ResearchSessionRead]:
+    """Research sessions of the organization_id organization, newest first.
+
+    With authentication on, any role there may list them; system admins
+    without organization_id get legacy sessions only.
+    """
+    service = ResearchSessionService(session, providers, rerankers, generators)
+    items, total = await service.list_sessions(scope, page.limit, page.offset)
+    return Page[ResearchSessionRead](
+        items=[ResearchSessionRead.model_validate(item) for item in items],
+        total=total,
+        limit=page.limit,
+        offset=page.offset,
+    )
 
 
 @router.get("/sessions/{session_id}")
