@@ -76,15 +76,19 @@ async def semantic_search(
     model: ModelName,
     session: DatabaseSession,
     providers: EmbeddingProviders,
+    scope: ReadScope,
+    policy: Policy,
     limit: SearchLimit = DEFAULT_SEARCH_LIMIT,
     source_id: uuid.UUID | None = None,
 ) -> SemanticSearchResponse:
     """Find the chunks whose embeddings from model are closest to q, closest first.
 
-    Answers 503 when the provider and model are not configured.
+    Answers 503 when the provider and model are not configured. Scoped to one
+    organization like GET /search.
     """
+    await policy.check_source_filter(source_id)
     results = await SemanticSearchService(session, providers).search(
-        q, provider=provider, model=model, limit=limit, source_id=source_id
+        q, provider=provider, model=model, limit=limit, source_id=source_id, scope=scope
     )
     return SemanticSearchResponse(
         items=[SemanticSearchResultRead.model_validate(result) for result in results]
@@ -98,6 +102,8 @@ async def hybrid_search(
     model: ModelName,
     session: DatabaseSession,
     providers: EmbeddingProviders,
+    scope: ReadScope,
+    policy: Policy,
     limit: SearchLimit = DEFAULT_SEARCH_LIMIT,
     source_id: uuid.UUID | None = None,
 ) -> HybridSearchResponse:
@@ -105,10 +111,11 @@ async def hybrid_search(
 
     Answers 503 when the provider and model are not configured, or when q
     could not be embedded. Chunks without embeddings can still be found by
-    full text search.
+    full text search. Scoped to one organization like GET /search.
     """
+    await policy.check_source_filter(source_id)
     results = await HybridSearchService(session, providers).search(
-        q, provider=provider, model=model, limit=limit, source_id=source_id
+        q, provider=provider, model=model, limit=limit, source_id=source_id, scope=scope
     )
     return HybridSearchResponse(
         items=[HybridSearchResultRead.model_validate(result) for result in results]
@@ -121,13 +128,18 @@ async def reranked_search(
     session: DatabaseSession,
     providers: EmbeddingProviders,
     rerankers: Rerankers,
+    scope: ReadScope,
+    policy: Policy,
     limit: SearchLimit = DEFAULT_SEARCH_LIMIT,
     source_id: uuid.UUID | None = None,
 ) -> RerankedSearchResponse:
     """Hybrid search with the local E5 model, reordered by the local mMARCO reranker.
 
     Answers 503 when local reranking or local embeddings are not enabled.
+    Scoped to one organization like GET /search; the reranker only reads
+    chunks in scope.
     """
+    await policy.check_source_filter(source_id)
     results = await RerankedSearchService(session, providers, rerankers).search(
         q,
         provider=MULTILINGUAL_E5_SMALL.provider,
@@ -136,6 +148,7 @@ async def reranked_search(
         reranker_model=MMARCO_MINILM.model,
         limit=limit,
         source_id=source_id,
+        scope=scope,
     )
     return RerankedSearchResponse(
         items=[RerankedSearchResultRead.model_validate(result) for result in results]

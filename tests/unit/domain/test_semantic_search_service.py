@@ -9,6 +9,7 @@ from fake_embeddings import FakeEmbeddingProvider
 from signalscope.core.errors import InvalidInputError
 from signalscope.domain.search.semantic_service import QueryEmbeddingError, SemanticSearchService
 from signalscope.domain.search.vector_repository import VectorSearchResult
+from signalscope.domain.tenancy.scope import ContentScope
 from signalscope.embeddings.provider import EmbeddingError, EmbeddingInputRole
 from signalscope.embeddings.registry import (
     EmbeddingProviderRegistry,
@@ -66,6 +67,7 @@ async def test_query_is_embedded_once_and_searched(
             "dimensions": 4,
             "limit": 7,
             "source_id": source_id,
+            "scope": ContentScope.unrestricted(),
         }
     ]
 

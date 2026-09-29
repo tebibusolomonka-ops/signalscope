@@ -16,7 +16,7 @@ def test_route_is_in_openapi(app: FastAPI) -> None:
     parameters = {parameter["name"]: parameter for parameter in get["parameters"]}
 
     assert get["tags"] == ["Search"]
-    assert set(parameters) == {"q", "limit", "source_id"}
+    assert set(parameters) == {"q", "limit", "source_id", "organization_id"}
     assert parameters["q"]["required"] is True
     assert (parameters["limit"]["schema"]["minimum"], parameters["limit"]["schema"]["maximum"]) == (
         1,

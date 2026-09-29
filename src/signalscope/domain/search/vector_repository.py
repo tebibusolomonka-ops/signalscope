@@ -10,7 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from signalscope.domain.documents.chunk import DocumentChunk
 from signalscope.domain.documents.model import Document
 from signalscope.domain.search.embedding_model import ChunkEmbedding
-from signalscope.domain.search.repository import MAX_CANDIDATE_LIMIT
+from signalscope.domain.search.repository import MAX_CANDIDATE_LIMIT, UNRESTRICTED
+from signalscope.domain.tenancy.scope import ContentScope
 from signalscope.embeddings.models import MULTILINGUAL_E5_SMALL
 
 # The pgvector default for how many rows an HNSW scan looks at.
@@ -58,8 +59,9 @@ class VectorSearchRepository:
         dimensions: int,
         limit: int,
         source_id: uuid.UUID | None = None,
+        scope: ContentScope = UNRESTRICTED,
     ) -> list[VectorSearchResult]:
-        """Return the closest chunks, smallest cosine distance first."""
+        """Return the closest chunks in scope, smallest cosine distance first."""
         statement = search_statement(
             vector,
             provider=provider,
@@ -67,6 +69,7 @@ class VectorSearchRepository:
             dimensions=dimensions,
             limit=limit,
             source_id=source_id,
+            scope=scope,
         )
         if uses_e5_index(provider, model, dimensions):
             await self._configure_index_scan(limit)
@@ -88,8 +91,10 @@ class VectorSearchRepository:
         """Let the HNSW scan return enough rows, until the transaction ends.
 
         By default a scan stops after hnsw.ef_search rows, before filters such
-        as the source run. An iterative scan keeps going until the query has
-        its rows, and strict order keeps them sorted by distance.
+        as the source or organization run. An iterative scan keeps going until
+        the query has its rows, and strict order keeps them sorted by
+        distance, so another organization's chunks near the query cannot
+        crowd out the rows in scope. The filter itself is never loosened.
         """
         await self.session.execute(
             text(
@@ -113,6 +118,7 @@ def search_statement(
     dimensions: int,
     limit: int,
     source_id: uuid.UUID | None = None,
+    scope: ContentScope = UNRESTRICTED,
 ) -> Select[tuple[uuid.UUID, uuid.UUID, uuid.UUID, str | None, str | None, Any, float]]:
     if not 1 <= limit <= MAX_CANDIDATE_LIMIT:
         raise ValueError(f"limit must be between 1 and {MAX_CANDIDATE_LIMIT}")
@@ -149,7 +155,11 @@ def search_statement(
         .select_from(ChunkEmbedding)
         .join(DocumentChunk, DocumentChunk.id == ChunkEmbedding.chunk_id)
         .join(Document, Document.id == DocumentChunk.document_id)
-        .where(*filters, ChunkEmbedding.chunk_text_hash == DocumentChunk.text_hash)
+        .where(
+            *filters,
+            ChunkEmbedding.chunk_text_hash == DocumentChunk.text_hash,
+            scope.source_condition(Document.source_id),
+        )
         # Chunks at the same distance keep the order they have in their documents.
         .order_by(distance, DocumentChunk.document_id, DocumentChunk.position)
         .limit(limit)

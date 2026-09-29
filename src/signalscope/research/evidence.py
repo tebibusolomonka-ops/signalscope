@@ -129,10 +129,7 @@ class ResearchEvidenceService:
     async def _candidates(
         self, query: str, mode: ResearchMode, limit: int, source_id: uuid.UUID | None
     ) -> list[EvidenceCandidate]:
-        embedding = {
-            "provider": MULTILINGUAL_E5_SMALL.provider,
-            "model": MULTILINGUAL_E5_SMALL.model,
-        }
+        provider, model = MULTILINGUAL_E5_SMALL.provider, MULTILINGUAL_E5_SMALL.model
         if mode is ResearchMode.LEXICAL:
             lexical = await SearchService(self.session).search(
                 query, limit=limit, source_id=source_id
@@ -152,7 +149,7 @@ class ResearchEvidenceService:
             ]
         if mode is ResearchMode.SEMANTIC:
             semantic = await SemanticSearchService(self.session, self.providers).search(
-                query, limit=limit, source_id=source_id, **embedding
+                query, limit=limit, source_id=source_id, provider=provider, model=model
             )
             return [
                 EvidenceCandidate(
@@ -169,7 +166,7 @@ class ResearchEvidenceService:
             ]
         if mode is ResearchMode.HYBRID:
             hybrid = await HybridSearchService(self.session, self.providers).search(
-                query, limit=limit, source_id=source_id, **embedding
+                query, limit=limit, source_id=source_id, provider=provider, model=model
             )
             return [
                 EvidenceCandidate(
@@ -194,7 +191,8 @@ class ResearchEvidenceService:
             source_id=source_id,
             reranker_provider=MMARCO_MINILM.provider,
             reranker_model=MMARCO_MINILM.model,
-            **embedding,
+            provider=provider,
+            model=model,
         )
         return [
             EvidenceCandidate(

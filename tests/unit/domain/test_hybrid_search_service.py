@@ -16,6 +16,7 @@ from signalscope.domain.search.hybrid_service import (
 from signalscope.domain.search.repository import SearchResult
 from signalscope.domain.search.semantic_service import QueryEmbeddingError
 from signalscope.domain.search.vector_repository import VectorSearchResult
+from signalscope.domain.tenancy.scope import ContentScope
 from signalscope.embeddings.provider import EmbeddingInputRole
 from signalscope.embeddings.registry import (
     EmbeddingProviderRegistry,
@@ -165,7 +166,10 @@ async def test_service_runs_both_searches() -> None:
     assert [result.chunk_id for result in results] == [A, B]
     assert provider.calls == [["water"]]
     assert provider.roles == [EmbeddingInputRole.QUERY]
-    assert fake_lexical.calls == [{"query": "water", "limit": 6, "source_id": source_id}]
+    unrestricted = ContentScope.unrestricted()
+    assert fake_lexical.calls == [
+        {"query": "water", "limit": 6, "source_id": source_id, "scope": unrestricted}
+    ]
     assert fake_vectors.calls == [
         {
             "vector": [0.0, 0.0, 1.0, 1.0],
@@ -174,6 +178,7 @@ async def test_service_runs_both_searches() -> None:
             "dimensions": 4,
             "limit": 6,
             "source_id": source_id,
+            "scope": unrestricted,
         }
     ]
 

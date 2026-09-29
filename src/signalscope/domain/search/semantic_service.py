@@ -4,9 +4,10 @@ import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from signalscope.core.errors import InvalidInputError, ServiceUnavailableError, SignalScopeError
-from signalscope.domain.search.repository import PUBLIC_SEARCH_LIMIT
+from signalscope.domain.search.repository import PUBLIC_SEARCH_LIMIT, UNRESTRICTED
 from signalscope.domain.search.service import DEFAULT_SEARCH_LIMIT, MAX_QUERY_LENGTH
 from signalscope.domain.search.vector_repository import VectorSearchRepository, VectorSearchResult
+from signalscope.domain.tenancy.scope import ContentScope
 from signalscope.embeddings.provider import EmbeddingInputRole, embed
 from signalscope.embeddings.registry import EmbeddingProviderRegistry
 
@@ -63,6 +64,7 @@ class SemanticSearchService:
         model: str,
         limit: int = DEFAULT_SEARCH_LIMIT,
         source_id: uuid.UUID | None = None,
+        scope: ContentScope = UNRESTRICTED,
     ) -> list[VectorSearchResult]:
         query = check_search_request(query, limit)
         vector, dimensions = await embed_query(self.providers, query, provider, model)
@@ -73,4 +75,5 @@ class SemanticSearchService:
             dimensions=dimensions,
             limit=limit,
             source_id=source_id,
+            scope=scope,
         )

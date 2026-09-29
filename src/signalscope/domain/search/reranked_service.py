@@ -8,9 +8,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from signalscope.domain.documents.chunk import DocumentChunk
 from signalscope.domain.search.hybrid_service import HybridSearchResult, HybridSearchService
-from signalscope.domain.search.repository import MAX_CANDIDATE_LIMIT
+from signalscope.domain.search.repository import MAX_CANDIDATE_LIMIT, UNRESTRICTED
 from signalscope.domain.search.semantic_service import check_search_request
 from signalscope.domain.search.service import DEFAULT_SEARCH_LIMIT
+from signalscope.domain.tenancy.scope import ContentScope
 from signalscope.embeddings.registry import EmbeddingProviderRegistry
 from signalscope.reranking.provider import rerank_scores
 from signalscope.reranking.registry import RerankerRegistry
@@ -93,6 +94,7 @@ class RerankedSearchService:
         reranker_model: str,
         limit: int = DEFAULT_SEARCH_LIMIT,
         source_id: uuid.UUID | None = None,
+        scope: ContentScope = UNRESTRICTED,
     ) -> list[RerankedSearchResult]:
         query = check_search_request(query, limit)
         # Checked first, so no search runs when there is nothing to rerank with.
@@ -103,7 +105,9 @@ class RerankedSearchService:
             model=model,
             limit=rerank_candidate_count(limit),
             source_id=source_id,
+            scope=scope,
         )
+        # Only candidates in scope reach the reranker.
         texts = await self._chunk_texts([candidate.chunk_id for candidate in candidates])
         scores = await rerank_scores(
             reranker, query, [texts[candidate.chunk_id] for candidate in candidates]
