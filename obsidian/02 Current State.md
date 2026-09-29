@@ -1,9 +1,8 @@
 # Current State
 
-Last updated at commit 292, the end of batch 273 to 292 (identity and
-authorization foundation). The batch before ended at commit 272 (`40f2d5c`),
-with two corrective commits. Alembic head: `fb1d292a0ca2` (Create security
-audit events).
+Last updated at commit 294. Batch 273 to 292 (identity and authorization
+foundation) ended at commit 293 (`68f9284`), with one corrective commit.
+Alembic head: `fb1d292a0ca2` (Create security audit events).
 
 ## Done
 

@@ -80,9 +80,18 @@ class AuthenticationService:
         self.audit = SecurityAuditService(session)
 
     async def create_user(
-        self, email: str, display_name: str, password: str, *, is_system_admin: bool = False
+        self,
+        email: str,
+        display_name: str,
+        password: str,
+        *,
+        is_system_admin: bool = False,
+        actor_user_id: uuid.UUID | None = None,
     ) -> User:
-        """Create an account with a password, in one transaction."""
+        """Create an account with a password, in one transaction.
+
+        actor_user_id is the admin who made it, or None for the command line.
+        """
         normalized = normalize_email(email)
         name = display_name.strip()
         if not name or len(name) > DISPLAY_NAME_MAX_LENGTH:
@@ -102,7 +111,7 @@ class AuthenticationService:
             self.session.add(UserPasswordCredential(user_id=user.id, password_hash=password_hash))
             self.audit.record(
                 AuditAction.USER_CREATED,
-                actor_user_id=None,
+                actor_user_id=actor_user_id,
                 resource_type="user",
                 resource_id=user.id,
                 details={"system_admin": is_system_admin},
