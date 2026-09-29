@@ -10,6 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from signalscope.core.errors import NotFoundError
 from signalscope.domain.events.cluster import EventClusterMember
 from signalscope.domain.events.model import Event
+from signalscope.domain.events.repository import UNRESTRICTED, visible_events
+from signalscope.domain.tenancy.scope import ContentScope
 from signalscope.embeddings.models import MULTILINGUAL_E5_SMALL
 from signalscope.embeddings.provider import EmbeddingInputRole, embed
 from signalscope.embeddings.registry import EmbeddingProviderRegistry
@@ -58,18 +60,23 @@ class EventLinkSuggestionService:
         self.providers = providers
 
     async def suggest(
-        self, event_id: uuid.UUID, limit: int = DEFAULT_SUGGESTION_LIMIT
+        self,
+        event_id: uuid.UUID,
+        limit: int = DEFAULT_SUGGESTION_LIMIT,
+        scope: ContentScope = UNRESTRICTED,
     ) -> list[EventLinkSuggestion]:
-        """Candidates for event_id, most similar first."""
+        """Candidates for event_id in scope, most similar first."""
         if limit < 1:
             raise ValueError("limit must be at least 1")
         spec = MULTILINGUAL_E5_SMALL
         # Checked first, so no query runs when there is no model.
         provider = self.providers.get(spec.provider, spec.model)
-        event = await self.session.get(Event, event_id)
+        event = await self.session.scalar(
+            select(Event).where(Event.id == event_id, visible_events(scope, Event.id))
+        )
         if event is None:
             raise NotFoundError("Event was not found.")
-        candidates = await self._candidates(event)
+        candidates = await self._candidates(event, scope)
         if not candidates:
             return []
         texts = [event_text(event), *(event_text(candidate) for candidate, _ in candidates)]
@@ -88,14 +95,21 @@ class EventLinkSuggestionService:
         suggestions.sort(key=lambda item: (-item.similarity, str(item.candidate_event_id)))
         return suggestions[:limit]
 
-    async def _candidates(self, event: Event) -> list[tuple[Event, uuid.UUID | None]]:
+    async def _candidates(
+        self, event: Event, scope: ContentScope
+    ) -> list[tuple[Event, uuid.UUID | None]]:
         own_cluster = await self.session.scalar(
             select(EventClusterMember.cluster_id).where(EventClusterMember.event_id == event.id)
         )
         statement = (
             select(Event, EventClusterMember.cluster_id)
             .outerjoin(EventClusterMember, EventClusterMember.event_id == Event.id)
-            .where(Event.id != event.id, Event.event_type == event.event_type)
+            .where(
+                Event.id != event.id,
+                Event.event_type == event.event_type,
+                # Before the limit, so no other organization's event is embedded.
+                visible_events(scope, Event.id),
+            )
         )
         if own_cluster is not None:
             statement = statement.where(

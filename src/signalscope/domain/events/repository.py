@@ -4,15 +4,29 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import ColumnElement, delete, exists, func, select
+from sqlalchemy import ColumnElement, delete, exists, func, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from signalscope.domain.documents.chunk import DocumentChunk
 from signalscope.domain.events.cluster import EventCluster, EventClusterMember
 from signalscope.domain.events.model import Event, EventEvidence
+from signalscope.domain.tenancy.scope import ContentScope
 
 # The most evidence rows an event detail shows.
 MAX_DETAIL_EVIDENCE = 100
+UNRESTRICTED = ContentScope.unrestricted()
+
+
+def visible_events(scope: ContentScope, event_id: Any) -> ColumnElement[bool]:
+    """Events with at least one piece of evidence in scope.
+
+    Events have no organization of their own; their evidence chunks say
+    whose they are.
+    """
+    if scope.is_unrestricted:
+        return true()
+    visible = select(EventEvidence.event_id).where(scope.chunk_condition(EventEvidence.chunk_id))
+    return event_id.in_(visible)  # type: ignore[no-any-return]
 
 
 @dataclass(frozen=True, slots=True)
@@ -22,6 +36,7 @@ class EventFilters:
     occurred_from: datetime | None = None
     # Events that happened before this time.
     occurred_to: datetime | None = None
+    scope: ContentScope = UNRESTRICTED
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,12 +100,18 @@ class EventRepository:
         return await self.session.get(Event, event_id)
 
     async def evidence(
-        self, event_id: uuid.UUID, limit: int = MAX_DETAIL_EVIDENCE
+        self,
+        event_id: uuid.UUID,
+        limit: int = MAX_DETAIL_EVIDENCE,
+        scope: ContentScope = UNRESTRICTED,
     ) -> list[EvidenceWithChunk]:
         rows = await self.session.execute(
             select(EventEvidence, DocumentChunk.document_id, DocumentChunk.chunk_metadata)
             .join(DocumentChunk, DocumentChunk.id == EventEvidence.chunk_id)
-            .where(EventEvidence.event_id == event_id)
+            .where(
+                EventEvidence.event_id == event_id,
+                scope.chunk_condition(EventEvidence.chunk_id),
+            )
             .order_by(DocumentChunk.document_id, DocumentChunk.position, EventEvidence.id)
             .limit(limit)
         )
@@ -101,7 +122,7 @@ class EventRepository:
 
 
 def _conditions(filters: EventFilters) -> list[ColumnElement[bool]]:
-    conditions = []
+    conditions = [visible_events(filters.scope, Event.id)]
     if filters.event_type is not None:
         conditions.append(Event.event_type == filters.event_type.strip().lower())
     if filters.occurred_from is not None:

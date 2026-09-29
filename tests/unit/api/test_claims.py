@@ -20,6 +20,7 @@ def test_routes_are_in_openapi(app: FastAPI) -> None:
         "claim_type",
         "limit",
         "offset",
+        "organization_id",
     }
     # Claims come from extraction, so there is no way to write them.
     assert set(paths["/claims"]) == {"get"}

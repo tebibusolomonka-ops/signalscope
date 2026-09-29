@@ -21,6 +21,7 @@ def test_routes_are_in_openapi(app: FastAPI) -> None:
         "occurred_to",
         "limit",
         "offset",
+        "organization_id",
     }
     # Events come from extraction, so there is no way to write them.
     assert set(paths["/events"]) == {"get"}
@@ -98,7 +99,11 @@ def test_link_suggestions_route_is_in_openapi(app: FastAPI) -> None:
 
     get = paths["/events/{event_id}/link-suggestions"]
     assert set(get) == {"get"}
-    assert [parameter["name"] for parameter in get["get"]["parameters"]] == ["event_id", "limit"]
+    assert {parameter["name"] for parameter in get["get"]["parameters"]} == {
+        "event_id",
+        "limit",
+        "organization_id",
+    }
     assert set(schema["properties"]) == {
         "candidate_event_id",
         "candidate_cluster_id",

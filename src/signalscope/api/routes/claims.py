@@ -6,6 +6,7 @@ from pydantic import StringConstraints
 
 from signalscope.api.dependencies import DatabaseSession, DatabaseSessionFactory
 from signalscope.api.pagination import Page, Pagination
+from signalscope.api.tenancy import ReadScope
 from signalscope.core.errors import NotFoundError
 from signalscope.domain.claims.coverage import ClaimCoverageService
 from signalscope.domain.claims.model import CLAIM_TEXT_MAX_LENGTH, CLAIM_TYPE_MAX_LENGTH, Claim
@@ -36,15 +37,17 @@ TypeQuery = Annotated[
 async def list_claims(
     session: DatabaseSession,
     page: Pagination,
+    scope: ReadScope,
     query: TextQuery = None,
     claim_type: TypeQuery = None,
 ) -> Page[ClaimRead]:
     """List claims found in documents, by text. Claims are read only.
 
-    Nothing here says whether a claim is true.
+    Nothing here says whether a claim is true. With authentication on, only
+    claims with evidence in the organization_id organization, counting that.
     """
     summaries, total = await ClaimRepository(session).list_page(
-        query, claim_type, page.limit, page.offset
+        query, claim_type, page.limit, page.offset, scope
     )
     return Page[ClaimRead](
         items=[_claim_read(summary.claim, summary.evidence_count) for summary in summaries],
@@ -84,13 +87,21 @@ async def claim_coverage(
 
 
 @router.get("/{claim_id}")
-async def get_claim(claim_id: uuid.UUID, session: DatabaseSession) -> ClaimDetailRead:
-    """One claim with the passages that make it, the first 100 in document order."""
+async def get_claim(
+    claim_id: uuid.UUID, session: DatabaseSession, scope: ReadScope
+) -> ClaimDetailRead:
+    """One claim with the passages that make it, the first 100 in document order.
+
+    With authentication on, only evidence in the organization_id
+    organization; a claim without any there is not found.
+    """
     repository = ClaimRepository(session)
     claim = await repository.get(claim_id)
     if claim is None:
         raise NotFoundError("Claim was not found.")
-    evidence, total = await repository.evidence(claim_id)
+    evidence, total = await repository.evidence(claim_id, scope=scope)
+    if total == 0 and not scope.is_unrestricted:
+        raise NotFoundError("Claim was not found.")
     return ClaimDetailRead(
         claim=_claim_read(claim, total),
         evidence_count=total,

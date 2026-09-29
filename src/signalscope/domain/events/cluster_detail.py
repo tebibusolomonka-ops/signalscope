@@ -11,7 +11,9 @@ from signalscope.domain.documents.chunk import DocumentChunk
 from signalscope.domain.documents.model import Document
 from signalscope.domain.events.cluster import EventCluster, EventClusterMember
 from signalscope.domain.events.model import Event, EventEvidence
+from signalscope.domain.events.repository import UNRESTRICTED, visible_events
 from signalscope.domain.sources.model import Source
+from signalscope.domain.tenancy.scope import ContentScope
 
 # The most evidence rows a cluster detail shows. evidence_count still counts them all.
 MAX_CLUSTER_EVIDENCE = 500
@@ -56,12 +58,19 @@ class EventClusterDetail:
 
 
 class EventClusterDetailService:
-    """One event cluster with its member events and where each was reported. Read only."""
+    """One event cluster with its member events and where each was reported. Read only.
+
+    In a scope, only member events with evidence in it are shown, with that
+    evidence only, and the counts describe those. A cluster with no such
+    member is not found.
+    """
 
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def get(self, cluster_id: uuid.UUID) -> EventClusterDetail:
+    async def get(
+        self, cluster_id: uuid.UUID, scope: ContentScope = UNRESTRICTED
+    ) -> EventClusterDetail:
         cluster = await self.session.get(EventCluster, cluster_id)
         if cluster is None:
             raise NotFoundError("Event cluster was not found.")
@@ -69,10 +78,12 @@ class EventClusterDetailService:
             await self.session.scalars(
                 select(Event)
                 .join(EventClusterMember, EventClusterMember.event_id == Event.id)
-                .where(EventClusterMember.cluster_id == cluster_id)
+                .where(EventClusterMember.cluster_id == cluster_id, visible_events(scope, Event.id))
                 .order_by(Event.occurred_at.asc().nulls_last(), Event.created_at, Event.id)
             )
         )
+        if not events and not scope.is_unrestricted:
+            raise NotFoundError("Event cluster was not found.")
         members = {
             event.id: ClusterMember(
                 event_id=event.id,
@@ -88,7 +99,10 @@ class EventClusterDetailService:
             .join(DocumentChunk, DocumentChunk.id == EventEvidence.chunk_id)
             .join(Document, Document.id == DocumentChunk.document_id)
             .join(Source, Source.id == Document.source_id)
-            .where(EventEvidence.event_id.in_(list(members)))
+            .where(
+                EventEvidence.event_id.in_(list(members)),
+                scope.source_condition(Document.source_id),
+            )
         )
         rows = await self.session.execute(
             evidence_of_members.order_by(
@@ -113,7 +127,10 @@ class EventClusterDetailService:
                 select(func.count(EventEvidence.id), func.count(Document.source_id.distinct()))
                 .join(DocumentChunk, DocumentChunk.id == EventEvidence.chunk_id)
                 .join(Document, Document.id == DocumentChunk.document_id)
-                .where(EventEvidence.event_id.in_(list(members)))
+                .where(
+                    EventEvidence.event_id.in_(list(members)),
+                    scope.source_condition(Document.source_id),
+                )
             )
         ).one()
         return EventClusterDetail(
