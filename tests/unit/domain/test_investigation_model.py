@@ -37,3 +37,20 @@ def test_ownership_columns() -> None:
     assert {index.name for index in Investigation.__table__.indexes} == {
         "ix_investigations_organization_id"
     }
+
+
+def test_collaborators_table() -> None:
+    from signalscope.domain.investigations.collaborator import (
+        CollaboratorRole,
+        InvestigationCollaborator,
+    )
+
+    sql = str(
+        CreateTable(InvestigationCollaborator.__table__).compile(dialect=postgresql.dialect())
+    )
+
+    assert "PRIMARY KEY (investigation_id, user_id)" in sql
+    assert "REFERENCES investigations (id) ON DELETE CASCADE" in sql
+    assert "REFERENCES users (id) ON DELETE RESTRICT" in sql
+    assert "CHECK (role IN ('owner', 'editor', 'viewer'))" in sql
+    assert [role.value for role in CollaboratorRole] == ["owner", "editor", "viewer"]
