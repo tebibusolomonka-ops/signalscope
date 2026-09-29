@@ -31,6 +31,7 @@ empty, keeps its default value. An invalid value raises `SettingsError`.
 | `SIGNALSCOPE_AUTH_SESSION_DAYS` | `7` | A whole number from 1 to 365 |
 | `SIGNALSCOPE_AUTH_SESSION_RETENTION_DAYS` | `30` | A whole number from 1 to 3650 |
 | `SIGNALSCOPE_ORGANIZATION_INVITATION_DAYS` | `7` | A whole number from 1 to 90 |
+| `SIGNALSCOPE_ORGANIZATION_INVITATION_RETENTION_DAYS` | `30` | A whole number from 1 to 365 |
 
 Values are not case-sensitive, except for the app name, the database URL,
 the device and the folders.
@@ -180,3 +181,8 @@ can be revoked. Passwords are hashed with Argon2id.
 `signalscope cleanup-auth-sessions` deletes sessions that expired or were
 revoked more than `SIGNALSCOPE_AUTH_SESSION_RETENTION_DAYS` days ago. Active
 sessions are never deleted. Run it from a scheduler, for example once a day.
+
+`signalscope cleanup-organization-invitations` does the same for invitations
+that were accepted, revoked or expired more than
+`SIGNALSCOPE_ORGANIZATION_INVITATION_RETENTION_DAYS` days ago. Pending
+invitations are never deleted.

@@ -151,6 +151,13 @@ There is no email sending yet, so invitations are shared by hand:
 
 Invitations expire after `SIGNALSCOPE_ORGANIZATION_INVITATION_DAYS` days (7 by
 default).
+Accepted, revoked and expired invitations are kept for
+`SIGNALSCOPE_ORGANIZATION_INVITATION_RETENTION_DAYS` days (30 by default).
+Delete older ones from a scheduled job:
+
+```bash
+signalscope cleanup-organization-invitations --limit 1000
+```
 
 ### Sessions
 

@@ -61,6 +61,7 @@ from signalscope.domain.investigations.export import (
     InvestigationExportService,
     investigation_markdown,
 )
+from signalscope.domain.organizations.invitation_cleanup import InvitationCleanupService
 from signalscope.domain.processing.file_import import FileImportService
 from signalscope.domain.processing.job_repository import DocumentProcessingJobRepository
 from signalscope.domain.processing.model import DocumentProcessingJob, ProcessingJobStatus
@@ -262,6 +263,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
     if args.command == "cleanup-auth-sessions":
         return asyncio.run(cleanup_auth_sessions(args.limit, settings))
+    if args.command == "cleanup-organization-invitations":
+        return asyncio.run(cleanup_organization_invitations(args.limit, settings))
     if args.command == "export-investigation":
         return asyncio.run(
             export_investigation(
@@ -388,6 +391,17 @@ def build_parser() -> argparse.ArgumentParser:
         type=positive_int,
         default=DEFAULT_SESSION_CLEANUP_LIMIT,
         help=f"most sessions to delete (default: {DEFAULT_SESSION_CLEANUP_LIMIT})",
+    )
+
+    invitation_cleanup = commands.add_parser(
+        "cleanup-organization-invitations",
+        help="delete invitations that were used, revoked or expired long ago",
+    )
+    invitation_cleanup.add_argument(
+        "--limit",
+        type=positive_int,
+        default=DEFAULT_SESSION_CLEANUP_LIMIT,
+        help=f"most invitations to delete (default: {DEFAULT_SESSION_CLEANUP_LIMIT})",
     )
 
     export_command = commands.add_parser(
@@ -745,6 +759,33 @@ async def cleanup_auth_sessions(
     async with _database(settings) as session_factory, session_factory() as session:
         result = await SessionCleanupService(session, clock).run(
             settings.auth_session_retention_days, limit
+        )
+    print(f"Checked: {result.checked}", file=out)
+    print(f"Deleted: {result.deleted}", file=out)
+    return 0
+
+
+async def cleanup_organization_invitations(
+    limit: int,
+    settings: Settings,
+    out: TextIO | None = None,
+    err: TextIO | None = None,
+    *,
+    clock: Clock = utc_now,
+) -> int:
+    """Delete old used, revoked and expired invitations and print the counts.
+
+    Returns the exit code. No email address or token is printed.
+    """
+    out = sys.stdout if out is None else out
+    err = sys.stderr if err is None else err
+    if settings.database_url is None:
+        print(NO_DATABASE_ERROR, file=err)
+        return 1
+
+    async with _database(settings) as session_factory, session_factory() as session:
+        result = await InvitationCleanupService(session, clock).run(
+            settings.organization_invitation_retention_days, limit
         )
     print(f"Checked: {result.checked}", file=out)
     print(f"Deleted: {result.deleted}", file=out)
