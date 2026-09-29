@@ -1,6 +1,6 @@
 # Known Issues
 
-Open problems as of commit 298. Remove an item when it is fixed.
+Open problems as of commit 303. Remove an item when it is fixed.
 
 ## Events
 
@@ -55,13 +55,15 @@ Open problems as of commit 298. Remove an item when it is fixed.
 - Login has no rate limit or lockout yet.
 - There is no password reset yet, only a change while signed in.
 - There is no way to delete an organization or a user through the API.
-- Invitations have a table but no service or API yet.
+- Invitations are shared by hand: there is no email sending, and old
+  invitation rows are not cleaned up yet.
 - Only investigations and organizations are protected; other APIs stay open
   even when auth is on, until data tenancy is designed.
 - The saved records an investigation points at are not checked against the
   organization: any record ID can be saved and its snapshot read.
-- Audit events have no read API or retention rule yet, and failed logins are
-  not recorded.
+- Audit events have no retention rule yet, and failed logins are not
+  recorded. Events without an organization (logins, user changes) are only
+  visible to system admins.
 - `GET /auth/sessions` shows at most the 100 newest sessions; run
   `cleanup-auth-sessions` regularly.
 

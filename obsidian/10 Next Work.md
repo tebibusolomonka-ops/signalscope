@@ -5,10 +5,10 @@ passwords, sessions, the auth API, the bootstrap command, organizations,
 investigation ownership, access policy and collaborators, session management
 and cleanup, and the security audit log.
 
-Current batch, 294 to 313: user administration, lifecycle and password
-change (done); organization invitations, the security audit API, admin
-session controls and an access summary (to do); then a small React admin web
-app. Content data tenancy is deliberately not part of it.
+Current batch, 294 to 313: user administration, lifecycle, password
+change, organization invitations and the security audit API (done); invitation
+cleanup, admin session controls and an access summary (to do); then a small
+React admin web app. Content data tenancy is deliberately not part of it.
 
 ## Next batch
 

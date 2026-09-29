@@ -21,6 +21,7 @@ from signalscope.api.routes import (
     organizations,
     research,
     search,
+    security,
     sources,
     timeline,
 )
@@ -58,6 +59,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(admin_users.router)
     app.include_router(organizations.router)
     app.include_router(organization_invitations.router)
+    app.include_router(security.router)
     app.include_router(sources.router)
     app.include_router(documents.router)
     app.include_router(ingestion_runs.router)

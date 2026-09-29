@@ -99,6 +99,17 @@ Decisions that should hold unless there is a clear reason to change them.
 - **Invitation tokens are stored as hashes only**, like session tokens. The
   raw token is shown once when the invitation is made. Invitations cannot
   make owners.
+- **Invitation status is computed**, from accepted, revoked and expiry
+  times, not stored as another mutable field. One pending invitation per
+  address and organization; old rows stay as history.
+- **Accepting needs the invited email.** The token alone is not enough: the
+  signed in user's normalized email must match. Acceptance locks the
+  invitation row and saves membership and accepted time together, so a token
+  works once. An existing member gets 409, and the invitation stays pending.
+- **Invalid invitation tokens share one answer** (404), like failed logins.
+- **Audit reading is scoped by organization.** Organization owners and admins
+  must name one organization they manage; results are never merged across
+  organizations. Only system admins read events without an organization.
 - **Only investigations are protected so far.** Search, timeline, sources,
   documents and extraction APIs stay open until data tenancy is designed.
 - **Exports replay history, not live data.** A research session export uses

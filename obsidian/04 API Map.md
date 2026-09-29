@@ -46,6 +46,30 @@ Auth only: 503 when auth is off, 401 without a valid token.
 - Not a member: 404. Member without the right role: 403. Removing or demoting
   the last owner: 409.
 
+## Invitations
+
+Auth only. Owners invite admins, members and viewers; admins invite members
+and viewers; system admins may manage any organization's invitations.
+
+- `POST /organizations/{id}/invitations` with `email` and `role`: the only
+  answer that holds `invitation_token`, once. A pending invitation for the
+  same address or an existing member: 409.
+- `GET /organizations/{id}/invitations` (`status`: pending, accepted,
+  revoked, expired): never tokens or hashes.
+- `DELETE /organizations/{id}/invitations/{invitation_id}`: revoke a pending
+  one (again: no change; accepted or expired: 409).
+- `POST /organization-invitations/accept` with `token`: the signed in user's
+  email must match (else 403). Unknown, expired, revoked and used tokens: the
+  same 404. Already a member: 409, and the invitation stays pending.
+
+## Security
+
+- `GET /security/audit`: newest first, filters `organization_id`,
+  `actor_user_id`, `action`, `resource_type`, `resource_id`, `created_from`,
+  `created_to`, paged. System admins: everything. Organization owners and
+  admins: must name an organization they manage (422 without, 404 for other
+  organizations). Members, viewers and others: 403.
+
 ## Health
 
 - `GET /health`

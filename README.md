@@ -178,8 +178,18 @@ deleted.
 Account creation, logins, logouts, and changes to organizations, members and
 investigation collaborators are written to the `security_audit_events` table,
 in the same transaction as the change. Events hold IDs and roles only, never
-passwords, tokens or hashes. Failed logins are not recorded. There is no API
-to read them yet.
+passwords, tokens or hashes. Failed logins are not recorded.
+
+Read them with `GET /security/audit`, newest first. Filters: `action`,
+`resource_type`, `resource_id`, `actor_user_id`, `created_from` (inclusive),
+`created_to` (exclusive), plus `limit` and `offset`. System admins see every
+event. Organization owners and admins must pass `organization_id` for an
+organization they manage and only see its events. Members and viewers get 403.
+
+```bash
+curl "http://localhost:8000/security/audit?organization_id=<id>&action=auth.login" \
+  -H "Authorization: Bearer <token>"
+```
 
 ## Command line
 

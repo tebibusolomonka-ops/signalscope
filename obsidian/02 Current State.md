@@ -1,6 +1,6 @@
 # Current State
 
-Last updated at commit 298. Batch 273 to 292 (identity and authorization
+Last updated at commit 303. Batch 273 to 292 (identity and authorization
 foundation) ended at commit 293 (`68f9284`), with one corrective commit.
 Current batch: 294 to 313 (administration and the admin web app). Alembic
 head: `23438041f111` (Create organization invitations).
@@ -34,7 +34,10 @@ head: `23438041f111` (Create organization invitations).
   active system admin cannot be deactivated.
 - Self-service password change (`POST /auth/change-password`), which revokes
   the user's other sessions.
-- The `organization_invitations` table (model only so far).
+- Organization invitations: create, list with a computed status, revoke,
+  and accept (`OrganizationInvitationService`). The raw token is returned
+  only when an invitation is made; delivery is manual.
+- Security audit reading (`SecurityAuditQueryService`, `GET /security/audit`).
 
 - Sources, scheduled network ingestion (RSS, web), file import, blob storage.
 - Processing jobs, parsers, document revisions, section-aware chunks.

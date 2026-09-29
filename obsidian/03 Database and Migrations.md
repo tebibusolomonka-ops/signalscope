@@ -47,6 +47,8 @@ invitations).
   admin, member or viewer, never owner; the SHA-256 of the token, unique;
   expiry, accepted and revoked times, inviter). Status is computed from the
   times, not stored. No uniqueness on email, so old rows stay as history.
+  The service allows one pending invitation per organization and email,
+  checked under a lock on the organization row.
 - **Audit**: `security_audit_events` (actor, organization, action, resource
   type and ID, JSONB `metadata` object, `created_at` only, since events are
   history). Indexed by time, actor, organization and action.
