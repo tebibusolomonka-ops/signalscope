@@ -26,11 +26,13 @@ from signalscope.domain.investigations.collaborator import (
 )
 from signalscope.domain.investigations.item import InvestigationItem, InvestigationItemType
 from signalscope.domain.investigations.model import Investigation, InvestigationStatus
+from signalscope.domain.investigations.references import reference_in_scope
 from signalscope.domain.organizations.membership import OrganizationMembership
 from signalscope.domain.organizations.model import Organization
 from signalscope.domain.research.session import ResearchSession
 from signalscope.domain.research.turn import ResearchTurn
 from signalscope.domain.sources.model import Source
+from signalscope.domain.tenancy.scope import ContentScope
 from signalscope.domain.users.model import User
 
 CLOSED_ERROR = "Investigation is closed. Reopen it to change it."
@@ -170,12 +172,26 @@ class InvestigationService:
         reference_id: uuid.UUID,
         label: str | None = None,
     ) -> InvestigationItem:
-        """Save a reference to an existing record, with a snapshot of it now."""
-        await self._open(investigation_id, InvestigationPermission.EDIT)
+        """Save a reference to an existing record, with a snapshot of it now.
+
+        With a signed in actor, the record must belong to the investigation's
+        organization (legacy investigations take legacy records only). Records
+        of another organization answer like missing ones.
+        """
+        investigation = await self._open(investigation_id, InvestigationPermission.EDIT)
+        not_found = f"The {item_type.value.replace('_', ' ')} to save was not found."
+        if self.actor is not None and not await reference_in_scope(
+            self.session,
+            item_type,
+            reference_id,
+            ContentScope.owned_by(investigation.organization_id),
+        ):
+            await self.session.rollback()
+            raise NotFoundError(not_found)
         snapshot = await SNAPSHOT_READERS[item_type](self.session, reference_id)
         if snapshot is None:
             await self.session.rollback()
-            raise NotFoundError(f"The {item_type.value.replace('_', ' ')} to save was not found.")
+            raise NotFoundError(not_found)
         item = InvestigationItem(
             investigation_id=investigation_id,
             item_type=item_type,
