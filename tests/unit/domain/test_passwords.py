@@ -86,3 +86,15 @@ def test_credentials_table() -> None:
     assert "password_hash VARCHAR(512) NOT NULL" in sql
     assert "password_changed_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL" in sql
     assert Base.metadata.tables["user_password_credentials"] is UserPasswordCredential.__table__
+
+
+def test_check_without_account_does_real_work() -> None:
+    hasher = fast_hasher()
+
+    hasher.check_without_account(TEST_PASSWORD)
+    first = hasher._dummy_hash
+    hasher.check_without_account(OTHER_PASSWORD)
+
+    assert first is not None and first.startswith("$argon2id$")
+    # One hash is made and then reused.
+    assert hasher._dummy_hash == first

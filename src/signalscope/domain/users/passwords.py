@@ -3,6 +3,7 @@
 Passwords and hashes never appear in errors or logs.
 """
 
+import secrets
 from dataclasses import dataclass
 
 from pwdlib import PasswordHash
@@ -43,6 +44,7 @@ class PasswordHasher:
 
     def __init__(self, hasher: Argon2Hasher | None = None) -> None:
         self._hashing = PasswordHash((hasher or Argon2Hasher(),))
+        self._dummy_hash: str | None = None
 
     def hash_password(self, password: str) -> str:
         """A salted Argon2id hash. Raises InvalidPasswordError for a bad length."""
@@ -62,6 +64,16 @@ class PasswordHasher:
         except UnknownHashError:
             return PasswordCheck(valid=False)
         return PasswordCheck(valid=valid, new_hash=new_hash)
+
+    def check_without_account(self, password: str) -> None:
+        """Do the work of a password check when there is no account to check.
+
+        This makes a login for an unknown email take about as long as one with
+        a wrong password. The hash is of a random password nobody knows.
+        """
+        if self._dummy_hash is None:
+            self._dummy_hash = self._hashing.hash(secrets.token_urlsafe(24))
+        self.verify_password(password, self._dummy_hash)
 
     def needs_rehash(self, password_hash: str) -> bool:
         """Whether a stored hash uses other settings than the current ones."""

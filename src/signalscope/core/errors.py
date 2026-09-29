@@ -30,6 +30,12 @@ class InvalidInputError(SignalScopeError):
     default_message = "Input is not valid."
 
 
+class UnauthenticatedError(SignalScopeError):
+    """No valid sign in. The message never says why, so it cannot reveal accounts."""
+
+    default_message = "Authentication is required."
+
+
 def short_error_message(message: str) -> str:
     """Fit an error message for people into the error columns."""
     message = message.strip() or "Something went wrong."
