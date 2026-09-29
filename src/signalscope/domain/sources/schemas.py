@@ -21,6 +21,8 @@ class SourceCreate(BaseModel):
     type: SourceType
     name: str = Field(min_length=1, max_length=SOURCE_NAME_MAX_LENGTH)
     url: str | None = Field(default=None, min_length=1, max_length=URL_MAX_LENGTH)
+    # Required when authentication is on; not allowed when it is off.
+    organization_id: uuid.UUID | None = None
 
     @model_validator(mode="after")
     def check_url(self) -> Self:
@@ -47,6 +49,8 @@ class SourceRead(BaseModel):
     ingestion_enabled: bool
     ingestion_interval_minutes: int | None
     next_ingestion_at: datetime | None
+    # None for legacy sources, made before organizations existed.
+    organization_id: uuid.UUID | None
     created_at: datetime
     updated_at: datetime
 

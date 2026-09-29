@@ -7,6 +7,7 @@ from signalscope.core.errors import ConflictError, NotFoundError
 from signalscope.domain.sources.model import Source
 from signalscope.domain.sources.repository import SourceRepository
 from signalscope.domain.sources.schemas import SourceCreate
+from signalscope.domain.tenancy.scope import ContentScope
 
 
 class SourceService:
@@ -21,7 +22,9 @@ class SourceService:
         self.repository = SourceRepository(session)
 
     async def create(self, data: SourceCreate) -> Source:
-        source = Source(type=data.type, name=data.name, url=data.url)
+        source = Source(
+            type=data.type, name=data.name, url=data.url, organization_id=data.organization_id
+        )
         try:
             await self.repository.add(source)
             await self.session.commit()
@@ -36,9 +39,15 @@ class SourceService:
             raise NotFoundError("Source was not found.")
         return source
 
-    async def list_page(self, limit: int, offset: int) -> tuple[list[Source], int]:
-        """Return one page of sources and the total number of sources."""
-        return await self.repository.list_page(limit, offset), await self.repository.count()
+    async def list_page(
+        self, limit: int, offset: int, scope: ContentScope | None = None
+    ) -> tuple[list[Source], int]:
+        """Return one page of sources in scope and how many there are."""
+        scope = scope or ContentScope.unrestricted()
+        return (
+            await self.repository.list_page(limit, offset, scope),
+            await self.repository.count(scope),
+        )
 
     async def delete(self, source_id: uuid.UUID) -> None:
         try:

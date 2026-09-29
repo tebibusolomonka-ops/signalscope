@@ -5,6 +5,9 @@ from sqlalchemy import ColumnElement, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from signalscope.domain.sources.model import Source
+from signalscope.domain.tenancy.scope import ContentScope
+
+UNRESTRICTED = ContentScope.unrestricted()
 
 
 class SourceRepository:
@@ -64,14 +67,24 @@ class SourceRepository:
         )
         return list(result.all())
 
-    async def list_page(self, limit: int, offset: int) -> list[Source]:
+    async def list_page(
+        self, limit: int, offset: int, scope: ContentScope = UNRESTRICTED
+    ) -> list[Source]:
         result = await self.session.scalars(
-            select(Source).order_by(Source.created_at, Source.id).limit(limit).offset(offset)
+            select(Source)
+            .where(scope.owner_condition(Source.organization_id))
+            .order_by(Source.created_at, Source.id)
+            .limit(limit)
+            .offset(offset)
         )
         return list(result.all())
 
-    async def count(self) -> int:
-        result = await self.session.execute(select(func.count()).select_from(Source))
+    async def count(self, scope: ContentScope = UNRESTRICTED) -> int:
+        result = await self.session.execute(
+            select(func.count())
+            .select_from(Source)
+            .where(scope.owner_condition(Source.organization_id))
+        )
         return result.scalar_one()
 
     async def delete(self, source_id: uuid.UUID) -> bool:

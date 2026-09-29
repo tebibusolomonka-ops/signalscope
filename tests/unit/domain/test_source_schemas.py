@@ -95,6 +95,7 @@ def test_read_schema_from_model() -> None:
         "ingestion_enabled": False,
         "ingestion_interval_minutes": None,
         "next_ingestion_at": None,
+        "organization_id": None,
         "created_at": now,
         "updated_at": now,
     }

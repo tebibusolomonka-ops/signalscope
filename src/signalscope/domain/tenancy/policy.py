@@ -17,6 +17,7 @@ from signalscope.domain.tenancy.scope import ContentScope
 from signalscope.domain.users.model import User
 
 ORGANIZATION_REQUIRED = "organization_id is required."
+ORGANIZATION_NEEDS_AUTH = "organization_id can only be set when authentication is enabled."
 ORGANIZATION_NOT_FOUND = "Organization was not found."
 NOT_ALLOWED = "Your role in this organization does not allow this."
 
@@ -76,6 +77,25 @@ class ContentAccessPolicy:
             raise NotFoundError(ORGANIZATION_NOT_FOUND)
         await self._check_role(actor, organization_id, capability, ORGANIZATION_NOT_FOUND)
         return ContentScope.organization(organization_id)
+
+    async def new_content_owner(
+        self, organization_id: uuid.UUID | None, capability: ContentCapability
+    ) -> uuid.UUID | None:
+        """The organization that will own new content, after checking the actor.
+
+        With authentication on, new content always belongs to an organization,
+        also for system admins: no new legacy content is made through the API.
+        With authentication off, new content is legacy content, as before.
+        """
+        actor = self._active_actor()
+        if actor is None:
+            if organization_id is not None:
+                raise InvalidInputError(ORGANIZATION_NEEDS_AUTH)
+            return None
+        if organization_id is None:
+            raise InvalidInputError(ORGANIZATION_REQUIRED)
+        await self.scope(organization_id, capability)
+        return organization_id
 
     async def require(
         self,

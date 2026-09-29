@@ -5,12 +5,14 @@ from sqlalchemy import ColumnElement, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from signalscope.domain.ingestion.model import IngestionRun, IngestionStatus
+from signalscope.domain.tenancy.scope import ContentScope
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class IngestionRunFilters:
     source_id: uuid.UUID | None = None
     status: IngestionStatus | None = None
+    scope: ContentScope = ContentScope.unrestricted()
 
 
 class IngestionRunRepository:
@@ -95,7 +97,7 @@ class IngestionRunRepository:
 
 
 def _conditions(filters: IngestionRunFilters) -> list[ColumnElement[bool]]:
-    conditions: list[ColumnElement[bool]] = []
+    conditions: list[ColumnElement[bool]] = [filters.scope.source_condition(IngestionRun.source_id)]
     if filters.source_id is not None:
         conditions.append(IngestionRun.source_id == filters.source_id)
     if filters.status is not None:

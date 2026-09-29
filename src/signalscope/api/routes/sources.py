@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, status
 
 from signalscope.api.dependencies import DatabaseSession
 from signalscope.api.pagination import Page, Pagination
+from signalscope.api.tenancy import Policy, ReadScope
 from signalscope.domain.sources.comparison import SourceComparisonService
 from signalscope.domain.sources.provenance import SourceProvenanceService
 from signalscope.domain.sources.scheduling import SourceScheduleService
@@ -18,6 +19,7 @@ from signalscope.domain.sources.schemas import (
     SourceScheduleUpdate,
 )
 from signalscope.domain.sources.service import SourceService
+from signalscope.domain.tenancy.policy import ContentCapability
 
 router = APIRouter(prefix="/sources", tags=["Sources"])
 
@@ -37,13 +39,17 @@ Schedules = Annotated[SourceScheduleService, Depends(get_source_schedule_service
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
-async def create_source(data: SourceCreate, sources: Sources) -> SourceRead:
+async def create_source(data: SourceCreate, sources: Sources, policy: Policy) -> SourceRead:
+    """Add a source. With authentication on, it needs the organization_id of an
+    organization where you are an owner or admin, and the source belongs to it."""
+    await policy.new_content_owner(data.organization_id, ContentCapability.MANAGE)
     return SourceRead.model_validate(await sources.create(data))
 
 
 @router.get("")
-async def list_sources(page: Pagination, sources: Sources) -> Page[SourceRead]:
-    items, total = await sources.list_page(page.limit, page.offset)
+async def list_sources(page: Pagination, sources: Sources, scope: ReadScope) -> Page[SourceRead]:
+    """Sources of the organization_id organization, or legacy sources for system admins."""
+    items, total = await sources.list_page(page.limit, page.offset, scope)
     return Page[SourceRead](
         items=[SourceRead.model_validate(source) for source in items],
         total=total,
@@ -79,8 +85,8 @@ async def compare_sources(
 
 
 @router.get("/{source_id}")
-async def get_source(source_id: uuid.UUID, sources: Sources) -> SourceRead:
-    return SourceRead.model_validate(await sources.get(source_id))
+async def get_source(source_id: uuid.UUID, policy: Policy) -> SourceRead:
+    return SourceRead.model_validate(await policy.authorize_source(source_id))
 
 
 @router.get("/{source_id}/provenance")
@@ -97,20 +103,25 @@ async def source_provenance(source_id: uuid.UUID, session: DatabaseSession) -> S
 
 
 @router.delete("/{source_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_source(source_id: uuid.UUID, sources: Sources) -> None:
+async def delete_source(source_id: uuid.UUID, sources: Sources, policy: Policy) -> None:
+    await policy.authorize_source(source_id, ContentCapability.MANAGE)
     await sources.delete(source_id)
 
 
 @router.put("/{source_id}/schedule")
 async def schedule_source(
-    source_id: uuid.UUID, data: SourceScheduleUpdate, schedules: Schedules
+    source_id: uuid.UUID, data: SourceScheduleUpdate, schedules: Schedules, policy: Policy
 ) -> SourceRead:
     """Ingest a web or RSS source every interval_minutes, from start_at or from now."""
+    await policy.authorize_source(source_id, ContentCapability.MANAGE)
     source = await schedules.enable(source_id, data.interval_minutes, data.start_at)
     return SourceRead.model_validate(source)
 
 
 @router.delete("/{source_id}/schedule")
-async def unschedule_source(source_id: uuid.UUID, schedules: Schedules) -> SourceRead:
+async def unschedule_source(
+    source_id: uuid.UUID, schedules: Schedules, policy: Policy
+) -> SourceRead:
     """Stop scheduled ingestion. The interval is kept."""
+    await policy.authorize_source(source_id, ContentCapability.MANAGE)
     return SourceRead.model_validate(await schedules.disable(source_id))
