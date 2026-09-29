@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from signalscope.core.errors import ConflictError, NotFoundError
+from signalscope.core.errors import ConflictError, InvalidInputError, NotFoundError
 from signalscope.domain.blobs.repository import BlobCleanupTaskRepository
 from signalscope.domain.documents.asset import DocumentAsset
 from signalscope.domain.documents.asset_repository import DocumentAssetRepository
@@ -44,11 +44,25 @@ class FileImportService:
         self.jobs = DocumentProcessingJobRepository(session)
 
     async def import_file(
-        self, source_id: uuid.UUID, *, filename: str | None, content_type: str, data: bytes
+        self,
+        source_id: uuid.UUID,
+        *,
+        filename: str | None,
+        content_type: str,
+        data: bytes,
+        organization_id: uuid.UUID | None = None,
     ) -> ImportedFile:
+        """Store a file as a new document of an upload source.
+
+        The document belongs to the source's organization. When organization_id
+        is given, the source must belong to it, so a file is never imported
+        into another organization by mistake.
+        """
         source = await self.sources.get(source_id)
         if source is None:
             raise NotFoundError("Source was not found.")
+        if organization_id is not None and source.organization_id != organization_id:
+            raise InvalidInputError("The source does not belong to that organization.")
         if source.type is not SourceType.UPLOAD:
             raise ConflictError(
                 f"Files can only be imported into upload sources, not {source.type} sources."

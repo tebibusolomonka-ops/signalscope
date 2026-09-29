@@ -141,6 +141,20 @@ Decisions that should hold unless there is a clear reason to change them.
 - **Events are seen through their evidence.** Until clusters get an
   organization, cluster details and the timeline show only the member events
   and evidence in scope.
+- **Research sessions belong to an organization.** A session searches many
+  documents, so it has its own `organization_id` and every turn searches only
+  that organization's content, like one-shot context and answers.
+- **Investigation items stay inside the organization.** With auth on, a
+  saved record must belong to the investigation's organization: sources and
+  documents by source, events and clusters by evidence, entities and claims by
+  mentions or evidence there, research sessions by their organization. Another
+  organization's ID answers like a missing record. Legacy investigations take
+  legacy records only. Old snapshots are not rewritten.
+- **Imports follow their source.** There is no HTTP file upload; documents
+  added through `POST /documents` or `import-file` belong to their source's
+  organization. `import-file --organization-id` refuses a source of another
+  organization. Workers process every organization and never change
+  ownership.
 - **No new legacy content through the API.** With auth on, creating a source
   needs an organization, also for system admins.
 - **Admin summaries are counts.** The access summary has no risk or trust

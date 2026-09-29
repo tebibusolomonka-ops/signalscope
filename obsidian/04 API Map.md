@@ -151,6 +151,14 @@ with counts and sources from that evidence only.
 
 ## Research
 
+Scoped with auth on. `POST /research/context` and `POST /research/answer`
+take `organization_id` in the body (any role); only that organization's
+evidence is searched and given to the model. `POST /research/sessions` needs
+`organization_id` and member or higher, and a `source_id` of the same
+organization; reading a session needs any role there, adding turns member or
+higher, and turns only search its organization. Legacy sessions are for
+system admins.
+
 - `POST /research/context`: numbered evidence, no answer.
 - `POST /research/answer`: answer with checked citations. 503 unless local
   answers are enabled.
@@ -184,6 +192,10 @@ view without the needed role gives 403. See [[07 Decisions]] for the roles.
   stays; closed investigations can still be shared.
 
 ## Dashboard
+
+Scoped with auth on through `organization_id`: every count, queue count and
+daily series covers one organization. System admins without it get legacy
+content, never all organizations together.
 
 Aggregates only; no record lists, scores or rankings.
 

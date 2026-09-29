@@ -1,7 +1,7 @@
 # Database and Migrations
 
 PostgreSQL 17 with the pgvector extension. Current Alembic head:
-`7ae71d53471b` (Add source
+`8a83722f5691` (Add research session
 organization).
 
 ## Rules
@@ -32,7 +32,8 @@ organization).
 - **Claims**: `claims` (unique on normalized text and type), `claim_evidence`
   (exact offsets into the chunk), `claim_extraction_jobs`.
 - **Research**: `research_sessions` (mode as text with a check, optional
-  source), `research_turns` (unique sequence per session, JSONB citation IDs
+  source, nullable `organization_id`: sessions search many documents, so they
+  belong to an organization themselves; NULL is a legacy session), `research_turns` (unique sequence per session, JSONB citation IDs
   and evidence snapshot, no `updated_at` because turns are history).
 - **Investigations**: `investigations` (status `open` or `closed` as text with
   a check; nullable `organization_id` and `created_by_user_id`, both NULL for

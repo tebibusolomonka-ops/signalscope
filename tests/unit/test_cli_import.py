@@ -128,3 +128,16 @@ async def test_large_file_is_rejected_before_reading(
 )
 def test_content_type_guesses(filename: str, content_type: str | None) -> None:
     assert MIME_TYPES.guess_type(filename)[0] == content_type
+
+
+def test_organization_option() -> None:
+    organization = uuid.uuid4()
+    args = build_parser().parse_args(
+        ["import-file", str(uuid.uuid4()), "notes.txt", "--organization-id", str(organization)]
+    )
+
+    assert args.organization_id == organization
+    assert (
+        build_parser().parse_args(["import-file", str(uuid.uuid4()), "a.txt"]).organization_id
+        is None
+    )

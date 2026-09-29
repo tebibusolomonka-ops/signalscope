@@ -213,7 +213,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "schedule-ingestion":
         return asyncio.run(schedule_ingestion(args.limit, settings))
     if args.command == "import-file":
-        return asyncio.run(import_file(args.source_id, args.path, settings, args.content_type))
+        return asyncio.run(
+            import_file(
+                args.source_id,
+                args.path,
+                settings,
+                args.content_type,
+                organization_id=args.organization_id,
+            )
+        )
     if args.command == "cleanup-blobs":
         return asyncio.run(cleanup_blobs(args.limit, settings))
     if args.command == "evaluate-retrieval":
@@ -327,6 +335,12 @@ def build_parser() -> argparse.ArgumentParser:
     import_command.add_argument("path", type=Path, help="the file to import")
     import_command.add_argument(
         "--content-type", help="media type of the file (default: guessed from the file name)"
+    )
+    import_command.add_argument(
+        "--organization-id",
+        type=uuid.UUID,
+        default=None,
+        help="refuse the import unless the source belongs to this organization",
     )
 
     cleanup = commands.add_parser("cleanup-blobs", help="delete stored files that were left behind")
@@ -1773,10 +1787,15 @@ async def import_file(
     content_type: str | None = None,
     out: TextIO | None = None,
     err: TextIO | None = None,
+    *,
+    organization_id: uuid.UUID | None = None,
 ) -> int:
     """Store a local file and queue it for processing. Returns the exit code.
 
-    The file is not parsed here. run-processing-worker does that later.
+    The file is not parsed here. run-processing-worker does that later. The
+    document belongs to the source's organization, or is legacy content when
+    the source has none. organization_id makes the import fail unless the
+    source belongs to that organization.
     """
     out = sys.stdout if out is None else out
     err = sys.stderr if err is None else err
@@ -1805,7 +1824,11 @@ async def import_file(
     async with _database(settings) as session_factory, session_factory() as session:
         try:
             imported = await FileImportService(session, blobs).import_file(
-                source_id, filename=path.name, content_type=content_type, data=data
+                source_id,
+                filename=path.name,
+                content_type=content_type,
+                data=data,
+                organization_id=organization_id,
             )
         except SignalScopeError as error:
             print(f"Error: {error}", file=err)

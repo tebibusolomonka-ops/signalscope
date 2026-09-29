@@ -1,10 +1,10 @@
 # Current State
 
-Last updated at planned commit 323 (repository commit 324: checkpoint 1
-needed one corrective commit, `9c61b65`). Batch 294 to 313 (administration
+Last updated at planned commit 328 (repository commit 333: checkpoint 1
+needed one corrective commit and checkpoint 2 four). Batch 294 to 313 (administration
 and the admin web app) ended at commit 313 (`0fbf1cc`) with no corrective
 commit. Current batch: 314 to 333, organization content tenancy. Alembic head:
-`7ae71d53471b` (Add source organization).
+`8a83722f5691` (Add research session organization).
 
 ## Done
 
@@ -51,9 +51,13 @@ commit. Current batch: 314 to 333, organization content tenancy. Alembic head:
   legacy sources), `ContentAccessPolicy` decides access, and these routes
   are scoped: sources, ingestion runs, documents and revisions, all four
   search modes, entities, claims, events, event cluster detail, link
-  suggestions, the four coverage routes and the timeline. Provenance,
-  comparison, dashboards, research, investigation references and file
-  import are not scoped yet; the rest of batch 314 to 333 does that.
+  suggestions, the four coverage routes, the timeline, provenance,
+  comparison, the three dashboard routes, research context and answers, and
+  research sessions (which now have their own organization). Investigation
+  items must belong to the investigation's organization, and
+  `import-file --organization-id` checks the upload source. Still to do in
+  this batch: organization-owned event clusters, the legacy assignment
+  command, a route audit and the web organization context.
 
 - Sources, scheduled network ingestion (RSS, web), file import, blob storage.
 - Processing jobs, parsers, document revisions, section-aware chunks.
