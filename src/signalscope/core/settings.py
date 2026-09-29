@@ -12,6 +12,7 @@ FALSE_VALUES = frozenset({"0", "false", "no", "off"})
 DATABASE_URL_PREFIX = "postgresql+asyncpg://"
 # A cap on answer length, so a typo cannot ask for a very long, slow generation.
 MAX_ANSWER_TOKENS = 4096
+MAX_AUTH_SESSION_DAYS = 365
 
 
 class SettingsError(SignalScopeError, ValueError):
@@ -70,6 +71,8 @@ class Settings:
     local_answer_device: str = "cpu"
     # The longest answer the model may write, in tokens.
     local_answer_max_new_tokens: int = 512
+    # How long a login session lasts before it expires.
+    auth_session_days: int = 7
 
     def __post_init__(self) -> None:
         if not self.app_name.strip():
@@ -94,6 +97,8 @@ class Settings:
             raise SettingsError(
                 f"local_answer_max_new_tokens must be from 1 to {MAX_ANSWER_TOKENS}"
             )
+        if not 1 <= self.auth_session_days <= MAX_AUTH_SESSION_DAYS:
+            raise SettingsError(f"auth_session_days must be from 1 to {MAX_AUTH_SESSION_DAYS}")
         if self.database_url is not None and not self.database_url.startswith(DATABASE_URL_PREFIX):
             raise SettingsError(f"Database URL must start with {DATABASE_URL_PREFIX}")
 
@@ -157,6 +162,9 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
             env,
             "SIGNALSCOPE_LOCAL_ANSWER_MAX_NEW_TOKENS",
             defaults.local_answer_max_new_tokens,
+        ),
+        auth_session_days=_read_int(
+            env, "SIGNALSCOPE_AUTH_SESSION_DAYS", defaults.auth_session_days
         ),
     )
 

@@ -27,6 +27,7 @@ empty, keeps its default value. An invalid value raises `SettingsError`.
 | `SIGNALSCOPE_LOCAL_ANSWERS_ENABLED` | `false` | `true`, `false`, `1`, `0`, `yes`, `no`, `on`, `off` |
 | `SIGNALSCOPE_LOCAL_ANSWER_DEVICE` | `cpu` | A device name, such as `cpu` or `cuda` |
 | `SIGNALSCOPE_LOCAL_ANSWER_MAX_NEW_TOKENS` | `512` | A whole number from 1 to 4096 |
+| `SIGNALSCOPE_AUTH_SESSION_DAYS` | `7` | A whole number from 1 to 365 |
 
 Values are not case-sensitive, except for the app name, the database URL,
 the device and the folders.

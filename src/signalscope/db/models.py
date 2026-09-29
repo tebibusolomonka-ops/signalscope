@@ -29,6 +29,7 @@ from signalscope.domain.search.embedding_model import ChunkEmbedding
 from signalscope.domain.sources.model import Source
 from signalscope.domain.users.credential import UserPasswordCredential
 from signalscope.domain.users.model import User
+from signalscope.domain.users.session import UserSession
 
 __all__ = [
     "Base",
@@ -61,4 +62,5 @@ __all__ = [
     "Source",
     "User",
     "UserPasswordCredential",
+    "UserSession",
 ]
