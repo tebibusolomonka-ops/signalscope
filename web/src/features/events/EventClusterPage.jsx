@@ -7,6 +7,7 @@ import { ErrorMessage, Loading } from "../../components/Status.jsx";
 import { chunkLocation } from "../../lib/chunks.js";
 import { formatTime } from "../../lib/format.js";
 import { useResource } from "../../lib/useResource.js";
+import { SaveToInvestigation } from "../investigations/SaveToInvestigation.jsx";
 
 function occurred(value) {
   return value ? formatTime(value) : "Date unknown";
@@ -34,6 +35,9 @@ export function EventClusterPage() {
       <ErrorMessage error={error} />
       {data && (
         <>
+          <div className="page-actions">
+            <SaveToInvestigation itemType="event_cluster" referenceId={data.cluster_id} />
+          </div>
           <section className="panel" aria-labelledby="cluster-summary">
             <h2 id="cluster-summary">Summary</h2>
             <dl className="facts">
@@ -94,6 +98,9 @@ function Member({ member, clusterId }) {
           ))}
         </tbody>
       </table>
+      <div className="page-actions">
+        <SaveToInvestigation itemType="event" referenceId={member.event_id} />
+      </div>
       {showSuggestions ? (
         <Suggestions eventId={member.event_id} clusterId={clusterId} />
       ) : (

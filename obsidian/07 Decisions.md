@@ -160,6 +160,13 @@ Decisions that should hold unless there is a clear reason to change them.
   the file as the request body, stops at 50 MB, and reuses
   `FileImportService`, so no multipart library is needed and there is one
   import path. Only types with a parser are accepted.
+- **Investigations are shown per organization.** The web app lists them with
+  `organization_id` and treats an investigation of another organization as
+  not found, even when the user may view it, so nothing of one organization
+  appears under another.
+- **Link suggestions stay advisory in the web app.** They load only when
+  asked for, are labelled as suggestions, show the raw cosine similarity,
+  and have no merge or link control.
 - **The web app shows backend order and backend values.** Search results are
   never re-sorted, scores are labelled by what they are (lexical score,
   similarity, hybrid score, reranker score), and claims and entities carry no

@@ -188,7 +188,9 @@ auth on, every route needs a token; create needs an `organization_id` the user
 belongs to; lists show only what the user may view; no view access gives 404,
 view without the needed role gives 403. See [[07 Decisions]] for the roles.
 
-- `POST /investigations`, `GET /investigations` (`status` filter, paged),
+- `POST /investigations`, `GET /investigations` (`status` and
+  `organization_id` filters, paged; the organization filter never widens
+  what the user may see),
   `GET /investigations/{id}`, `PATCH /investigations/{id}`,
   `DELETE /investigations/{id}`
 - `POST /investigations/{id}/items`, `GET /investigations/{id}/items`,

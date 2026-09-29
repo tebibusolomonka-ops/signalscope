@@ -6,6 +6,7 @@ import { PageHeading } from "../../components/PageHeading.jsx";
 import { ErrorMessage, Loading } from "../../components/Status.jsx";
 import { chunkLocation } from "../../lib/chunks.js";
 import { useResource } from "../../lib/useResource.js";
+import { SaveToInvestigation } from "../investigations/SaveToInvestigation.jsx";
 import { useSourceOptions } from "../sources/useSourceOptions.js";
 
 // Semantic and hybrid search name their embedding model. The API's local
@@ -176,6 +177,7 @@ function Result({ item, mode, sourceName }) {
         {location && ` · ${location}`}
       </p>
       {item.excerpt && <p>{item.excerpt}</p>}
+      <SaveToInvestigation itemType="document" referenceId={item.document_id} />
       <dl className="scores">
         {scores(item, mode).map(([label, value]) => (
           <div key={label}>

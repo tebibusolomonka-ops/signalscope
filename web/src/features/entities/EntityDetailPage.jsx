@@ -6,6 +6,7 @@ import { EvidenceTable } from "../../components/EvidenceTable.jsx";
 import { PageHeading } from "../../components/PageHeading.jsx";
 import { ErrorMessage, Loading } from "../../components/Status.jsx";
 import { useResource } from "../../lib/useResource.js";
+import { SaveToInvestigation } from "../investigations/SaveToInvestigation.jsx";
 
 /** One entity with its mentions in the active organization's documents. */
 export function EntityDetailPage() {
@@ -23,6 +24,9 @@ export function EntityDetailPage() {
       <ErrorMessage error={error} />
       {data && (
         <>
+          <div className="page-actions">
+            <SaveToInvestigation itemType="entity" referenceId={data.entity.id} />
+          </div>
           <section className="panel" aria-labelledby="entity-summary">
             <h2 id="entity-summary">Summary</h2>
             <dl className="facts">

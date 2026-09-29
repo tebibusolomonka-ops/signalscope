@@ -94,7 +94,12 @@ admin-focused.
   provenance, ingestion and schedule, delete), documents (filtered list,
   detail with text and revisions, delete, file import), search (four modes,
   query kept in the URL with its organization), entities and claims (lists
-  and evidence).
+  and evidence), the event timeline and cluster pages (with on-demand,
+  advisory link suggestions), source comparison, and investigations (list,
+  create, detail with saved items, close, reopen, delete). A shared
+  `SaveToInvestigation` control saves sources, documents, events, clusters,
+  entities, claims and research sessions into an open investigation of the
+  active organization.
 - The development server proxies `/api` to the API, which has no CORS
   support; production must serve both from one origin.
 - The API decides every permission. The app may hide actions, but it never

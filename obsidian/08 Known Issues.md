@@ -1,6 +1,6 @@
 # Known Issues
 
-Open problems as of commit 349. Remove an item when it is fixed.
+Open problems as of commit 354. Remove an item when it is fixed.
 
 ## Events
 
@@ -76,7 +76,10 @@ Open problems as of commit 349. Remove an item when it is fixed.
   Policy are still to be reviewed before any public deployment.
 - The API sends no CORS headers, so the app must be served from the API's
   origin (the development server proxies `/api`).
-- Web pages for events, investigations and research are still being built.
+- Web pages for investigation collaborators, research sessions and exports
+  are still being built.
+- Saving to an investigation offers the first 100 open investigations of the
+  organization.
 - Entity and claim evidence rows link to their document but do not show its
   title, because the API returns only the document ID.
 - Uploads are read into memory (at most 50 MB) before they are stored.

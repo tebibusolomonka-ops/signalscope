@@ -8,6 +8,7 @@ import { PageHeading } from "../../components/PageHeading.jsx";
 import { ErrorMessage, Loading } from "../../components/Status.jsx";
 import { formatTime } from "../../lib/format.js";
 import { useResource } from "../../lib/useResource.js";
+import { SaveToInvestigation } from "../investigations/SaveToInvestigation.jsx";
 
 /** One document: its metadata, stored text and earlier revisions. */
 export function DocumentDetailPage() {
@@ -36,6 +37,9 @@ export function DocumentDetailPage() {
       <ErrorMessage error={error} />
       {document && (
         <>
+          <div className="page-actions">
+            <SaveToInvestigation itemType="document" referenceId={document.id} />
+          </div>
           <section className="panel" aria-labelledby="document-details">
             <h2 id="document-details">Details</h2>
             <dl className="facts">

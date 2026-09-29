@@ -6,6 +6,7 @@ import { EvidenceTable } from "../../components/EvidenceTable.jsx";
 import { PageHeading } from "../../components/PageHeading.jsx";
 import { ErrorMessage, Loading } from "../../components/Status.jsx";
 import { useResource } from "../../lib/useResource.js";
+import { SaveToInvestigation } from "../investigations/SaveToInvestigation.jsx";
 
 /** One claim with its evidence in the active organization's documents. */
 export function ClaimDetailPage() {
@@ -23,6 +24,9 @@ export function ClaimDetailPage() {
       <ErrorMessage error={error} />
       {data && (
         <>
+          <div className="page-actions">
+            <SaveToInvestigation itemType="claim" referenceId={data.claim.id} />
+          </div>
           <section className="panel" aria-labelledby="claim-summary">
             <h2 id="claim-summary">Statement</h2>
             <blockquote className="claim-text">{data.claim.text}</blockquote>

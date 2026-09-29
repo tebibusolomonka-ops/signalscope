@@ -117,7 +117,8 @@ function Overview({ investigation, onChange }) {
   );
 }
 
-function Items({ items }) {
+function Items({ investigation, items, onChange }) {
+  const closed = investigation.status === "closed";
   return (
     <section className="panel" aria-labelledby="investigation-items">
       <h2 id="investigation-items">Saved items</h2>
@@ -131,7 +132,13 @@ function Items({ items }) {
             <h3>{heading}</h3>
             <ul className="items">
               {group.map((item) => (
-                <SavedItem key={item.id} item={item} />
+                <SavedItem
+                  key={item.id}
+                  item={item}
+                  investigationId={investigation.id}
+                  removable={!closed}
+                  onRemoved={onChange}
+                />
               ))}
             </ul>
           </section>
@@ -141,13 +148,28 @@ function Items({ items }) {
   );
 }
 
-function SavedItem({ item }) {
+function SavedItem({ item, investigationId, removable, onRemoved }) {
+  const { tenantApi } = useOrganization();
   const { title, detail, href } = describeItem(item);
+
+  async function remove() {
+    await tenantApi.delete(`/investigations/${investigationId}/items/${item.id}`);
+    onRemoved();
+  }
+
   return (
     <li>
       {href ? <Link to={href}>{title}</Link> : <span>{title}</span>}
       <span className="muted">{` (${detail}; saved ${formatTime(item.created_at)})`}</span>
       {item.label && <p className="label">{item.label}</p>}
+      {removable && (
+        <ConfirmAction
+          label={`Remove ${title}`}
+          question="Remove this item from the investigation? The record itself stays."
+          confirmLabel="Yes, remove"
+          onConfirm={remove}
+        />
+      )}
     </li>
   );
 }

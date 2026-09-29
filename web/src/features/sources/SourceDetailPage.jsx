@@ -7,6 +7,7 @@ import { PageHeading } from "../../components/PageHeading.jsx";
 import { ErrorMessage, Loading } from "../../components/Status.jsx";
 import { formatTime } from "../../lib/format.js";
 import { useResource } from "../../lib/useResource.js";
+import { SaveToInvestigation } from "../investigations/SaveToInvestigation.jsx";
 import { SourceOperations } from "./SourceOperations.jsx";
 import { scheduleText } from "./sourceText.js";
 
@@ -35,6 +36,9 @@ export function SourceDetailPage() {
       <ErrorMessage error={error} />
       {source && (
         <>
+          <div className="page-actions">
+            <SaveToInvestigation itemType="source" referenceId={source.id} />
+          </div>
           <section className="panel" aria-labelledby="source-configuration">
             <h2 id="source-configuration">Configuration</h2>
             <dl className="facts">

@@ -338,3 +338,20 @@ button.danger {
   margin: 0.15rem 0 0;
   font-style: italic;
 }
+
+.page-actions {
+  margin: 0 0 1rem;
+}
+
+.save-form {
+  margin: 0.5rem 0;
+  padding: 0.5rem 0.75rem;
+  background: var(--background);
+  border-radius: var(--radius);
+}
+
+.items button.danger {
+  margin-left: 0.5rem;
+  padding: 0.1rem 0.5rem;
+  font-size: 0.85rem;
+}

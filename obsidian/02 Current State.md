@@ -64,9 +64,11 @@ to 359, the tenant research workspace in the web app. Alembic head:
   navigation that needs an active organization, sources (list, create,
   detail, provenance, ingest now, schedule, run history, delete), documents
   (list, detail, revisions, delete), file import, search in all four modes,
-  entities and claims. `POST /ingestion-runs` now also queues the ingestion
+  entities, claims, the event timeline, event clusters, source comparison,
+  and investigations with saved items. `POST /ingestion-runs` now also queues the ingestion
   job, for web and RSS sources only. `POST /documents/files` stores an
-  uploaded file like `import-file`.
+  uploaded file like `import-file`. `GET /investigations` takes an optional
+  `organization_id`.
 
 - Sources, scheduled network ingestion (RSS, web), file import, blob storage.
 - Processing jobs, parsers, document revisions, section-aware chunks.

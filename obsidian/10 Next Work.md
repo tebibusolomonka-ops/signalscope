@@ -15,9 +15,10 @@ legacy sources can be assigned, and the web app has an active organization.
 
 Current batch, 340 to 359: the tenant research workspace in the web app.
 Done: content navigation, sources and their operations, documents with
-detail and file import, search, entities and claims. To do: timeline, event
-clusters, source comparison, investigations with items and collaborators,
-research sessions, one-shot research and exports.
+detail and file import, search, entities, claims, the timeline, event
+clusters, source comparison, and investigations with saved items. To do:
+investigation collaborators, research sessions, one-shot research and
+exports.
 
 ## Next batch
 
