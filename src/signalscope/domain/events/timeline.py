@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 
-from sqlalchemy import ColumnElement, and_, exists, func, select
+from sqlalchemy import ColumnElement, exists, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
@@ -92,23 +92,13 @@ class EventTimelineService:
                 func.count(Document.source_id.distinct()),
                 func.count(EventEvidence.id.distinct()),
             )
-            .join(
-                EventClusterMember,
-                and_(
-                    EventClusterMember.cluster_id == EventCluster.id,
-                    visible_events(scope, EventClusterMember.event_id),
-                ),
-            )
-            .outerjoin(
-                EventEvidence,
-                and_(
-                    EventEvidence.event_id == EventClusterMember.event_id,
-                    scope.chunk_condition(EventEvidence.chunk_id),
-                ),
-            )
+            .join(EventClusterMember, EventClusterMember.cluster_id == EventCluster.id)
+            .outerjoin(EventEvidence, EventEvidence.event_id == EventClusterMember.event_id)
             .outerjoin(DocumentChunk, DocumentChunk.id == EventEvidence.chunk_id)
             .outerjoin(Document, Document.id == DocumentChunk.document_id)
-            .where(*conditions)
+            # An event's evidence all comes from one document, so keeping the
+            # members in scope keeps their evidence and sources in scope too.
+            .where(*conditions, visible_events(scope, EventClusterMember.event_id))
             .group_by(EventCluster.id)
             .order_by(occurred.nulls_last(), EventCluster.created_at, EventCluster.id)
             .limit(limit)
