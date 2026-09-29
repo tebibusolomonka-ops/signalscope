@@ -91,8 +91,10 @@ admin-focused.
   active role, only for hiding buttons.
 - `src/features/`: auth, dashboard, organizations, invitations, users and
   security pages, and the content workspaces: sources (list, create, detail,
-  provenance, ingestion and schedule, delete) and documents (filtered,
-  paged list).
+  provenance, ingestion and schedule, delete), documents (filtered list,
+  detail with text and revisions, delete, file import), search (four modes,
+  query kept in the URL with its organization), entities and claims (lists
+  and evidence).
 - The development server proxies `/api` to the API, which has no CORS
   support; production must serve both from one origin.
 - The API decides every permission. The app may hide actions, but it never

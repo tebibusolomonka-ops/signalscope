@@ -111,8 +111,17 @@ content routes below with the active organization's `organization_id`.
 - `POST /documents`, `GET /documents`, `GET /documents/{id}`,
   `DELETE /documents/{id}`
 - `GET /documents/{id}/revisions`, `GET /documents/{id}/revisions/{version}`
+- `GET /documents/files/limits`: the content types that have a parser and
+  the size limit (50 MB).
+- `POST /documents/files?source_id=&filename=`: the raw file is the body and
+  `Content-Type` its type. It is stored as a new document of an upload
+  source and queued for processing, like `import-file`. Unsupported types,
+  empty and too large files: 422; a source that is not an upload source:
+  409; no file storage: 503. With `organization_id`, the source must belong
+  to it.
 - Scoped with auth on through the document's source: reading needs any role,
-  adding and deleting need member or higher. There is no file download route.
+  adding, uploading and deleting need member or higher. There is no file
+  download route.
 
 ## Search and embeddings
 
@@ -121,7 +130,8 @@ without it get legacy content); `source_id` must be a source the caller may
 read. The filter is in the SQL, before ranking, fusion, reranking and limits.
 
 - `GET /search` (lexical), `GET /search/semantic`, `GET /search/hybrid`,
-  `GET /search/reranked`
+  `GET /search/reranked`. Semantic and hybrid name `provider` and `model`;
+  the web app sends the local E5 model.
 - `GET /embeddings/coverage`
 
 ## Entities, events and claims

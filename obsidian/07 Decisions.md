@@ -156,6 +156,14 @@ Decisions that should hold unless there is a clear reason to change them.
 - **Switching organization remounts content pages.** The content routes are
   keyed by the active organization, so no page, form or late answer of the
   old organization survives a switch.
+- **File upload is a raw body, not a form.** `POST /documents/files` reads
+  the file as the request body, stops at 50 MB, and reuses
+  `FileImportService`, so no multipart library is needed and there is one
+  import path. Only types with a parser are accepted.
+- **The web app shows backend order and backend values.** Search results are
+  never re-sorted, scores are labelled by what they are (lexical score,
+  similarity, hybrid score, reranker score), and claims and entities carry no
+  truth or quality labels.
 - **Asking for ingestion queues it.** `POST /ingestion-runs` creates the run
   and its job together, like the scheduler, so a requested run is really
   picked up by a worker. Before, it only recorded a pending run.
@@ -168,9 +176,9 @@ Decisions that should hold unless there is a clear reason to change them.
   mentions or evidence there, research sessions by their organization. Another
   organization's ID answers like a missing record. Legacy investigations take
   legacy records only. Old snapshots are not rewritten.
-- **Imports follow their source.** There is no HTTP file upload; documents
-  added through `POST /documents` or `import-file` belong to their source's
-  organization. `import-file --organization-id` refuses a source of another
+- **Imports follow their source.** Documents added through
+  `POST /documents`, `POST /documents/files` or `import-file` belong to their
+  source's organization. `import-file --organization-id` refuses a source of another
   organization. Workers process every organization and never change
   ownership.
 - **No new legacy content through the API.** With auth on, creating a source
