@@ -1,8 +1,8 @@
 # Current State
 
-Last updated at commit 282. Batch 251 to 270 ended at commit 272 (`40f2d5c`),
-with two corrective commits. Alembic head: `f193df76c881` (Create organization
-memberships).
+Last updated at commit 287. Batch 251 to 270 ended at commit 272 (`40f2d5c`),
+with two corrective commits. Alembic head: `8c633fbceb79` (Create investigation
+collaborators).
 
 ## Done
 
@@ -14,6 +14,11 @@ memberships).
   password is asked for or read from standard input, never an option.
 - Organizations with owner, admin, member and viewer roles, and
   `/organizations` routes. Auth only.
+- Investigation ownership: an organization, a creator and collaborators with
+  owner, editor or viewer roles, checked by `InvestigationAccess`. With auth
+  on, the investigation API needs a token and filters by access, and
+  `/investigations/{id}/members` manages collaborators. With auth off it works
+  as before.
 
 - Sources, scheduled network ingestion (RSS, web), file import, blob storage.
 - Processing jobs, parsers, document revisions, section-aware chunks.

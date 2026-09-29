@@ -2,8 +2,9 @@
 
 Current batch: commits 273 to 292, the identity and authorization
 foundation. Done: users, passwords, sessions, the auth API, the bootstrap
-command and organizations. Still to do: investigation ownership and
-collaborators, session management, session cleanup and security audit.
+command, organizations, investigation ownership, the access policy and
+collaborators. Still to do: session management, session cleanup, security
+audit and an end to end test.
 
 ## Next batch
 
@@ -13,7 +14,7 @@ collaborators, session management, session cleanup and security audit.
    GLiNER2 model, and record the numbers here and in [[08 Known Issues]].
 3. Decide from those numbers whether relation quality justifies storing
    knowledge-graph edges. No numbers, no edges.
-4. Investigation collaboration only after an auth and organization design.
+4. Organization-scoped data tenancy, added gradually.
 5. A frontend or admin dashboard over the aggregate APIs.
 
 ## Open follow-ups

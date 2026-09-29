@@ -1,6 +1,6 @@
 # Known Issues
 
-Open problems as of commit 282. Remove an item when it is fixed.
+Open problems as of commit 287. Remove an item when it is fixed.
 
 ## Events
 
@@ -36,8 +36,11 @@ Open problems as of commit 282. Remove an item when it is fixed.
 
 ## Investigations
 
-- Investigations are global and have no owner, because there is no
-  authentication yet.
+- With auth off, investigations are global. With auth on, legacy
+  investigations (no organization) are only reachable by system admins, and
+  there is no command to move them into an organization.
+- Removing someone from an organization leaves their collaborator rows; the
+  roles stop counting but still show in the member list.
 - An item whose record was deleted keeps its snapshot. Exports mark it with
   `current_reference_exists: false`; the item list itself does not.
 
@@ -53,8 +56,10 @@ Open problems as of commit 282. Remove an item when it is fixed.
 - There is no password change or reset yet.
 - There is no way to deactivate a user or delete an organization through the
   API yet, and no invitations.
-- Only investigations and organizations will be protected; other APIs stay
-  open even when auth is on, until data tenancy is designed.
+- Only investigations and organizations are protected; other APIs stay open
+  even when auth is on, until data tenancy is designed.
+- The saved records an investigation points at are not checked against the
+  organization: any record ID can be saved and its snapshot read.
 
 ## Code
 

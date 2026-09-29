@@ -1,6 +1,7 @@
 # API Map
 
-All routes are JSON over HTTP, without authentication. Routes that need the
+All routes are JSON over HTTP. Only the auth, organization and (with auth on)
+investigation routes check a bearer token; the rest stay open. Routes that need the
 database answer 503 when it is not configured. Routes that need an optional
 model answer 503 when it is off. Lists are paged with `limit` and `offset`.
 
@@ -82,7 +83,10 @@ All read only. Coverage routes read the database and never load a model.
 
 ## Investigations
 
-Global until users exist: everyone who can reach the API sees all of them.
+With auth off, global: everyone who can reach the API sees all of them. With
+auth on, every route needs a token; create needs an `organization_id` the user
+belongs to; lists show only what the user may view; no view access gives 404,
+view without the needed role gives 403. See [[07 Decisions]] for the roles.
 
 - `POST /investigations`, `GET /investigations` (`status` filter, paged),
   `GET /investigations/{id}`, `PATCH /investigations/{id}`,
@@ -94,6 +98,10 @@ Global until users exist: everyone who can reach the API sees all of them.
 - `GET /investigations/{id}/export?format=json|markdown`: saved snapshots
   grouped by type, with whether each record still exists.
 - A closed investigation answers 409 to changes until it is reopened.
+- `GET /investigations/{id}/members`, `POST /investigations/{id}/members`
+  (by `user_id`, role defaults to viewer), `PATCH` and
+  `DELETE /investigations/{id}/members/{user_id}`. Auth only. The last owner
+  stays; closed investigations can still be shared.
 
 ## Dashboard
 

@@ -61,9 +61,22 @@ Decisions that should hold unless there is a clear reason to change them.
   that the record exists when the item is saved, and stores a small snapshot
   (names, titles, types, dates; no content, vectors, files or prompts). The
   snapshot is never rewritten, so saved items keep their history.
-- **Investigations have no owner yet.** There is no auth, so investigations
-  are global and internal. Ownership and sharing wait for an auth and
-  organization design.
+- **Legacy investigations stay global.** Investigations made before accounts
+  keep `organization_id` NULL; they are not moved into a made-up
+  organization. With auth off everyone sees everything, as before. With auth
+  on, only system admins reach them.
+- **Investigation access.** System admins and organization owners and admins
+  have full access. Other members need a collaborator role: owner (view, edit,
+  delete, manage collaborators), editor (view, edit, items, research sessions)
+  or viewer (view and export). A collaborator role counts only while the user
+  is still a member of the organization. No view access answers 404, so
+  investigations do not leak. The creator becomes the first owner, and there
+  is always one owner, checked under a row lock on the investigation.
+- **Closed investigations can be shared.** Collaborators can be changed while
+  an investigation is closed, so it can be handed over or opened for reading
+  without reopening it.
+- **Only investigations are protected so far.** Search, timeline, sources,
+  documents and extraction APIs stay open until data tenancy is designed.
 - **Exports replay history, not live data.** A research session export uses
   each turn's saved evidence and never searches again. An investigation export
   uses item snapshots; its only live value is whether a record still exists.

@@ -1,8 +1,8 @@
 # Database and Migrations
 
 PostgreSQL 17 with the pgvector extension. Current Alembic head:
-`f193df76c881` (Create organization
-memberships).
+`8c633fbceb79` (Create investigation
+collaborators).
 
 ## Rules
 
@@ -31,7 +31,9 @@ memberships).
   source), `research_turns` (unique sequence per session, JSONB citation IDs
   and evidence snapshot, no `updated_at` because turns are history).
 - **Investigations**: `investigations` (status `open` or `closed` as text with
-  a check, no owner), `investigation_items` (item type as text with a check,
+  a check; nullable `organization_id` and `created_by_user_id`, both NULL for
+  legacy investigations), `investigation_collaborators` (one role per user and
+  investigation: owner, editor or viewer), `investigation_items` (item type as text with a check,
   `reference_id` without a foreign key, JSONB snapshot, unique per
   investigation, type and reference).
 
@@ -53,8 +55,11 @@ memberships).
 - Deleting a user deletes their password credential and sessions, but is
   refused while they created an organization or are a member of one. There is
   no user delete API.
-- Deleting an organization deletes its memberships.
-- Deleting an investigation deletes its items, never the saved records.
+- Deleting an organization deletes its memberships, but is refused while it
+  has investigations.
+- Deleting an investigation deletes its items and collaborators, never the
+  saved records. Deleting a user is refused while they created an
+  investigation or collaborate on one.
   Deleting a saved record leaves the item and its snapshot in place.
 
 See [[05 Workers and Queues]] for the job tables.

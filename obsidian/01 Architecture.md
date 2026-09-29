@@ -38,6 +38,9 @@ One Python package, `src/signalscope`, with one PostgreSQL database. See
   roles, and `OrganizationService`, which holds the membership rules.
 - **Investigations** (`domain/investigations/`): saved collections of
   references to records, each with a snapshot taken when it was saved.
+  `InvestigationAccess` turns organization and collaborator roles into
+  permissions; the services take the signed in user as the actor, or None
+  when auth is off. `InvestigationMemberService` manages collaborators.
 - **Dashboard** (`dashboard/`): aggregate counts and zero-filled UTC daily
   series, built with SQL aggregates.
 - **Relations** (`relations/`): relation extraction interface and an

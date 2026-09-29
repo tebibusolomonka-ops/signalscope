@@ -4,11 +4,13 @@ from typing import Annotated, Any
 
 from pydantic import BaseModel, ConfigDict, StringConstraints
 
+from signalscope.domain.investigations.collaborator import CollaboratorRole
 from signalscope.domain.investigations.item import ITEM_LABEL_MAX_LENGTH, InvestigationItemType
 from signalscope.domain.investigations.model import (
     INVESTIGATION_TITLE_MAX_LENGTH,
     InvestigationStatus,
 )
+from signalscope.domain.organizations.schemas import MemberUserRead
 
 Title = Annotated[
     str,
@@ -82,3 +84,23 @@ class InvestigationItemRead(BaseModel):
     # What the record looked like when it was saved. It is never updated.
     snapshot: dict[str, Any]
     created_at: datetime
+
+
+class CollaboratorRead(BaseModel):
+    user: MemberUserRead
+    role: CollaboratorRole
+    created_at: datetime
+    updated_at: datetime
+
+
+class CollaboratorCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    user_id: uuid.UUID
+    role: CollaboratorRole = CollaboratorRole.VIEWER
+
+
+class CollaboratorUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    role: CollaboratorRole

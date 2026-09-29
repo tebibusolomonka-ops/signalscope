@@ -477,6 +477,18 @@ items and research sessions) or `viewer` (read and export). Investigations made
 before accounts existed have no organization and only system admins see them.
 The command line export is a local tool and is not checked.
 
+Investigation roles are managed with these routes, which need authentication:
+
+- `GET /investigations/{id}/members`: the collaborators, owners first.
+- `POST /investigations/{id}/members`: add a member of the investigation's
+  organization, with `{"user_id": "...", "role": "editor"}`. The role
+  defaults to `viewer`.
+- `PATCH /investigations/{id}/members/{user_id}`: change the role.
+- `DELETE /investigations/{id}/members/{user_id}`: remove the collaborator.
+
+Investigation owners and organization owners and admins may change them, also
+while the investigation is closed. The last owner cannot be removed or demoted.
+
 ### Dashboard
 
 Aggregate numbers for a future dashboard. They are counts only: no scores,
