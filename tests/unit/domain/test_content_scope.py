@@ -4,7 +4,9 @@ from sqlalchemy import select
 from sqlalchemy.dialects import postgresql
 
 from signalscope.domain.documents.chunk import DocumentChunk
+from signalscope.domain.documents.model import Document
 from signalscope.domain.organizations.membership import OrganizationRole
+from signalscope.domain.sources.model import Source
 from signalscope.domain.tenancy.policy import ROLE_CAPABILITIES, ContentCapability
 from signalscope.domain.tenancy.scope import ContentScope, ScopeKind
 
@@ -56,3 +58,20 @@ def test_role_capabilities() -> None:
     }
     found = dict(ROLE_CAPABILITIES)
     assert found == expected
+
+
+def test_subqueries_do_not_correlate_with_the_outer_query() -> None:
+    scope = ContentScope.organization(HARBOUR)
+    statement = (
+        select(DocumentChunk.id)
+        .join(Document, Document.id == DocumentChunk.document_id)
+        .join(Source, Source.id == Document.source_id)
+        .where(scope.chunk_condition(DocumentChunk.id))
+    )
+
+    compiled = str(statement.compile(dialect=postgresql.dialect()))
+
+    # Each subquery keeps its own FROM, although the outer query joins the same tables.
+    assert compiled.count("FROM document_chunks") == 2
+    assert compiled.count("FROM documents") == 1
+    assert compiled.count("FROM sources") == 1

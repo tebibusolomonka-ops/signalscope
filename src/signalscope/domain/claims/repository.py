@@ -69,7 +69,9 @@ class ClaimRepository:
             statement = select(Claim, evidence_counts.c.evidence).join(
                 evidence_counts, evidence_counts.c.claim_id == Claim.id
             )
-            conditions.append(Claim.id.in_(select(ClaimEvidence.claim_id).where(visible)))
+            conditions.append(
+                Claim.id.in_(select(ClaimEvidence.claim_id).where(visible).correlate(None))
+            )
         rows = await self.session.execute(
             statement.where(*conditions)
             .order_by(Claim.normalized_text, Claim.claim_type, Claim.id)

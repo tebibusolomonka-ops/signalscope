@@ -25,7 +25,11 @@ def visible_events(scope: ContentScope, event_id: Any) -> ColumnElement[bool]:
     """
     if scope.is_unrestricted:
         return true()
-    visible = select(EventEvidence.event_id).where(scope.chunk_condition(EventEvidence.chunk_id))
+    visible = (
+        select(EventEvidence.event_id)
+        .where(scope.chunk_condition(EventEvidence.chunk_id))
+        .correlate(None)
+    )
     return event_id.in_(visible)  # type: ignore[no-any-return]
 
 

@@ -25,7 +25,8 @@ class ContentScope:
 
     Content belongs to an organization through its source. The conditions
     below are SQL, meant for the WHERE clause, so rows outside the scope are
-    removed before any ranking, limit or count.
+    removed before any ranking, limit or count. Their subqueries never
+    correlate with the outer query, which often joins the same tables.
     """
 
     kind: ScopeKind
@@ -67,19 +68,27 @@ class ContentScope:
         """Rows whose source ID column points at a source in scope."""
         if self.kind is ScopeKind.UNRESTRICTED:
             return true()
-        visible = select(Source.id).where(self.owner_condition(Source.organization_id))
+        visible = (
+            select(Source.id).where(self.owner_condition(Source.organization_id)).correlate(None)
+        )
         return source_id.in_(visible)  # type: ignore[no-any-return]
 
     def document_condition(self, document_id: Any) -> ColumnElement[bool]:
         """Rows whose document ID column points at a document in scope."""
         if self.kind is ScopeKind.UNRESTRICTED:
             return true()
-        visible = select(Document.id).where(self.source_condition(Document.source_id))
+        visible = (
+            select(Document.id).where(self.source_condition(Document.source_id)).correlate(None)
+        )
         return document_id.in_(visible)  # type: ignore[no-any-return]
 
     def chunk_condition(self, chunk_id: Any) -> ColumnElement[bool]:
         """Rows whose chunk ID column points at a chunk in scope."""
         if self.kind is ScopeKind.UNRESTRICTED:
             return true()
-        visible = select(DocumentChunk.id).where(self.document_condition(DocumentChunk.document_id))
+        visible = (
+            select(DocumentChunk.id)
+            .where(self.document_condition(DocumentChunk.document_id))
+            .correlate(None)
+        )
         return chunk_id.in_(visible)  # type: ignore[no-any-return]

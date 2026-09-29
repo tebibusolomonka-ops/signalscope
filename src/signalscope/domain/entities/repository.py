@@ -70,7 +70,9 @@ class EntityRepository:
             statement = select(Entity, mention_counts.c.mentions).join(
                 mention_counts, mention_counts.c.entity_id == Entity.id
             )
-            conditions.append(Entity.id.in_(select(EntityMention.entity_id).where(visible)))
+            conditions.append(
+                Entity.id.in_(select(EntityMention.entity_id).where(visible).correlate(None))
+            )
         rows = await self.session.execute(
             statement.where(*conditions)
             .order_by(Entity.normalized_name, Entity.entity_type, Entity.id)
