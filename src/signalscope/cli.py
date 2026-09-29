@@ -73,6 +73,7 @@ from signalscope.domain.search.embedding_worker import EmbeddingWorker
 from signalscope.domain.sources.model import SourceType
 from signalscope.domain.sources.repository import SourceRepository
 from signalscope.domain.sources.scheduling import Clock, utc_now
+from signalscope.domain.tenancy.assignment import LegacySourceAssignmentService
 from signalscope.domain.users.authentication import AuthenticationService
 from signalscope.domain.users.passwords import PasswordHasher
 from signalscope.domain.users.session_cleanup import SessionCleanupService
@@ -269,6 +270,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                 password_stdin=args.password_stdin,
             )
         )
+    if args.command == "assign-source-organization":
+        return asyncio.run(
+            assign_source_organization(args.source_id, args.organization_id, settings)
+        )
     if args.command == "cleanup-auth-sessions":
         return asyncio.run(cleanup_auth_sessions(args.limit, settings))
     if args.command == "cleanup-organization-invitations":
@@ -396,6 +401,13 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="read the password from the first line of standard input, for automation",
     )
+
+    assignment = commands.add_parser(
+        "assign-source-organization",
+        help="move a legacy source and its content into an organization, once",
+    )
+    assignment.add_argument("source_id", type=uuid.UUID, help="ID of a source without one")
+    assignment.add_argument("organization_id", type=uuid.UUID, help="ID of the organization")
 
     session_cleanup = commands.add_parser(
         "cleanup-auth-sessions", help="delete login sessions that expired or were revoked long ago"
@@ -749,6 +761,39 @@ async def queue_events(
     print(f"Jobs created: {result.jobs_created}", file=out)
     print(f"Already extracted: {result.already_extracted}", file=out)
     print(f"Already queued: {result.already_queued}", file=out)
+    return 0
+
+
+async def assign_source_organization(
+    source_id: uuid.UUID,
+    organization_id: uuid.UUID,
+    settings: Settings,
+    out: TextIO | None = None,
+    err: TextIO | None = None,
+) -> int:
+    """Give a legacy source an organization and print what moved. Returns the exit code.
+
+    Only a source without an organization can be assigned. Its events leave
+    their legacy clusters and are linked again inside the organization.
+    """
+    out = sys.stdout if out is None else out
+    err = sys.stderr if err is None else err
+    if settings.database_url is None:
+        print(NO_DATABASE_ERROR, file=err)
+        return 1
+    async with _database(settings) as session_factory:
+        try:
+            result = await LegacySourceAssignmentService(session_factory).assign(
+                source_id, organization_id
+            )
+        except SignalScopeError as error:
+            print(f"Error: {error}", file=err)
+            return 1
+    print(f"Source: {result.source_id}", file=out)
+    print(f"Organization: {result.organization_id}", file=out)
+    print(f"Documents affected: {result.documents}", file=out)
+    print(f"Events relinked: {result.events_relinked}", file=out)
+    print(f"Research sessions assigned: {result.research_sessions}", file=out)
     return 0
 
 

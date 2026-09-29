@@ -1,3 +1,5 @@
+import uuid
+
 import pytest
 
 from signalscope.cli import build_parser, main
@@ -38,3 +40,15 @@ def test_missing_database_url(
     assert capsys.readouterr().err == (
         "Error: Database URL is not configured. Set SIGNALSCOPE_DATABASE_URL.\n"
     )
+
+
+def test_assign_source_organization_arguments(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    source, organization = uuid.uuid4(), uuid.uuid4()
+    args = build_parser().parse_args(["assign-source-organization", str(source), str(organization)])
+    monkeypatch.delenv("SIGNALSCOPE_DATABASE_URL", raising=False)
+
+    assert (args.source_id, args.organization_id) == (source, organization)
+    assert main(["assign-source-organization", str(source), str(organization)]) == 1
+    assert "Database URL is not configured" in capsys.readouterr().err

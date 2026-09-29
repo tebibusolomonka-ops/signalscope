@@ -141,7 +141,7 @@ async def _link(session: AsyncSession, event_id: uuid.UUID) -> EventLink | None:
         await session.flush()
     session.add(EventClusterMember(cluster_id=cluster.id, event_id=event.id))
     await session.flush()
-    await _refresh_canonical_values(session, cluster)
+    await refresh_canonical_values(session, cluster)
     return EventLink(cluster.id, created_cluster=created)
 
 
@@ -204,7 +204,7 @@ async def _matching_cluster(
     return matches[0] if matches else None
 
 
-async def _refresh_canonical_values(session: AsyncSession, cluster: EventCluster) -> None:
+async def refresh_canonical_values(session: AsyncSession, cluster: EventCluster) -> None:
     """Take the title from the oldest member event and the earliest known time.
 
     Both come from all members, so they are the same whatever order events

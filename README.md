@@ -203,6 +203,21 @@ signalscope cleanup-auth-sessions --limit 1000
 It prints how many sessions it checked and deleted. Active sessions are never
 deleted.
 
+### Legacy content
+
+Sources made before organizations existed have no organization. With
+authentication on, only system admins see them and what was made from them.
+Move one such source into an organization, once, with:
+
+```bash
+signalscope assign-source-organization <source-id> <organization-id>
+```
+
+Its documents, extracted data and source-limited research sessions then belong
+to that organization. Its events leave their legacy clusters and are linked
+again inside the organization. Investigations are not changed. A source that
+already has an organization cannot be moved.
+
 ### Security audit
 
 Account creation, logins, logouts, and changes to organizations, members and
