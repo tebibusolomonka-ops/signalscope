@@ -82,3 +82,70 @@ async def test_empty_organization_and_no_authentication(
         for item in empty.json()["queues"]
     )
     assert without_auth.status_code == 503
+
+
+def jobs_path(organization_id: uuid.UUID, query: str = "") -> str:
+    return f"/operations/jobs?organization_id={organization_id}&{query}"
+
+
+async def test_failed_jobs_route(
+    auth_client: httpx.AsyncClient, session_factory: async_sessionmaker[AsyncSession]
+) -> None:
+    tenants: Tenants = await make_tenants(auth_client, session_factory)
+    a, b = tenants.a, tenants.b
+    harbour = await add_content(session_factory, a.id, "harbour")
+    river = await add_content(session_factory, b.id, "river")
+    for index in range(3):
+        await add_job(
+            session_factory,
+            OperationsQueue.EMBEDDING,
+            harbour,
+            "failed",
+            finished_at=LATE,
+            last_error="Model is not available.",
+            model=f"m{index}",
+        )
+    await add_job(session_factory, OperationsQueue.INGESTION, harbour, "failed", finished_at=LATE)
+    await add_job(session_factory, OperationsQueue.INGESTION, river, "failed", last_error="River")
+
+    everything = await auth_client.get(jobs_path(a.id), headers=a.headers["owner"])
+    embedding = await auth_client.get(
+        jobs_path(a.id, "queue=embedding&limit=2&offset=1"), headers=a.headers["admin"]
+    )
+    by_system = await auth_client.get(jobs_path(b.id, "status=failed"), headers=tenants.system)
+
+    assert everything.status_code == 200, everything.text
+    assert everything.json()["total"] == 4
+    assert "River" not in everything.text
+    page = embedding.json()
+    assert (page["total"], page["limit"], page["offset"], len(page["items"])) == (3, 2, 1, 2)
+    item = page["items"][0]
+    assert item["queue"] == "embedding"
+    assert item["resource_type"] == "chunk"
+    assert item["resource_id"] == str(harbour.chunk_id)
+    assert item["error"] == "Model is not available."
+    assert set(item) == {
+        "queue",
+        "job_id",
+        "status",
+        "resource_type",
+        "resource_id",
+        "provider",
+        "model",
+        "attempt_count",
+        "available_at",
+        "created_at",
+        "finished_at",
+        "error",
+    }
+    assert [job["error"] for job in by_system.json()["items"]] == ["River"]
+
+    member = await auth_client.get(jobs_path(a.id), headers=a.headers["member"])
+    viewer = await auth_client.get(jobs_path(a.id), headers=a.headers["viewer"])
+    other = await auth_client.get(jobs_path(b.id), headers=a.headers["owner"])
+    unknown_queue = await auth_client.get(
+        jobs_path(a.id, "queue=blob_cleanup"), headers=a.headers["owner"]
+    )
+    assert (member.status_code, viewer.status_code) == (403, 403)
+    assert other.status_code == 404
+    assert unknown_queue.status_code == 422

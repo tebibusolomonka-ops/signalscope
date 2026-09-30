@@ -164,6 +164,11 @@ Decisions that should hold unless there is a clear reason to change them.
   `organization_id` and treats an investigation of another organization as
   not found, even when the user may view it, so nothing of one organization
   appears under another.
+- **Operations are administrative and per organization.** Job states and
+  errors are shown to owners, admins and system admins only, always for one
+  named organization; there is no view of all organizations' jobs. Queues
+  that cannot be tied to a source, document or chunk (blob cleanup) are not
+  shown.
 - **Exports are downloaded, not rebuilt.** The web app asks the export routes
   for JSON or Markdown and saves the answer in the browser as it is; the
   Markdown is never rewritten in JavaScript, nothing is searched or answered

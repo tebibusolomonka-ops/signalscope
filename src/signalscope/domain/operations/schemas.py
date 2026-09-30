@@ -3,7 +3,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
-from signalscope.domain.operations.queues import OperationsQueue
+from signalscope.domain.operations.queues import OperationsQueue, ResourceType
 
 
 class OperationsOrganizationRead(BaseModel):
@@ -34,3 +34,24 @@ class OperationsOverviewRead(BaseModel):
 
     organization: OperationsOrganizationRead
     queues: list[QueueSummaryRead]
+
+
+class FailedJobRead(BaseModel):
+    """A failed job. error is the short stored message, never a traceback."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    queue: OperationsQueue
+    job_id: uuid.UUID
+    status: str
+    # What the job works on: a source, a document or a chunk.
+    resource_type: ResourceType
+    resource_id: uuid.UUID
+    # Only for chunk jobs, which run one model.
+    provider: str | None
+    model: str | None
+    attempt_count: int
+    available_at: datetime
+    created_at: datetime
+    finished_at: datetime | None
+    error: str | None

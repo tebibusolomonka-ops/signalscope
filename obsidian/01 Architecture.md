@@ -59,6 +59,13 @@ One Python package, `src/signalscope`, with one PostgreSQL database. See
   span documents, have their own `organization_id`; entities and claims are
   shared rows seen through scoped mentions and evidence.
   `LegacySourceAssignmentService` moves a legacy source into an organization.
+- `domain/operations/`: organization operations. `queues.py` describes the
+  six job tables (ingestion, processing, embedding, entity, event and claim
+  extraction) with the record each job works on (source, document or
+  chunk), which is how a job is scoped to an organization.
+  `OrganizationOperationsService` counts job states per queue;
+  `FailedJobInspectionService` lists failed jobs of all queues with one
+  `UNION ALL`, filtered per queue before ordering and paging.
 - **Dashboard** (`dashboard/`): aggregate counts and zero-filled UTC daily
   series, built with SQL aggregates.
 - **Relations** (`relations/`): relation extraction interface and an

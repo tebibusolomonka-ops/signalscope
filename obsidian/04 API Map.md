@@ -207,6 +207,22 @@ view without the needed role gives 403. See [[07 Decisions]] for the roles.
   `DELETE /investigations/{id}/members/{user_id}`. Auth only. The last owner
   stays; closed investigations can still be shared.
 
+## Operations
+
+Auth only (503 when auth is off, 401 without a token). `organization_id` is
+required, also for system admins; owners and admins of that organization and
+system admins may look, members and viewers get 403, others 404. Queues:
+`ingestion`, `processing`, `embedding`, `entity_extraction`,
+`event_extraction`, `claim_extraction`.
+
+- `GET /operations/overview`: per queue, pending, running and failed counts,
+  the oldest pending `available_at` and the oldest failed `finished_at`.
+  States as stored: a running job with an expired lease counts as running.
+- `GET /operations/jobs?queue=&status=failed`: failed jobs, newest failure
+  first, paged. Each has the record it works on (source, document or chunk),
+  provider and model for chunk jobs, attempts, times and the short stored
+  error. Unknown queues: 422.
+
 ## Dashboard
 
 Scoped with auth on through `organization_id`: every count, queue count and

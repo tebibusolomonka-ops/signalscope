@@ -15,6 +15,10 @@ Queues are PostgreSQL tables. There is no Redis, Celery or Kafka; see
 | Claims | `claim_extraction_jobs` | `run-claim-worker` | `queue-claims` |
 | Blob cleanup | `blob_cleanup_tasks` | `cleanup-blobs` | (added on failed deletes) |
 
+Blob cleanup tasks have no organization, so they stay out of the
+organization operations routes. The other six queues are scoped through the
+job's source, document or chunk.
+
 ## How a job runs
 
 - **Claim**: `SELECT ... FOR UPDATE SKIP LOCKED`, so workers never take the

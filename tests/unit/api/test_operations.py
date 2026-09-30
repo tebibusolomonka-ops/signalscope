@@ -51,3 +51,44 @@ def test_overview_needs_a_database(client: TestClient) -> None:
     response = client.get(f"/operations/overview?organization_id={uuid.uuid4()}")
 
     assert response.status_code == 503
+
+
+def test_failed_jobs_are_in_openapi(app: FastAPI) -> None:
+    operation = app.openapi()["paths"]["/operations/jobs"]["get"]
+    schemas = app.openapi()["components"]["schemas"]
+
+    assert {item["name"] for item in operation["parameters"]} == {
+        "organization_id",
+        "queue",
+        "status",
+        "limit",
+        "offset",
+    }
+    assert set(schemas["FailedJobRead"]["properties"]) == {
+        "queue",
+        "job_id",
+        "status",
+        "resource_type",
+        "resource_id",
+        "provider",
+        "model",
+        "attempt_count",
+        "available_at",
+        "created_at",
+        "finished_at",
+        "error",
+    }
+
+
+@pytest.mark.parametrize(
+    ("query", "field"),
+    [("queue=blob_cleanup", "queue"), ("status=pending", "status"), ("limit=0", "limit")],
+)
+def test_failed_jobs_refuse_unknown_values(query: str, field: str) -> None:
+    app = create_app(Settings(database_url=FAKE_DATABASE_URL))
+
+    with TestClient(app) as client:
+        response = client.get(f"/operations/jobs?organization_id={uuid.uuid4()}&{query}")
+
+    assert response.status_code == 422
+    assert response.json()["error"]["details"][0]["loc"] == ["query", field]

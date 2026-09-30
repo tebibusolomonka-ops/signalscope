@@ -25,11 +25,12 @@ time. What stays as it was:
 - Deployment is still same-origin: the API sends no CORS headers.
 - The bearer token still lives in sessionStorage.
 
-Next planned area: add organization-scoped operational administration and
-retention, improve the frontend document and search research experience,
-run the real GLiNER2, E5, reranker and Qwen smoke and evaluation workflows
-on a suitable machine, and use those measured results before deciding
-whether knowledge-graph relation persistence is justified.
+Current batch, 360 to 379: organization operations, failed job recovery,
+audit retention and research usability. Done: the lease test no longer
+depends on timing, the operations overview and failed job list. To do:
+retries, audit retention, the operations and retention pages, an event
+page, richer evidence, turn paging, paged pickers, live ingestion runs and
+starting a session with its first question.
 
 ## Next batch
 

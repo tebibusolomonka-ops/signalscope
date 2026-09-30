@@ -61,6 +61,9 @@ cluster organization).
   A route audit test checks every content route for leaks between
   organizations. The web app has an active organization picker and a
   dashboard scoped to it.
+- Organization operations, in progress: `GET /operations/overview` (job
+  counts per queue) and `GET /operations/jobs` (failed jobs) for owners,
+  admins and system admins of one organization.
 - Tenant research workspace in the web app, done: content navigation that
   needs an active organization, sources (list, create,
   detail, provenance, ingest now, schedule, run history, delete), documents

@@ -1,6 +1,6 @@
 # Known Issues
 
-Open problems as of commit 359. Remove an item when it is fixed.
+Open problems as of commit 364. Remove an item when it is fixed.
 
 ## Events
 
@@ -43,6 +43,10 @@ Open problems as of commit 359. Remove an item when it is fixed.
   roles stop counting but still show in the member list.
 - An item whose record was deleted keeps its snapshot. Exports mark it with
   `current_reference_exists: false`; the item list itself does not.
+
+## Operations
+
+- Failed jobs can be listed but not yet retried from the API.
 
 ## Dashboard
 
