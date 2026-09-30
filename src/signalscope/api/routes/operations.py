@@ -9,7 +9,12 @@ from signalscope.api.tenancy import Policy
 from signalscope.domain.operations.failed_jobs import FailedJobInspectionService
 from signalscope.domain.operations.overview import OrganizationOperationsService
 from signalscope.domain.operations.queues import OperationsQueue
-from signalscope.domain.operations.schemas import OperationsJobRead, OperationsOverviewRead
+from signalscope.domain.operations.recovery import FailedJobRecoveryService
+from signalscope.domain.operations.schemas import (
+    JobRetryRequest,
+    OperationsJobRead,
+    OperationsOverviewRead,
+)
 
 router = APIRouter(prefix="/operations", tags=["Operations"])
 
@@ -57,3 +62,25 @@ async def failed_jobs(
         limit=page.limit,
         offset=page.offset,
     )
+
+
+@router.post("/jobs/{queue}/{job_id}/retry")
+async def retry_failed_job(
+    queue: OperationsQueue,
+    job_id: uuid.UUID,
+    request: JobRetryRequest,
+    session: DatabaseSession,
+    policy: Policy,
+) -> OperationsJobRead:
+    """Put a failed job of the organization back in its queue, available now.
+
+    Each queue is retried its own way: chunk jobs whose results are already
+    current are refused, and a failed ingestion gets a new run. The attempt
+    count is kept. A job of another organization is not found; a job that is
+    not failed, or work that is current or already queued, answers 409. The
+    retry is recorded in the security audit log. Same access as the overview.
+    """
+    job = await FailedJobRecoveryService(session, policy).retry(
+        request.organization_id, queue, job_id
+    )
+    return OperationsJobRead.model_validate(job)

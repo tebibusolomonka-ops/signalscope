@@ -6,6 +6,13 @@ from pydantic import BaseModel, ConfigDict
 from signalscope.domain.operations.queues import OperationsQueue, ResourceType
 
 
+class JobRetryRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    # The organization the job must belong to.
+    organization_id: uuid.UUID
+
+
 class OperationsOrganizationRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

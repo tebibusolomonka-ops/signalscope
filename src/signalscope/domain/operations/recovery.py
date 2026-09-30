@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from signalscope.core.errors import ConflictError, NotFoundError
+from signalscope.domain.audit.service import AuditAction, SecurityAuditService
 from signalscope.domain.claims.queue import ClaimExtractionQueue
 from signalscope.domain.entities.queue import EntityExtractionQueue
 from signalscope.domain.events.queue import EventExtractionQueue
@@ -88,6 +89,15 @@ class FailedJobRecoveryService:
                 self._requeue_processing_job(job)
             else:
                 await self._requeue_ingestion_job(job)
+            # Recorded in the same transaction, without the job's error text.
+            SecurityAuditService(self.session).record(
+                AuditAction.OPERATION_JOB_RETRIED,
+                actor_user_id=None if self.policy.actor is None else self.policy.actor.id,
+                resource_type="job",
+                resource_id=job_id,
+                organization_id=organization_id,
+                details={"queue": queue.value},
+            )
             await self.session.commit()
         except Exception:
             await self.session.rollback()

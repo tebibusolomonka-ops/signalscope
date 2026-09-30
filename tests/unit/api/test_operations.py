@@ -92,3 +92,37 @@ def test_failed_jobs_refuse_unknown_values(query: str, field: str) -> None:
 
     assert response.status_code == 422
     assert response.json()["error"]["details"][0]["loc"] == ["query", field]
+
+
+def test_retry_is_in_openapi(app: FastAPI) -> None:
+    paths = app.openapi()["paths"]
+    schemas = app.openapi()["components"]["schemas"]
+
+    assert set(paths["/operations/jobs/{queue}/{job_id}/retry"]) == {"post"}
+    assert set(schemas["JobRetryRequest"]["properties"]) == {"organization_id"}
+
+
+@pytest.mark.parametrize(
+    ("path", "body", "location"),
+    [
+        (
+            f"/operations/jobs/blob_cleanup/{uuid.uuid4()}/retry",
+            {"organization_id": str(uuid.uuid4())},
+            ["path", "queue"],
+        ),
+        (
+            "/operations/jobs/embedding/nope/retry",
+            {"organization_id": str(uuid.uuid4())},
+            ["path", "job_id"],
+        ),
+        (f"/operations/jobs/embedding/{uuid.uuid4()}/retry", {}, ["body", "organization_id"]),
+    ],
+)
+def test_retry_refuses_bad_input(path: str, body: dict[str, str], location: list[str]) -> None:
+    app = create_app(Settings(database_url=FAKE_DATABASE_URL))
+
+    with TestClient(app) as client:
+        response = client.post(path, json=body)
+
+    assert response.status_code == 422
+    assert response.json()["error"]["details"][0]["loc"] == location

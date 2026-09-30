@@ -149,3 +149,57 @@ async def test_failed_jobs_route(
     assert (member.status_code, viewer.status_code) == (403, 403)
     assert other.status_code == 404
     assert unknown_queue.status_code == 422
+
+
+async def test_retry_route(
+    auth_client: httpx.AsyncClient, session_factory: async_sessionmaker[AsyncSession]
+) -> None:
+    tenants: Tenants = await make_tenants(auth_client, session_factory)
+    a, b = tenants.a, tenants.b
+    harbour = await add_content(session_factory, a.id, "harbour")
+    job_id = await add_job(
+        session_factory,
+        OperationsQueue.EVENT_EXTRACTION,
+        harbour,
+        "failed",
+        finished_at=LATE,
+        last_error="secret-looking internal detail",
+    )
+    path = f"/operations/jobs/event_extraction/{job_id}/retry"
+
+    viewer = await auth_client.post(
+        path, json={"organization_id": str(a.id)}, headers=a.headers["viewer"]
+    )
+    other = await auth_client.post(
+        path, json={"organization_id": str(b.id)}, headers=b.headers["owner"]
+    )
+    unknown = await auth_client.post(
+        f"/operations/jobs/event_extraction/{uuid.uuid4()}/retry",
+        json={"organization_id": str(a.id)},
+        headers=a.headers["owner"],
+    )
+    done = await auth_client.post(
+        path, json={"organization_id": str(a.id)}, headers=a.headers["owner"]
+    )
+    again = await auth_client.post(
+        path, json={"organization_id": str(a.id)}, headers=a.headers["owner"]
+    )
+
+    assert viewer.status_code == 403
+    assert (other.status_code, unknown.status_code) == (404, 404)
+    assert done.status_code == 200, done.text
+    body = done.json()
+    assert (body["job_id"], body["status"], body["error"]) == (str(job_id), "pending", None)
+    assert again.status_code == 409
+    assert again.json()["error"]["message"] == "Only failed jobs can be retried."
+
+    audit = await auth_client.get(
+        f"/security/audit?organization_id={a.id}&action=operations.job_retried",
+        headers=a.headers["owner"],
+    )
+    events = audit.json()["items"]
+    assert len(events) == 1
+    assert events[0]["resource_type"] == "job"
+    assert events[0]["resource_id"] == str(job_id)
+    assert events[0]["metadata"] == {"queue": "event_extraction"}
+    assert "secret-looking" not in audit.text
