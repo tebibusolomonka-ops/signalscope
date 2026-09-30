@@ -17,6 +17,7 @@ from signalscope.api.routes import (
     ingestion_runs,
     investigation_members,
     investigations,
+    operations,
     organization_invitations,
     organizations,
     research,
@@ -74,4 +75,5 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(investigations.router)
     app.include_router(investigation_members.router)
     app.include_router(dashboard.router)
+    app.include_router(operations.router)
     return app
