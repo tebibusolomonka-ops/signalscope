@@ -36,8 +36,8 @@ class OperationsOverviewRead(BaseModel):
     queues: list[QueueSummaryRead]
 
 
-class FailedJobRead(BaseModel):
-    """A failed job. error is the short stored message, never a traceback."""
+class OperationsJobRead(BaseModel):
+    """A job of one queue. error is the short stored message, never a traceback."""
 
     model_config = ConfigDict(from_attributes=True)
 

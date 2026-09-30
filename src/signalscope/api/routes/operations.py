@@ -9,7 +9,7 @@ from signalscope.api.tenancy import Policy
 from signalscope.domain.operations.failed_jobs import FailedJobInspectionService
 from signalscope.domain.operations.overview import OrganizationOperationsService
 from signalscope.domain.operations.queues import OperationsQueue
-from signalscope.domain.operations.schemas import FailedJobRead, OperationsOverviewRead
+from signalscope.domain.operations.schemas import OperationsJobRead, OperationsOverviewRead
 
 router = APIRouter(prefix="/operations", tags=["Operations"])
 
@@ -41,7 +41,7 @@ async def failed_jobs(
     page: Pagination,
     queue: OperationsQueue | None = None,
     status: Literal["failed"] = "failed",
-) -> Page[FailedJobRead]:
+) -> Page[OperationsJobRead]:
     """Failed jobs of one organization, newest failure first, from one queue or all.
 
     Only failed jobs are listed; status is there to say so. Each job shows the
@@ -51,8 +51,8 @@ async def failed_jobs(
     items, total = await FailedJobInspectionService(session, policy).list_page(
         organization_id, queue, page.limit, page.offset
     )
-    return Page[FailedJobRead](
-        items=[FailedJobRead.model_validate(item) for item in items],
+    return Page[OperationsJobRead](
+        items=[OperationsJobRead.model_validate(item) for item in items],
         total=total,
         limit=page.limit,
         offset=page.offset,

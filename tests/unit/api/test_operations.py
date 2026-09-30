@@ -64,7 +64,7 @@ def test_failed_jobs_are_in_openapi(app: FastAPI) -> None:
         "limit",
         "offset",
     }
-    assert set(schemas["FailedJobRead"]["properties"]) == {
+    assert set(schemas["OperationsJobRead"]["properties"]) == {
         "queue",
         "job_id",
         "status",

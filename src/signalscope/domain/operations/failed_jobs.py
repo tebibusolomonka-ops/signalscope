@@ -18,8 +18,8 @@ from signalscope.domain.tenancy.scope import ContentScope
 
 
 @dataclass(frozen=True, slots=True)
-class FailedJob:
-    """A failed job in the shape every queue shares.
+class OperationsJob:
+    """A job in the shape every queue shares.
 
     error is the short message stored when the job failed, never a traceback.
     provider and model are only set for chunk jobs, which run one model.
@@ -56,7 +56,7 @@ class FailedJobInspectionService:
         queue: OperationsQueue | None,
         limit: int,
         offset: int,
-    ) -> tuple[list[FailedJob], int]:
+    ) -> tuple[list[OperationsJob], int]:
         scope = await operations_scope(self.policy, organization_id)
         tables = [QUEUE_TABLES[queue]] if queue is not None else list(QUEUE_TABLES.values())
         combined = union_all(*(_failed(table, scope) for table in tables)).subquery()
@@ -73,10 +73,15 @@ class FailedJobInspectionService:
             )
         ).all()
         total = await self.session.scalar(select(func.count()).select_from(combined))
-        return [_job(row) for row in rows], total or 0
+        return [job_from_row(row) for row in rows], total or 0
 
 
 def _failed(table: QueueTable, scope: ContentScope) -> Select[tuple[object, ...]]:
+    return job_select(table, scope).where(table.model.status == table.status("failed"))
+
+
+def job_select(table: QueueTable, scope: ContentScope) -> Select[tuple[object, ...]]:
+    """The queue's jobs in scope, as rows with the OperationsJob fields."""
     model = table.model
     chunk_job = table.resource_type is ResourceType.CHUNK
     return select(
@@ -92,12 +97,12 @@ def _failed(table: QueueTable, scope: ContentScope) -> Select[tuple[object, ...]
         model.created_at.label("created_at"),
         model.finished_at.label("finished_at"),
         model.last_error.label("error"),
-    ).where(model.status == table.status("failed"), table.in_scope(scope))
+    ).where(table.in_scope(scope))
 
 
-def _job(row: object) -> FailedJob:
+def job_from_row(row: object) -> OperationsJob:
     values = row._mapping  # type: ignore[attr-defined]
-    return FailedJob(
+    return OperationsJob(
         queue=OperationsQueue(values["queue"]),
         job_id=values["job_id"],
         status=values["status"],

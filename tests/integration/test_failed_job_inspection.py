@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from operations_helpers import add_content, add_job, user_by_email
 from signalscope.core.errors import ForbiddenError, NotFoundError
-from signalscope.domain.operations.failed_jobs import FailedJob, FailedJobInspectionService
+from signalscope.domain.operations.failed_jobs import FailedJobInspectionService, OperationsJob
 from signalscope.domain.operations.queues import OperationsQueue, ResourceType
 from signalscope.domain.tenancy.policy import ContentAccessPolicy
 from tenancy_helpers import Tenants, make_tenants
@@ -24,7 +24,7 @@ async def failed(
     queue: OperationsQueue | None = None,
     limit: int = 50,
     offset: int = 0,
-) -> tuple[list[FailedJob], int]:
+) -> tuple[list[OperationsJob], int]:
     user = await user_by_email(session_factory, email)
     async with session_factory() as session:
         service = FailedJobInspectionService(session, ContentAccessPolicy(session, user))
