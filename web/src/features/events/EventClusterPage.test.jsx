@@ -109,6 +109,11 @@ describe("event cluster", () => {
     const first = screen.getByRole("article", { name: "Storm closes the harbour" });
     expect(first).toHaveTextContent("Ships stayed in port.");
     expect(first).toHaveTextContent("Page 1");
+    // The member title opens the event page.
+    expect(within(first).getByRole("link", { name: "Storm closes the harbour" })).toHaveAttribute(
+      "href",
+      "/events/ev-1",
+    );
   });
 
   it("loads advisory suggestions on request, with no merge control", async () => {
