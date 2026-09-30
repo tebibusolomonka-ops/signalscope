@@ -20,6 +20,7 @@ const CONTENT_LINKS = [
 const MANAGE_LINKS = [
   { to: "/operations", label: "Operations" },
   { to: "/operations/failed-jobs", label: "Failed jobs" },
+  { to: "/operations/retention", label: "Audit retention" },
 ];
 
 const ADMIN_LINKS = [

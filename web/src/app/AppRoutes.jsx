@@ -15,6 +15,7 @@ import { InvestigationDetailPage } from "../features/investigations/Investigatio
 import { InvestigationsPage } from "../features/investigations/InvestigationsPage.jsx";
 import { FailedJobsPage } from "../features/operations/FailedJobsPage.jsx";
 import { OperationsPage } from "../features/operations/OperationsPage.jsx";
+import { RetentionPage } from "../features/operations/RetentionPage.jsx";
 import { AcceptInvitationPage } from "../features/invitations/AcceptInvitationPage.jsx";
 import { OrganizationDetailPage } from "../features/organizations/OrganizationDetailPage.jsx";
 import { OrganizationsPage } from "../features/organizations/OrganizationsPage.jsx";
@@ -72,6 +73,7 @@ export function AppRoutes() {
             <Route path="/research/:sessionId" element={<ResearchSessionPage />} />
             <Route path="/operations" element={<OperationsPage />} />
             <Route path="/operations/failed-jobs" element={<FailedJobsPage />} />
+            <Route path="/operations/retention" element={<RetentionPage />} />
           </Route>
           <Route path="/organizations" element={<OrganizationsPage />} />
           <Route path="/organizations/:organizationId" element={<OrganizationDetailPage />} />
