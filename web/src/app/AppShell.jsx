@@ -17,7 +17,10 @@ const CONTENT_LINKS = [
 ];
 
 // Only owners, admins and system admins manage the queues.
-const MANAGE_LINKS = [{ to: "/operations", label: "Operations" }];
+const MANAGE_LINKS = [
+  { to: "/operations", label: "Operations" },
+  { to: "/operations/failed-jobs", label: "Failed jobs" },
+];
 
 const ADMIN_LINKS = [
   { to: "/organizations", label: "Organizations" },
