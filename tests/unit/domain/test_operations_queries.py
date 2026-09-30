@@ -11,6 +11,7 @@ import pytest
 from sqlalchemy.dialects import postgresql
 
 from signalscope.core.errors import ServiceUnavailableError
+from signalscope.domain.operations.failed_jobs import FailedJobInspectionService
 from signalscope.domain.operations.overview import OrganizationOperationsService
 from signalscope.domain.operations.queues import QUEUE_TABLES, OperationsQueue, ResourceType
 from signalscope.domain.tenancy.scope import ContentScope
@@ -38,6 +39,10 @@ class CompilingSession:
         )
         self.sql.append(str(compiled))
         return Result()
+
+    async def scalar(self, statement: Any) -> int:
+        await self.execute(statement)
+        return 0
 
     async def get(self, model: Any, key: Any) -> Any:
         return model(id=key, name="Harbour", slug="harbour")
@@ -88,3 +93,19 @@ async def test_operations_need_authentication() -> None:
 
     with pytest.raises(ServiceUnavailableError):
         await service.overview(ORGANIZATION)
+
+
+async def test_failed_jobs_filter_each_queue_before_paging() -> None:
+    session = CompilingSession()
+    service = FailedJobInspectionService(session, Policy())  # type: ignore[arg-type]
+
+    await service.list_page(ORGANIZATION, None, 10, 20)
+    await service.list_page(ORGANIZATION, OperationsQueue.PROCESSING, 10, 0)
+
+    combined, total, single, _ = session.sql
+    assert combined.count("UNION ALL") == len(OperationsQueue) - 1
+    assert combined.count("sources.organization_id = ") == len(OperationsQueue)
+    assert "ORDER BY" in combined and "LIMIT" in combined and "OFFSET" in combined
+    assert "count(*)" in total
+    assert "UNION ALL" not in single
+    assert "document_processing_jobs" in single
