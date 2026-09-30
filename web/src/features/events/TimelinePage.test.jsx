@@ -96,6 +96,25 @@ describe("event timeline", () => {
     expect(query.get("order")).toBe("oldest_first");
   });
 
+  it("offers sources from beyond the first page in the filter", async () => {
+    renderApp({
+      path: "/events",
+      routes: routes({
+        "GET /sources": ({ query }) =>
+          query.get("offset") === "0"
+            ? page([source()], { total: 2, limit: 100 })
+            : page([source({ id: "s-9", name: "Deep Source" })], {
+                total: 2,
+                limit: 100,
+                offset: 1,
+              }),
+      }),
+    });
+
+    const form = await screen.findByRole("search", { name: "Filter events" });
+    expect(await within(form).findByRole("option", { name: "Deep Source" })).toBeInTheDocument();
+  });
+
   it("says when there are no events", async () => {
     renderApp({ path: "/events", routes: routes({ "GET /timeline": page([]) }) });
     expect(await screen.findByText("No events match.")).toBeInTheDocument();

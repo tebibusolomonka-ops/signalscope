@@ -111,6 +111,31 @@ describe("save to investigation", () => {
     ]);
   });
 
+  it("offers investigations from beyond the first page", async () => {
+    const requested = [];
+    renderApp({
+      path: "/sources/s-1",
+      routes: routes([], {
+        "GET /investigations": ({ query }) => {
+          requested.push(query.get("offset"));
+          return query.get("offset") === "0"
+            ? page([investigation()], { total: 2, limit: 100 })
+            : page([investigation({ id: "inv-2", title: "Fuel prices" })], {
+                total: 2,
+                limit: 100,
+                offset: 1,
+              });
+        },
+      }),
+    });
+    const user = userEvent.setup();
+
+    const form = await saveFrom(user);
+    expect(within(form).getByRole("option", { name: "Fuel prices" })).toBeInTheDocument();
+    // Both pages were fetched, scoped to the active organization.
+    expect(requested).toEqual(["0", "1"]);
+  });
+
   it("saves a member event of a cluster into the chosen investigation", async () => {
     const saved = [];
     renderApp({ path: "/event-clusters/cl-1", routes: routes(saved) });

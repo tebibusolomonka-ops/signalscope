@@ -1,12 +1,9 @@
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router";
 
 import { useOrganization } from "../../app/useOrganization.js";
 import { ErrorMessage } from "../../components/Status.jsx";
-import { useResource } from "../../lib/useResource.js";
-
-// The API's largest page: the first 100 open investigations are offered.
-const LIMIT = 100;
+import { useAllTenantItems } from "../../lib/useAllTenantItems.js";
 
 /**
  * Save a record in an open investigation of the active organization.
@@ -28,15 +25,12 @@ export function SaveToInvestigation({ itemType, referenceId }) {
 
 function SaveForm({ itemType, referenceId, onClose }) {
   const { tenantApi } = useOrganization();
-  const load = useCallback(
-    () => tenantApi.get("/investigations", { query: { status: "open", limit: LIMIT } }),
-    [tenantApi],
-  );
-  const { data, error } = useResource(load);
+  const { items: investigations, error, loaded } = useAllTenantItems("/investigations", {
+    status: "open",
+  });
   const [chosen, setChosen] = useState("");
   const [label, setLabel] = useState("");
   const [state, setState] = useState({ busy: false, error: null, saved: null });
-  const investigations = data?.items ?? [];
   const selected = chosen || investigations[0]?.id || "";
 
   async function save(event) {
@@ -64,7 +58,7 @@ function SaveForm({ itemType, referenceId, onClose }) {
   return (
     <form className="save-form" onSubmit={save} aria-label="Save to investigation">
       <ErrorMessage error={error} />
-      {data && investigations.length === 0 && (
+      {loaded && investigations.length === 0 && (
         <p className="muted">
           There is no open investigation in this organization.{" "}
           <Link to="/investigations">Start one</Link>
