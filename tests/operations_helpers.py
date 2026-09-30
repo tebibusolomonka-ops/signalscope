@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from signalscope.domain.documents.asset import DocumentAsset
+from signalscope.domain.documents.model import Document
 from signalscope.domain.ingestion.model import IngestionJob, IngestionRun, IngestionStatus
 from signalscope.domain.operations.queues import QUEUE_TABLES, OperationsQueue, ResourceType
 from signalscope.domain.users.model import User
@@ -63,8 +64,18 @@ async def add_job(
             await session.flush()
             job = IngestionJob(source_id=content.source_id, run_id=run.id, **values)
         elif table.resource_type is ResourceType.DOCUMENT:
+            # A document has at most one asset, so further processing jobs of
+            # the content get their own document in the same source.
+            document_id = content.document_id
+            if await session.scalar(
+                select(DocumentAsset.id).where(DocumentAsset.document_id == document_id)
+            ):
+                document = Document(source_id=content.source_id, title="Another file")
+                session.add(document)
+                await session.flush()
+                document_id = document.id
             asset = DocumentAsset(
-                document_id=content.document_id,
+                document_id=document_id,
                 storage_key=uuid.uuid4().hex,
                 filename="notes.txt",
                 content_type="text/plain",
@@ -73,7 +84,7 @@ async def add_job(
             )
             session.add(asset)
             await session.flush()
-            job = table.model(document_id=content.document_id, asset_id=asset.id, **values)
+            job = table.model(document_id=document_id, asset_id=asset.id, **values)
         else:
             job = table.model(chunk_id=content.chunk_id, provider="test", model=model, **values)
         session.add(job)
