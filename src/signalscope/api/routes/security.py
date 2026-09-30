@@ -8,11 +8,25 @@ from signalscope.api.auth import CurrentSession
 from signalscope.api.dependencies import DatabaseSession
 from signalscope.api.pagination import Page, Pagination
 from signalscope.domain.audit.query import SecurityAuditQueryService
-from signalscope.domain.audit.schemas import AuditEventRead
+from signalscope.domain.audit.retention_service import AuditRetentionService
+from signalscope.domain.audit.schemas import (
+    AuditEventRead,
+    RetentionCleanupRequest,
+    RetentionCleanupResultRead,
+    RetentionPolicyRead,
+    RetentionPolicyWrite,
+    RetentionPreviewRead,
+)
+from signalscope.domain.sources.scheduling import utc_now
 
 router = APIRouter(prefix="/security", tags=["Security"])
 
 ShortText = Annotated[str | None, Query(max_length=64)]
+
+RetentionOrganizationId = Annotated[
+    uuid.UUID,
+    Query(description="The organization whose retention policy to use. Always required."),
+]
 
 
 def _utc(value: datetime | None) -> datetime | None:
@@ -59,3 +73,65 @@ async def list_audit_events(
         limit=page.limit,
         offset=page.offset,
     )
+
+
+@router.get("/audit/retention")
+async def get_audit_retention(
+    organization_id: RetentionOrganizationId, current: CurrentSession, session: DatabaseSession
+) -> RetentionPolicyRead:
+    """One organization's security audit retention policy.
+
+    Owners, admins and system admins may read it. Null days means events are
+    kept for ever, which is the default when no policy is set.
+    """
+    view = await AuditRetentionService(session, current.user).get_policy(organization_id)
+    return RetentionPolicyRead.model_validate(view)
+
+
+@router.put("/audit/retention")
+async def set_audit_retention(
+    organization_id: RetentionOrganizationId,
+    body: RetentionPolicyWrite,
+    current: CurrentSession,
+    session: DatabaseSession,
+) -> RetentionPolicyRead:
+    """Set one organization's security audit retention policy.
+
+    Only a system admin may change it. Null days keeps events for ever;
+    otherwise the value is bounded conservatively. The change is audited.
+    """
+    view = await AuditRetentionService(session, current.user).set_policy(
+        organization_id, body.security_audit_days
+    )
+    return RetentionPolicyRead.model_validate(view)
+
+
+@router.get("/audit/retention/preview")
+async def preview_audit_retention(
+    organization_id: RetentionOrganizationId, current: CurrentSession, session: DatabaseSession
+) -> RetentionPreviewRead:
+    """How many audit events a cleanup would remove now, without changing anything.
+
+    Same access as reading the policy. Nothing is deletable when events are
+    kept for ever.
+    """
+    preview = await AuditRetentionService(session, current.user).preview(organization_id, utc_now())
+    return RetentionPreviewRead.model_validate(preview)
+
+
+@router.post("/audit/retention/cleanup")
+async def cleanup_audit_retention(
+    organization_id: RetentionOrganizationId,
+    body: RetentionCleanupRequest,
+    current: CurrentSession,
+    session: DatabaseSession,
+) -> RetentionCleanupResultRead:
+    """Delete the oldest audit events past the policy, bounded by limit.
+
+    Only a system admin may run it. Nothing is deleted when events are kept
+    for ever. A run that removes rows is itself audited.
+    """
+    result = await AuditRetentionService(session, current.user).cleanup(
+        organization_id, utc_now(), body.limit
+    )
+    return RetentionCleanupResultRead.model_validate(result)

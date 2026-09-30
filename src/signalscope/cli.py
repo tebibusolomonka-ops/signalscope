@@ -13,6 +13,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import TextIO
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from signalscope.claims.gliner2 import Gliner2ClaimProvider
@@ -30,6 +31,8 @@ from signalscope.core.logging import configure_logging
 from signalscope.core.settings import Settings, SettingsError, load_settings
 from signalscope.db.engine import create_database_engine
 from signalscope.db.session import create_session_factory
+from signalscope.domain.audit.retention import OrganizationAuditRetentionPolicy
+from signalscope.domain.audit.retention_service import AuditRetentionService
 from signalscope.domain.blobs.cleanup import BlobCleanupService
 from signalscope.domain.claims.job import ClaimExtractionJobStatus
 from signalscope.domain.claims.job_repository import ClaimExtractionJobRepository
@@ -159,6 +162,7 @@ from signalscope.workers.shutdown import stop_on_signals
 DEFAULT_SCHEDULE_LIMIT = 100
 DEFAULT_CLEANUP_LIMIT = 100
 DEFAULT_SESSION_CLEANUP_LIMIT = 1000
+DEFAULT_AUDIT_CLEANUP_LIMIT = 1000
 DEFAULT_LINK_EVENTS_LIMIT = 1000
 # Events linked per transaction batch by link-events.
 LINK_EVENTS_BATCH = 200
@@ -278,6 +282,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(cleanup_auth_sessions(args.limit, settings))
     if args.command == "cleanup-organization-invitations":
         return asyncio.run(cleanup_organization_invitations(args.limit, settings))
+    if args.command == "cleanup-security-audit":
+        return asyncio.run(cleanup_security_audit(args.limit, settings, apply=args.apply))
     if args.command == "export-investigation":
         return asyncio.run(
             export_investigation(
@@ -428,6 +434,22 @@ def build_parser() -> argparse.ArgumentParser:
         type=positive_int,
         default=DEFAULT_SESSION_CLEANUP_LIMIT,
         help=f"most invitations to delete (default: {DEFAULT_SESSION_CLEANUP_LIMIT})",
+    )
+
+    audit_cleanup = commands.add_parser(
+        "cleanup-security-audit",
+        help="preview or delete audit events past each organization's retention policy",
+    )
+    audit_cleanup.add_argument(
+        "--limit",
+        type=positive_int,
+        default=DEFAULT_AUDIT_CLEANUP_LIMIT,
+        help=f"most events to delete per organization (default: {DEFAULT_AUDIT_CLEANUP_LIMIT})",
+    )
+    audit_cleanup.add_argument(
+        "--apply",
+        action="store_true",
+        help="delete the events (default: preview only, delete nothing)",
     )
 
     export_command = commands.add_parser(
@@ -848,6 +870,61 @@ async def cleanup_organization_invitations(
         )
     print(f"Checked: {result.checked}", file=out)
     print(f"Deleted: {result.deleted}", file=out)
+    return 0
+
+
+async def cleanup_security_audit(
+    limit: int,
+    settings: Settings,
+    out: TextIO | None = None,
+    err: TextIO | None = None,
+    *,
+    apply: bool = False,
+    clock: Clock = utc_now,
+) -> int:
+    """Preview or delete audit events past each organization's retention policy.
+
+    Only organizations with a set number of days are checked; the rest keep
+    their events for ever. Without --apply nothing is deleted and the counts
+    are what a real run would remove. With --apply, at most limit oldest events
+    are deleted per organization in this one bounded run, and each deletion is
+    audited. Returns the exit code.
+    """
+    out = sys.stdout if out is None else out
+    err = sys.stderr if err is None else err
+    if settings.database_url is None:
+        print(NO_DATABASE_ERROR, file=err)
+        return 1
+
+    now = clock()
+    checked = 0
+    deletable = 0
+    deleted = 0
+    async with _database(settings) as session_factory:
+        async with session_factory() as session:
+            organization_ids = list(
+                await session.scalars(
+                    select(OrganizationAuditRetentionPolicy.organization_id).where(
+                        OrganizationAuditRetentionPolicy.security_audit_days.is_not(None)
+                    )
+                )
+            )
+        for organization_id in organization_ids:
+            async with session_factory() as session:
+                service = AuditRetentionService(session, None)
+                if apply:
+                    result = await service.cleanup(organization_id, now, limit)
+                    deleted += result.deleted
+                else:
+                    preview = await service.preview(organization_id, now)
+                    deletable += preview.deletable_count
+            checked += 1
+    print(f"Organizations checked: {checked}", file=out)
+    if apply:
+        print(f"Events deleted: {deleted}", file=out)
+    else:
+        print(f"Events over retention: {deletable}", file=out)
+        print("Preview only. Use --apply to delete.", file=out)
     return 0
 
 

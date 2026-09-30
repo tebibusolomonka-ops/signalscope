@@ -31,3 +31,27 @@ def test_needs_auth(enabled: bool, expected: int) -> None:
     app = create_app(Settings(database_url=FAKE_DATABASE_URL, auth_enabled=enabled))
     with TestClient(app) as client:
         assert client.get("/security/audit").status_code == expected
+
+
+def test_retention_routes_are_in_openapi(app: FastAPI) -> None:
+    paths = app.openapi()["paths"]
+    schemas = app.openapi()["components"]["schemas"]
+
+    for route in ("/security/audit/retention", "/security/audit/retention/preview"):
+        parameters = paths[route]["get"]["parameters"]
+        assert [(item["name"], item["required"]) for item in parameters] == [
+            ("organization_id", True)
+        ]
+    assert set(paths["/security/audit/retention"]) == {"get", "put"}
+    assert "post" in paths["/security/audit/retention/cleanup"]
+    assert set(schemas["RetentionPolicyRead"]["properties"]) == {
+        "organization_id",
+        "security_audit_days",
+    }
+    assert set(schemas["RetentionPreviewRead"]["properties"]) == {
+        "organization_id",
+        "security_audit_days",
+        "cutoff",
+        "deletable_count",
+        "total_count",
+    }

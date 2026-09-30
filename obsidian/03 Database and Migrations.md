@@ -1,8 +1,7 @@
 # Database and Migrations
 
 PostgreSQL 17 with the pgvector extension. Current Alembic head:
-`a809b1740bcd` (Add event cluster
-organization).
+`eeba34146645` (Add organization audit retention policies).
 
 ## Rules
 

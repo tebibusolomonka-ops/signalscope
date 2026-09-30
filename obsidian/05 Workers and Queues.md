@@ -31,6 +31,10 @@ job's source, document or chunk.
   worker that lost its lease saves nothing (`lease_lost`).
 - **Recovery**: workers put stale running jobs back in the queue before each
   claim, which clears the token.
+- **Retry**: `FailedJobRetryService` requeues one failed job the same way
+  recovery does (pending, available now, leases cleared, attempt count kept).
+  An ingestion job also gets a fresh pending run, because a run cannot start
+  twice. Exposed as `POST /operations/jobs/retry`.
 - **Loop**: `WorkerLoop` supports `--once`, `--poll-seconds` and `--max-jobs`,
   and stops after the current job on Ctrl+C or SIGTERM.
 

@@ -3,8 +3,8 @@
 Batch 340 to 359 (the tenant research workspace in the web app) needed no
 corrective commit and ended at repository commit 359 (`e665ed3`). Current
 batch: 360 to 379, organization operations, failed job recovery, audit
-retention and research usability. Alembic head: `a809b1740bcd` (Add event
-cluster organization).
+retention and research usability. Alembic head: `eeba34146645` (Add
+organization audit retention policies).
 
 ## Done
 
@@ -63,7 +63,18 @@ cluster organization).
   dashboard scoped to it.
 - Organization operations, in progress: `GET /operations/overview` (job
   counts per queue) and `GET /operations/jobs` (failed jobs) for owners,
-  admins and system admins of one organization.
+  admins and system admins of one organization. `POST /operations/jobs/retry`
+  puts one failed job back in its queue with real queue semantics (leases
+  cleared, attempts kept, a fresh pending run for ingestion) and audits it.
+- Audit retention: a per-organization policy
+  (`organization_audit_retention_policies`, `security_audit_days` null for
+  indefinite, bounds 30 to 3650). `AuditRetentionService` reads, sets,
+  previews and cleans up. Owners and admins view and preview; only system
+  admins change the policy or delete events. `GET/PUT
+  /security/audit/retention`, `GET /security/audit/retention/preview`,
+  `POST /security/audit/retention/cleanup`, and
+  `signalscope cleanup-security-audit` (preview by default, `--apply` to
+  delete). Setting the policy and a cleanup that removes rows are audited.
 - Tenant research workspace in the web app, done: content navigation that
   needs an active organization, sources (list, create,
   detail, provenance, ingest now, schedule, run history, delete), documents

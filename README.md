@@ -239,6 +239,30 @@ curl "http://localhost:8000/security/audit?organization_id=<id>&action=auth.logi
   -H "Authorization: Bearer <token>"
 ```
 
+#### Retention
+
+Each organization can set how long its security audit events are kept. The
+policy lives in `organization_audit_retention_policies`, one row per
+organization. `security_audit_days` is null by default, which keeps events for
+ever; a number keeps events for that many days, bounded from 30 to 3650.
+
+Owners, admins and system admins read the policy and preview a cleanup with
+`GET /security/audit/retention` and `GET /security/audit/retention/preview`.
+Only a system admin may change the policy with `PUT /security/audit/retention`
+or delete events with `POST /security/audit/retention/cleanup`. Setting the
+policy and a cleanup that removes rows are themselves audited, without any
+event content.
+
+Run cleanup on a schedule with the command below. It checks every organization
+that has a day limit set. Without `--apply` it only reports how many events are
+past the policy; with `--apply` it deletes at most `--limit` of the oldest such
+events per organization in one bounded run.
+
+```bash
+signalscope cleanup-security-audit
+signalscope cleanup-security-audit --apply --limit 1000
+```
+
 ## Admin web app
 
 `web/` holds a small React admin app, written in JavaScript and built with
