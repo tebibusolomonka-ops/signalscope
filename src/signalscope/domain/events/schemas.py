@@ -18,6 +18,10 @@ class EventRead(BaseModel):
 
 class EventEvidenceRead(BaseModel):
     document_id: uuid.UUID
+    # The document title and the source it came from, for a readable summary.
+    document_title: str | None
+    source_id: uuid.UUID
+    source_name: str
     chunk_id: uuid.UUID
     confidence: float | None
     provider: str

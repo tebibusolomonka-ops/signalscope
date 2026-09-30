@@ -126,6 +126,9 @@ async def get_event(
         evidence=[
             EventEvidenceRead(
                 document_id=item.document_id,
+                document_title=item.document_title,
+                source_id=item.source_id,
+                source_name=item.source_name,
                 chunk_id=item.evidence.chunk_id,
                 confidence=item.evidence.confidence,
                 provider=item.evidence.provider,

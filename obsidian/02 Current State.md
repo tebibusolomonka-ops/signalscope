@@ -75,6 +75,15 @@ organization audit retention policies).
   `POST /security/audit/retention/cleanup`, and
   `signalscope cleanup-security-audit` (preview by default, `--apply` to
   delete). Setting the policy and a cleanup that removes rows are audited.
+- Operations web app, in progress: an operations page (queue counts, manual
+  refresh), a failed job recovery page (queue filter, paging, retry with
+  confirmation), and an audit retention page (view for owners and admins, edit
+  and cleanup for system admins). Owner, admin and system admin only; the nav
+  links show for managers. An event page at `/events/:eventId`, which the
+  timeline's clusters and a cluster's member events open. Entity, claim and
+  event evidence now carry the document title and source name (one join, no
+  N+1, scoped), shown in their evidence tables; research evidence already had
+  them.
 - Tenant research workspace in the web app, done: content navigation that
   needs an active organization, sources (list, create,
   detail, provenance, ingest now, schedule, run history, delete), documents

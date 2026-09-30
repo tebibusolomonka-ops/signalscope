@@ -8,6 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from signalscope.domain.claims.model import Claim, ClaimEvidence
 from signalscope.domain.claims.text import normalize_claim_text, normalize_claim_type
 from signalscope.domain.documents.chunk import DocumentChunk
+from signalscope.domain.documents.model import Document
+from signalscope.domain.sources.model import Source
 from signalscope.domain.tenancy.scope import ContentScope
 
 # The most evidence rows a claim detail shows. evidence_count still counts them all.
@@ -27,6 +29,9 @@ class EvidenceWithChunk:
     document_id: uuid.UUID
     # Where the chunk came from, such as {"page_number": 3}.
     chunk_metadata: dict[str, Any]
+    document_title: str | None
+    source_id: uuid.UUID
+    source_name: str
 
 
 class ClaimRepository:
@@ -95,8 +100,17 @@ class ClaimRepository:
         """The evidence of a claim in scope, in document order, and how much there is."""
         visible = scope.chunk_condition(ClaimEvidence.chunk_id)
         rows = await self.session.execute(
-            select(ClaimEvidence, DocumentChunk.document_id, DocumentChunk.chunk_metadata)
+            select(
+                ClaimEvidence,
+                DocumentChunk.document_id,
+                DocumentChunk.chunk_metadata,
+                Document.title,
+                Source.id,
+                Source.name,
+            )
             .join(DocumentChunk, DocumentChunk.id == ClaimEvidence.chunk_id)
+            .join(Document, Document.id == DocumentChunk.document_id)
+            .join(Source, Source.id == Document.source_id)
             .where(ClaimEvidence.claim_id == claim_id, visible)
             .order_by(DocumentChunk.document_id, DocumentChunk.position, ClaimEvidence.start_char)
             .limit(limit)
@@ -107,8 +121,8 @@ class ClaimRepository:
             .where(ClaimEvidence.claim_id == claim_id, visible)
         )
         items = [
-            EvidenceWithChunk(evidence, document_id, dict(metadata))
-            for evidence, document_id, metadata in rows
+            EvidenceWithChunk(evidence, document_id, dict(metadata), title, source_id, source_name)
+            for evidence, document_id, metadata, title, source_id, source_name in rows
         ]
         return items, total or 0
 

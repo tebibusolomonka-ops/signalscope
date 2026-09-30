@@ -28,10 +28,10 @@ time. What stays as it was:
 Current batch, 360 to 379: organization operations, failed job recovery,
 audit retention and research usability. Done: the lease test no longer
 depends on timing, the operations overview and failed job list, failed job
-retry (service, API), and audit retention (policy, service, routes and the
-cleanup command). To do: the operations and retention pages, an event page,
-richer evidence, turn paging, paged pickers, live ingestion runs and
-starting a session with its first question.
+retry (service, API), audit retention (policy, service, routes and the
+cleanup command), the operations, failed job and retention pages, an event
+page, and richer entity, claim and event evidence. To do: turn paging, paged
+pickers, live ingestion runs and starting a session with its first question.
 
 ## Next batch
 

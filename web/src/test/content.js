@@ -131,6 +131,9 @@ export function evidence(overrides = {}) {
   return {
     id: "m-1",
     document_id: "d-1",
+    document_title: "Storm closes the harbour",
+    source_id: "s-1",
+    source_name: "Harbour Feed",
     chunk_id: "c-1",
     surface_text: "the Harbour Authority",
     start_char: 10,

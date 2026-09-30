@@ -12,6 +12,7 @@ export function EvidenceTable({ rows, label }) {
       <thead>
         <tr>
           <th scope="col">Document</th>
+          <th scope="col">Source</th>
           <th scope="col">Text</th>
           <th scope="col">Location</th>
           <th scope="col">Characters</th>
@@ -22,8 +23,13 @@ export function EvidenceTable({ rows, label }) {
       <tbody>
         {rows.map((row) => (
           <tr key={row.id}>
+            <td className="wrap">
+              <Link to={`/documents/${row.document_id}`}>
+                {row.document_title || "Untitled document"}
+              </Link>
+            </td>
             <td>
-              <Link to={`/documents/${row.document_id}`}>Open document</Link>
+              <Link to={`/sources/${row.source_id}`}>{row.source_name}</Link>
             </td>
             <td className="wrap">{row.surface_text}</td>
             <td>{chunkLocation(row.chunk_metadata) || "-"}</td>

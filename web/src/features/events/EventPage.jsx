@@ -59,6 +59,7 @@ export function EventPage() {
                 <thead>
                   <tr>
                     <th scope="col">Document</th>
+                    <th scope="col">Source</th>
                     <th scope="col">Location</th>
                     <th scope="col">Confidence</th>
                     <th scope="col">Found by</th>
@@ -67,8 +68,13 @@ export function EventPage() {
                 <tbody>
                   {data.evidence.map((row) => (
                     <tr key={row.chunk_id}>
+                      <td className="wrap">
+                        <Link to={`/documents/${row.document_id}`}>
+                          {row.document_title || "Untitled document"}
+                        </Link>
+                      </td>
                       <td>
-                        <Link to={`/documents/${row.document_id}`}>Open document</Link>
+                        <Link to={`/sources/${row.source_id}`}>{row.source_name}</Link>
                       </td>
                       <td>{chunkLocation(row.chunk_metadata) || "-"}</td>
                       <td>{row.confidence === null ? "-" : Number(row.confidence).toFixed(2)}</td>

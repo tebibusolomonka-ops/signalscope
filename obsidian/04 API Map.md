@@ -229,6 +229,8 @@ system admins may look, members and viewers get 403, others 404. Queues:
   first, paged. Each has the record it works on (source, document or chunk),
   provider and model for chunk jobs, attempts, times and the short stored
   error. Unknown queues: 422.
+- Entity, claim and event evidence rows include the document title and the
+  source id and name (one join, scoped), for readable summaries in the UI.
 - `POST /operations/jobs/retry` (body `queue`, `job_id`): put one failed job
   back in its queue. It becomes pending and available now, leases cleared,
   attempt count kept; a retried ingestion job also gets a fresh pending run.

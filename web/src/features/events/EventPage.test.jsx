@@ -19,6 +19,9 @@ function eventDetail(overrides = {}) {
     evidence: [
       {
         document_id: "d-1",
+        document_title: "Storm closes the harbour",
+        source_id: "s-1",
+        source_name: "Harbour Feed",
         chunk_id: "c-1",
         confidence: 0.91,
         provider: "gliner2",
@@ -55,9 +58,13 @@ describe("event page", () => {
       "2026-09-05 00:00 UTC",
     );
     const evidence = screen.getByRole("region", { name: "Evidence" });
-    expect(within(evidence).getByRole("link", { name: "Open document" })).toHaveAttribute(
+    expect(within(evidence).getByRole("link", { name: "Storm closes the harbour" })).toHaveAttribute(
       "href",
       "/documents/d-1",
+    );
+    expect(within(evidence).getByRole("link", { name: "Harbour Feed" })).toHaveAttribute(
+      "href",
+      "/sources/s-1",
     );
     expect(within(evidence).getByText("Page 1")).toBeInTheDocument();
   });

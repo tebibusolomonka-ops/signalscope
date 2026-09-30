@@ -87,9 +87,13 @@ describe("claim workspace", () => {
     expect(rows[0]).toHaveTextContent("traffic fell by 40 percent");
     expect(rows[0]).toHaveTextContent("gliner2 / fastino/gliner2.5-multi-v1");
     expect(rows[0]).toHaveTextContent("10 to 31");
-    expect(within(rows[1]).getByRole("link", { name: "Open document" })).toHaveAttribute(
+    expect(within(rows[1]).getByRole("link", { name: "Storm closes the harbour" })).toHaveAttribute(
       "href",
       "/documents/d-2",
+    );
+    expect(within(rows[1]).getByRole("link", { name: "Harbour Feed" })).toHaveAttribute(
+      "href",
+      "/sources/s-1",
     );
     expect(rows[1]).toHaveTextContent("-");
     expect(screen.getByRole("main")).not.toHaveTextContent(VERDICTS);

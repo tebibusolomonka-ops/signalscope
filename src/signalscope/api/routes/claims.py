@@ -116,6 +116,9 @@ async def get_claim(
             ClaimEvidenceRead(
                 id=item.evidence.id,
                 document_id=item.document_id,
+                document_title=item.document_title,
+                source_id=item.source_id,
+                source_name=item.source_name,
                 chunk_id=item.evidence.chunk_id,
                 surface_text=item.evidence.surface_text,
                 start_char=item.evidence.start_char,

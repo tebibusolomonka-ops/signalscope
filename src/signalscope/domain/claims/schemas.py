@@ -17,6 +17,10 @@ class ClaimRead(BaseModel):
 class ClaimEvidenceRead(BaseModel):
     id: uuid.UUID
     document_id: uuid.UUID
+    # The document title and the source it came from, for a readable summary.
+    document_title: str | None
+    source_id: uuid.UUID
+    source_name: str
     chunk_id: uuid.UUID
     surface_text: str
     # Offsets into the chunk text.

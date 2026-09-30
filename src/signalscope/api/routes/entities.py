@@ -121,6 +121,9 @@ async def get_entity(
             EntityMentionRead(
                 id=item.mention.id,
                 document_id=item.mention.document_id,
+                document_title=item.document_title,
+                source_id=item.source_id,
+                source_name=item.source_name,
                 chunk_id=item.mention.chunk_id,
                 surface_text=item.mention.surface_text,
                 entity_type=item.mention.entity_type,

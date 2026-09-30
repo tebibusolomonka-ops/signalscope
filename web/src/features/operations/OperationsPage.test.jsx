@@ -45,6 +45,7 @@ describe("operations page", () => {
     const { calls } = renderApp({ path: "/operations", routes: routes() });
 
     const section = await screen.findByRole("region", { name: "Queues" });
+    await within(section).findByText("Ingestion");
     const rows = within(section).getAllByRole("row").slice(1);
     expect(rows[0]).toHaveTextContent("Ingestion");
     expect(rows[0]).toHaveTextContent("2026-09-20 08:00 UTC");

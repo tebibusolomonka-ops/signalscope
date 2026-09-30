@@ -94,9 +94,13 @@ describe("entity workspace", () => {
     const table = screen.getByRole("table", { name: "Mentions" });
     const rows = within(table).getAllByRole("row").slice(1);
     expect(rows).toHaveLength(2);
-    expect(within(rows[0]).getByRole("link", { name: "Open document" })).toHaveAttribute(
+    expect(within(rows[0]).getByRole("link", { name: "Storm closes the harbour" })).toHaveAttribute(
       "href",
       "/documents/d-1",
+    );
+    expect(within(rows[0]).getByRole("link", { name: "Harbour Feed" })).toHaveAttribute(
+      "href",
+      "/sources/s-1",
     );
     expect(rows[0]).toHaveTextContent("the Harbour Authority");
     expect(rows[0]).toHaveTextContent("Page 2");

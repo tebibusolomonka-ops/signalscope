@@ -6,9 +6,11 @@ from sqlalchemy import ColumnElement, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from signalscope.domain.documents.chunk import DocumentChunk
+from signalscope.domain.documents.model import Document
 from signalscope.domain.entities.mention import EntityMention
 from signalscope.domain.entities.model import Entity
 from signalscope.domain.entities.names import normalize_entity_name, normalize_entity_type
+from signalscope.domain.sources.model import Source
 from signalscope.domain.tenancy.scope import ContentScope
 
 # The most mentions an entity detail shows. mention_count still counts them all.
@@ -27,6 +29,9 @@ class MentionWithChunk:
     mention: EntityMention
     # Where the chunk came from, such as {"page_number": 3}.
     chunk_metadata: dict[str, Any]
+    document_title: str | None
+    source_id: uuid.UUID
+    source_name: str
 
 
 class EntityRepository:
@@ -96,8 +101,12 @@ class EntityRepository:
         """The mentions of an entity in scope, in document order, and how many there are."""
         visible = scope.document_condition(EntityMention.document_id)
         rows = await self.session.execute(
-            select(EntityMention, DocumentChunk.chunk_metadata)
+            select(
+                EntityMention, DocumentChunk.chunk_metadata, Document.title, Source.id, Source.name
+            )
             .join(DocumentChunk, DocumentChunk.id == EntityMention.chunk_id)
+            .join(Document, Document.id == EntityMention.document_id)
+            .join(Source, Source.id == Document.source_id)
             .where(EntityMention.entity_id == entity_id, visible)
             .order_by(EntityMention.document_id, DocumentChunk.position, EntityMention.start_char)
             .limit(limit)
@@ -107,7 +116,10 @@ class EntityRepository:
             .select_from(EntityMention)
             .where(EntityMention.entity_id == entity_id, visible)
         )
-        return [MentionWithChunk(mention, dict(metadata)) for mention, metadata in rows], total or 0
+        return [
+            MentionWithChunk(mention, dict(metadata), title, source_id, source_name)
+            for mention, metadata, title, source_id, source_name in rows
+        ], total or 0
 
 
 def _conditions(query: str | None, entity_type: str | None) -> list[ColumnElement[bool]]:
