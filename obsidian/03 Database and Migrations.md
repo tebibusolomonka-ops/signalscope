@@ -1,8 +1,8 @@
 # Database and Migrations
 
 PostgreSQL 17 with the pgvector extension. Current Alembic head:
-`a809b1740bcd` (Add event cluster
-organization).
+`c4e1d7a29b35` (Add organization
+retention policies).
 
 ## Rules
 
@@ -62,6 +62,10 @@ organization).
 - **Audit**: `security_audit_events` (actor, organization, action, resource
   type and ID, JSONB `metadata` object, `created_at` only, since events are
   history). Indexed by time, actor, organization and action.
+  `organization_retention_policies` has one row per organization (primary
+  key `organization_id`, deleted with the organization) and a nullable
+  `security_audit_days` checked to be 30 to 3650. No row, or NULL, means
+  events are kept indefinitely.
 
 ## Deletion behavior
 

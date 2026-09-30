@@ -169,6 +169,16 @@ Decisions that should hold unless there is a clear reason to change them.
   named organization; there is no view of all organizations' jobs. Queues
   that cannot be tied to a source, document or chunk (blob cleanup) are not
   shown.
+- **A retry reuses each queue's own rules.** There is no generic "set to
+  pending": chunk jobs use the queue's requeue, which refuses current
+  results; ingestion runs never leave the failed state, so a retried job
+  gets a new run. Attempt counts are kept.
+- **Audit retention defaults to indefinite.** Nothing is deleted without a
+  policy. Only system admins set a policy or delete events; organization
+  owners and admins can read it and preview its effect, so an organization
+  cannot quietly erase its own audit history. Cleanup is bounded, oldest
+  first, needs `confirm: true`, never touches events without an
+  organization, and is itself audited.
 - **Exports are downloaded, not rebuilt.** The web app asks the export routes
   for JSON or Markdown and saves the answer in the browser as it is; the
   Markdown is never rewritten in JavaScript, nothing is searched or answered

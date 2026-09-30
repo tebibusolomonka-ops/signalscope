@@ -3,8 +3,8 @@
 Batch 340 to 359 (the tenant research workspace in the web app) needed no
 corrective commit and ended at repository commit 359 (`e665ed3`). Current
 batch: 360 to 379, organization operations, failed job recovery, audit
-retention and research usability. Alembic head: `a809b1740bcd` (Add event
-cluster organization).
+retention and research usability. Alembic head: `c4e1d7a29b35` (Add organization
+retention policies).
 
 ## Done
 
@@ -62,8 +62,12 @@ cluster organization).
   organizations. The web app has an active organization picker and a
   dashboard scoped to it.
 - Organization operations, in progress: `GET /operations/overview` (job
-  counts per queue) and `GET /operations/jobs` (failed jobs) for owners,
+  counts per queue), `GET /operations/jobs` (failed jobs) and
+  `POST /operations/jobs/{queue}/{job_id}/retry` (audited) for owners,
   admins and system admins of one organization.
+- Audit retention: a per-organization policy (indefinite by default), a
+  preview for owners and admins, cleanup for system admins through the API
+  or `signalscope cleanup-security-audit --apply`.
 - Tenant research workspace in the web app, done: content navigation that
   needs an active organization, sources (list, create,
   detail, provenance, ingest now, schedule, run history, delete), documents

@@ -1,6 +1,6 @@
 # Known Issues
 
-Open problems as of commit 364. Remove an item when it is fixed.
+Open problems as of commit 369. Remove an item when it is fixed.
 
 ## Events
 
@@ -46,7 +46,10 @@ Open problems as of commit 364. Remove an item when it is fixed.
 
 ## Operations
 
-- Failed jobs can be listed but not yet retried from the API.
+- The operations and retention pages of the web app are not built yet.
+- A retried job keeps its attempt count, so a retried ingestion that fails
+  again is not tried again automatically.
+- Retention covers security audit events only.
 
 ## Dashboard
 

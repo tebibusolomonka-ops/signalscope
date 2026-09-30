@@ -67,6 +67,7 @@ from signalscope.domain.processing.job_repository import DocumentProcessingJobRe
 from signalscope.domain.processing.model import DocumentProcessingJob, ProcessingJobStatus
 from signalscope.domain.processing.processor import DocumentProcessor
 from signalscope.domain.processing.worker import DocumentProcessingWorker
+from signalscope.domain.retention.service import AuditRetentionService
 from signalscope.domain.search.embedding_job_repository import EmbeddingJobRepository
 from signalscope.domain.search.embedding_queue import EmbeddingQueueService
 from signalscope.domain.search.embedding_worker import EmbeddingWorker
@@ -159,6 +160,7 @@ from signalscope.workers.shutdown import stop_on_signals
 DEFAULT_SCHEDULE_LIMIT = 100
 DEFAULT_CLEANUP_LIMIT = 100
 DEFAULT_SESSION_CLEANUP_LIMIT = 1000
+DEFAULT_AUDIT_CLEANUP_LIMIT = 1000
 DEFAULT_LINK_EVENTS_LIMIT = 1000
 # Events linked per transaction batch by link-events.
 LINK_EVENTS_BATCH = 200
@@ -278,6 +280,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(cleanup_auth_sessions(args.limit, settings))
     if args.command == "cleanup-organization-invitations":
         return asyncio.run(cleanup_organization_invitations(args.limit, settings))
+    if args.command == "cleanup-security-audit":
+        return asyncio.run(
+            cleanup_security_audit(args.organization_id, args.limit, settings, apply=args.apply)
+        )
     if args.command == "export-investigation":
         return asyncio.run(
             export_investigation(
@@ -417,6 +423,23 @@ def build_parser() -> argparse.ArgumentParser:
         type=positive_int,
         default=DEFAULT_SESSION_CLEANUP_LIMIT,
         help=f"most sessions to delete (default: {DEFAULT_SESSION_CLEANUP_LIMIT})",
+    )
+
+    audit_cleanup = commands.add_parser(
+        "cleanup-security-audit",
+        help="show, or with --apply delete, audit events older than an organization's policy",
+    )
+    audit_cleanup.add_argument(
+        "--organization-id", type=uuid.UUID, required=True, help="ID of the organization"
+    )
+    audit_cleanup.add_argument(
+        "--limit",
+        type=positive_int,
+        default=DEFAULT_AUDIT_CLEANUP_LIMIT,
+        help=f"most events to delete (default: {DEFAULT_AUDIT_CLEANUP_LIMIT})",
+    )
+    audit_cleanup.add_argument(
+        "--apply", action="store_true", help="delete the events; without it nothing is deleted"
     )
 
     invitation_cleanup = commands.add_parser(
@@ -821,6 +844,49 @@ async def cleanup_auth_sessions(
         )
     print(f"Checked: {result.checked}", file=out)
     print(f"Deleted: {result.deleted}", file=out)
+    return 0
+
+
+async def cleanup_security_audit(
+    organization_id: uuid.UUID,
+    limit: int,
+    settings: Settings,
+    out: TextIO | None = None,
+    err: TextIO | None = None,
+    *,
+    apply: bool = False,
+    clock: Clock = utc_now,
+) -> int:
+    """Preview, or with apply delete, an organization's expired audit events.
+
+    Uses the retention policy a system admin set; without one nothing is
+    deleted. The command runs as a local administrator. Event contents are
+    never printed. Returns the exit code.
+    """
+    out = sys.stdout if out is None else out
+    err = sys.stderr if err is None else err
+    if settings.database_url is None:
+        print(NO_DATABASE_ERROR, file=err)
+        return 1
+
+    async with _database(settings) as session_factory, session_factory() as session:
+        service = AuditRetentionService(session, clock)
+        try:
+            preview = await service.preview(None, organization_id)
+            deleted = 0
+            if apply and preview.retention_days is not None:
+                deleted = (await service.cleanup(None, organization_id, limit)).deleted_count
+        except SignalScopeError as error:
+            print(f"Error: {error}", file=err)
+            return 1
+    days = "indefinite" if preview.retention_days is None else str(preview.retention_days)
+    print(f"Organization: {organization_id}", file=out)
+    print(f"Retention days: {days}", file=out)
+    print(f"Eligible: {preview.eligible_count}", file=out)
+    if apply:
+        print(f"Deleted: {deleted}", file=out)
+    else:
+        print("Deleted: 0 (preview only; add --apply to delete)", file=out)
     return 0
 
 

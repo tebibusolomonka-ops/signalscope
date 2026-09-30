@@ -239,6 +239,39 @@ curl "http://localhost:8000/security/audit?organization_id=<id>&action=auth.logi
   -H "Authorization: Bearer <token>"
 ```
 
+### Audit retention
+
+By default an organization's audit events are kept indefinitely. A system
+admin may set how many days they are kept, from 30 to 3650, or set it back to
+`null` for indefinitely:
+
+```bash
+curl -X PUT "http://localhost:8000/organizations/<id>/retention" \
+  -H "Authorization: Bearer <token>" -H "Content-Type: application/json" \
+  -d '{"security_audit_days": 365}'
+```
+
+Setting a policy deletes nothing. Organization owners and admins can read the
+policy (`GET /organizations/<id>/retention`) and see how many events it makes
+eligible (`GET /organizations/<id>/retention/audit-preview`), but they cannot
+change it or delete events. Only a system admin deletes, with
+`POST /organizations/<id>/retention/audit-cleanup` and
+`{"limit": 1000, "confirm": true}`; the oldest eligible events go first, and
+the cleanup is itself recorded as a new audit event. Events without an
+organization, such as logins, are never deleted this way. Policy changes are
+recorded too.
+
+On the server, the same cleanup runs as a local administrator. It only shows
+the numbers unless `--apply` is given:
+
+```bash
+signalscope cleanup-security-audit --organization-id <id>
+signalscope cleanup-security-audit --organization-id <id> --limit 1000 --apply
+```
+
+It prints the organization, the retention days, how many events are eligible
+and how many were deleted, never the events themselves.
+
 ## Admin web app
 
 `web/` holds a small React admin app, written in JavaScript and built with

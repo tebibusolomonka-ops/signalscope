@@ -66,6 +66,11 @@ One Python package, `src/signalscope`, with one PostgreSQL database. See
   `OrganizationOperationsService` counts job states per queue;
   `FailedJobInspectionService` lists failed jobs of all queues with one
   `UNION ALL`, filtered per queue before ordering and paging.
+  `FailedJobRecoveryService` retries one failed job with that queue's own
+  requeue rules and records it in the audit log.
+- `domain/retention/`: `OrganizationRetentionPolicy` (one row per
+  organization) and `AuditRetentionService` (policy, preview, bounded
+  cleanup of the organization's audit events).
 - **Dashboard** (`dashboard/`): aggregate counts and zero-filled UTC daily
   series, built with SQL aggregates.
 - **Relations** (`relations/`): relation extraction interface and an

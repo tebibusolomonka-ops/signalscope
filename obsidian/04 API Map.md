@@ -81,6 +81,23 @@ and viewers; system admins may manage any organization's invitations.
   admins: must name an organization they manage (422 without, 404 for other
   organizations). Members, viewers and others: 403.
 
+## Retention
+
+Auth only. Organization owners, admins and system admins read; only system
+admins change or delete.
+
+- `GET /organizations/{id}/retention`: `security_audit_days` (null means
+  indefinitely) and `updated_at` (null when never set).
+- `PUT /organizations/{id}/retention` with `{"security_audit_days": 30..3650
+  or null}`: system admins; recorded as `security.audit_retention_changed`.
+- `GET /organizations/{id}/retention/audit-preview`: retention days, cutoff
+  and how many of the organization's events are older.
+- `POST /organizations/{id}/retention/audit-cleanup` with `limit` and
+  `"confirm": true` (else 422): system admins; deletes the oldest eligible
+  events first and records `security.audit_retention_cleanup` with the
+  count. Without a policy: 409. Events without an organization are never
+  touched.
+
 ## Admin web app
 
 `web/` uses the routes above under `/auth`, `/admin/users`,
@@ -222,6 +239,13 @@ system admins may look, members and viewers get 403, others 404. Queues:
   first, paged. Each has the record it works on (source, document or chunk),
   provider and model for chunk jobs, attempts, times and the short stored
   error. Unknown queues: 422.
+- `POST /operations/jobs/{queue}/{job_id}/retry` with `{"organization_id"}`:
+  puts one failed job back in its queue, available now, and returns its new
+  state. Chunk jobs go through the queue's own requeue (409 when results are
+  already current), processing jobs become pending, and a failed ingestion
+  gets a new run (409 while the source has a queued or running one). The
+  attempt count is kept. Not failed: 409; another organization's or unknown
+  job: 404. Recorded as `operations.job_retried` with the queue name.
 
 ## Dashboard
 

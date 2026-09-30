@@ -16,7 +16,9 @@ Queues are PostgreSQL tables. There is no Redis, Celery or Kafka; see
 | Blob cleanup | `blob_cleanup_tasks` | `cleanup-blobs` | (added on failed deletes) |
 
 Blob cleanup tasks have no organization, so they stay out of the
-organization operations routes. The other six queues are scoped through the
+organization operations routes. A failed job can be retried from the
+operations API; each queue uses its own requeue rules (see [[04 API Map]]),
+and a retried ingestion keeps its failed run as history. The other six queues are scoped through the
 job's source, document or chunk.
 
 ## How a job runs
