@@ -205,3 +205,25 @@ async def test_turns_saved_at_once_get_different_numbers(
     async with session_factory() as session:
         listed = await service(session).list_turns(session_id)
     assert [turn.sequence for turn in listed] == [1, 2, 3, 4]
+
+
+async def test_list_turns_page_is_stable_when_a_turn_is_added(
+    session_factory: async_sessionmaker[AsyncSession], library: dict[str, uuid.UUID]
+) -> None:
+    session_id = await new_session(session_factory)
+    for question in ("first", "second", "third"):
+        await ask(session_factory, session_id, f"harbour {question}")
+
+    async with session_factory() as session:
+        first, total = await service(session).list_turns_page(session_id, limit=2, offset=0)
+    assert total == 3
+    assert [turn.sequence for turn in first] == [1, 2]
+
+    # A new turn is added at the end, so the first page does not change.
+    await ask(session_factory, session_id, "harbour fourth")
+    async with session_factory() as session:
+        again, new_total = await service(session).list_turns_page(session_id, limit=2, offset=0)
+        rest, _ = await service(session).list_turns_page(session_id, limit=2, offset=2)
+    assert new_total == 4
+    assert [turn.sequence for turn in again] == [1, 2]
+    assert [turn.sequence for turn in rest] == [3, 4]

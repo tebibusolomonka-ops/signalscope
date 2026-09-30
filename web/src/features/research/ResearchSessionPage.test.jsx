@@ -21,7 +21,7 @@ function routes(turns, extra = {}, role = "member") {
     ...organizations([HARBOUR, RIVER], role),
     "GET /sources": page([source()]),
     "GET /research/sessions/rs-1": { body: researchSession() },
-    "GET /research/sessions/rs-1/turns": { body: turns },
+    "GET /research/sessions/rs-1/turns": page(turns),
     ...extra,
   };
 }
@@ -182,5 +182,31 @@ describe("multi turn research", () => {
     );
     expect(screen.queryByText("Question number 1?")).not.toBeInTheDocument();
     expect(screen.queryByText("Excerpt of E1.")).not.toBeInTheDocument();
+  });
+
+  it("loads more questions without repeating any", async () => {
+    renderApp({
+      path: "/research/rs-1",
+      routes: routes([], {
+        "GET /research/sessions/rs-1/turns": ({ query }) =>
+          query.get("offset") === "0"
+            ? page([turn(1), turn(2)], { total: 3, limit: 20 })
+            : page([turn(3)], { total: 3, limit: 20, offset: 2 }),
+      }),
+    });
+    const user = userEvent.setup();
+
+    const talk = await conversation();
+    expect(within(talk).getByText("Question number 1?")).toBeInTheDocument();
+    expect(within(talk).queryByText("Question number 3?")).not.toBeInTheDocument();
+
+    await user.click(within(talk).getByRole("button", { name: "Load more questions" }));
+
+    expect(await within(talk).findByText("Question number 3?")).toBeInTheDocument();
+    // The turns already shown are not fetched or listed again.
+    expect(within(talk).getAllByText("Question number 1?")).toHaveLength(1);
+    expect(
+      within(talk).queryByRole("button", { name: "Load more questions" }),
+    ).not.toBeInTheDocument();
   });
 });

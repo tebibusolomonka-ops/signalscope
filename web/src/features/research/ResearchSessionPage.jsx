@@ -14,6 +14,8 @@ import { focusEvidence } from "./evidenceFocus.js";
 
 const DEFAULT_LIMIT = 8;
 const MAX_LIMIT = 20;
+// Turns loaded per page. Sessions rarely have more, so one page is usual.
+const TURN_PAGE = 20;
 
 /**
  * One research session: the conversation so far, the evidence of one turn,
@@ -28,7 +30,9 @@ export function ResearchSessionPage() {
   const load = useCallback(async () => {
     const session = await tenantApi.get(`/research/sessions/${sessionId}`);
     if (session.organization_id !== active.id) return { elsewhere: true };
-    const turns = await tenantApi.get(`/research/sessions/${sessionId}/turns`);
+    const turns = await tenantApi.get(`/research/sessions/${sessionId}/turns`, {
+      query: { limit: TURN_PAGE, offset: 0 },
+    });
     return { session, turns };
   }, [tenantApi, sessionId, active.id]);
   const { data, error, loading } = useResource(load);
@@ -45,23 +49,52 @@ export function ResearchSessionPage() {
           This research session does not belong to the active organization.
         </p>
       )}
-      {data?.session && <Session session={data.session} initialTurns={data.turns} />}
+      {data?.session && <Session session={data.session} initialPage={data.turns} />}
     </>
   );
 }
 
-function Session({ session, initialTurns }) {
-  const { can } = useOrganization();
+function Session({ session, initialPage }) {
+  const { can, tenantApi } = useOrganization();
   const { names } = useSourceOptions();
-  const [turns, setTurns] = useState(initialTurns);
-  const [selectedId, setSelectedId] = useState(initialTurns.at(-1)?.id ?? null);
+  const [turns, setTurns] = useState(initialPage.items);
+  const [serverLoaded, setServerLoaded] = useState(initialPage.items.length);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [moreError, setMoreError] = useState(null);
+  const [selectedId, setSelectedId] = useState(initialPage.items.at(-1)?.id ?? null);
   const [pending, setPending] = useState(null);
   const [focus, setFocus] = useState(null);
   const selected = turns.find((turn) => turn.id === selectedId) ?? null;
+  const hasMore = serverLoaded < initialPage.total;
 
   useEffect(() => {
     if (focus) focusEvidence(focus.turnId, focus.evidenceId);
   }, [focus]);
+
+  // Add turns, dropping any already shown, and keep them in question order.
+  function mergeTurns(incoming) {
+    setTurns((current) => {
+      const seen = new Set(current.map((turn) => turn.id));
+      const added = incoming.filter((turn) => !seen.has(turn.id));
+      return [...current, ...added].sort((a, b) => a.sequence - b.sequence);
+    });
+  }
+
+  async function loadMore() {
+    setLoadingMore(true);
+    setMoreError(null);
+    try {
+      const page = await tenantApi.get(`/research/sessions/${session.id}/turns`, {
+        query: { limit: TURN_PAGE, offset: serverLoaded },
+      });
+      mergeTurns(page.items);
+      setServerLoaded((count) => count + page.items.length);
+    } catch (failure) {
+      setMoreError(failure);
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   function cite(turn, evidenceId) {
     setSelectedId(turn.id);
@@ -70,7 +103,7 @@ function Session({ session, initialTurns }) {
   }
 
   function added(turn) {
-    setTurns((current) => [...current, turn]);
+    mergeTurns([turn]);
     setSelectedId(turn.id);
     setPending(null);
   }
@@ -125,6 +158,14 @@ function Session({ session, initialTurns }) {
               </li>
             )}
           </ol>
+          {hasMore && (
+            <div className="form-row">
+              <button type="button" className="secondary" disabled={loadingMore} onClick={loadMore}>
+                {loadingMore ? "Loading..." : "Load more questions"}
+              </button>
+            </div>
+          )}
+          <ErrorMessage error={moreError} />
           {can.contribute ? (
             <AskForm
               sessionId={session.id}

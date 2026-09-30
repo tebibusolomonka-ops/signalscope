@@ -83,9 +83,9 @@ function tenantRoutes(river) {
       { body: researchSession() },
       { body: researchSession({ organization_id: "org-a" }) },
     ),
-    "GET /research/sessions/rs-1/turns": {
-      body: [turn(1, { question: "Harbour only research question?" })],
-    },
+    "GET /research/sessions/rs-1/turns": page([
+      turn(1, { question: "Harbour only research question?" }),
+    ]),
   };
 }
 

@@ -202,11 +202,22 @@ async def list_research_turns(
     rerankers: Rerankers,
     generators: AnswerGenerators,
     policy: Policy,
-) -> list[ResearchTurnRead]:
-    """Every turn of a session, oldest first, with the evidence each was answered from."""
+    page: Pagination,
+) -> Page[ResearchTurnRead]:
+    """One page of a session's turns, oldest first, with the evidence of each.
+
+    Turns are paged so a long session does not load at once. Paging forward is
+    stable: adding a turn never changes an earlier page.
+    """
     service = ResearchSessionService(session, providers, rerankers, generators)
     await _readable(service, policy, session_id)
-    return [ResearchTurnRead.from_turn(turn) for turn in await service.list_turns(session_id)]
+    turns, total = await service.list_turns_page(session_id, page.limit, page.offset)
+    return Page[ResearchTurnRead](
+        items=[ResearchTurnRead.from_turn(turn) for turn in turns],
+        total=total,
+        limit=page.limit,
+        offset=page.offset,
+    )
 
 
 @router.get(

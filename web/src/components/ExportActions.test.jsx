@@ -17,7 +17,7 @@ function routes(extra = {}) {
     ...organizations([HARBOUR, RIVER]),
     "GET /sources": page([source()]),
     "GET /research/sessions/rs-1": { body: researchSession() },
-    "GET /research/sessions/rs-1/turns": { body: [turn(1)] },
+    "GET /research/sessions/rs-1/turns": page([turn(1)]),
     "GET /research/sessions/rs-1/export": ({ query }) =>
       query.get("format") === "markdown"
         ? { body: SESSION_MARKDOWN, type: "text" }

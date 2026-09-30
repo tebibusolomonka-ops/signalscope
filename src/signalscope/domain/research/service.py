@@ -143,6 +143,30 @@ class ResearchSessionService:
         )
         return list(turns)
 
+    async def list_turns_page(
+        self, session_id: uuid.UUID, limit: int, offset: int
+    ) -> tuple[list[ResearchTurn], int]:
+        """One page of a session's turns, oldest first, with the total.
+
+        Turns are ordered by sequence, so a new turn is always added at the
+        end. Paging forward from the oldest is stable: an earlier page never
+        changes when a turn is added, so loading more never repeats a turn.
+        """
+        await self.get_session(session_id)
+        turns = await self.session.scalars(
+            select(ResearchTurn)
+            .where(ResearchTurn.session_id == session_id)
+            .order_by(ResearchTurn.sequence)
+            .limit(limit)
+            .offset(offset)
+        )
+        total = await self.session.scalar(
+            select(func.count())
+            .select_from(ResearchTurn)
+            .where(ResearchTurn.session_id == session_id)
+        )
+        return list(turns), total or 0
+
     async def add_turn(
         self,
         session_id: uuid.UUID,
