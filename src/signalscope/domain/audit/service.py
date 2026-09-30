@@ -7,7 +7,16 @@ from signalscope.domain.audit.model import SecurityAuditEvent
 
 # Details may only use these keys, so a secret cannot be stored by mistake.
 DETAIL_KEYS = frozenset(
-    {"user_id", "role", "old_role", "new_role", "system_admin", "revoked_sessions"}
+    {
+        "user_id",
+        "role",
+        "old_role",
+        "new_role",
+        "system_admin",
+        "revoked_sessions",
+        "queue",
+        "attempt_count",
+    }
 )
 DetailValue = str | int | bool | uuid.UUID | None
 
@@ -32,6 +41,7 @@ class AuditAction(StrEnum):
     COLLABORATOR_ADDED = "investigation.collaborator_added"
     COLLABORATOR_ROLE_CHANGED = "investigation.collaborator_role_changed"
     COLLABORATOR_REMOVED = "investigation.collaborator_removed"
+    JOB_RETRIED = "operations.job_retried"
 
 
 class SecurityAuditService:
