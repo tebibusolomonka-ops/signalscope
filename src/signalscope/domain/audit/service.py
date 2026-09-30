@@ -16,6 +16,8 @@ DETAIL_KEYS = frozenset(
         "revoked_sessions",
         "queue",
         "attempt_count",
+        "retain_days",
+        "deleted",
     }
 )
 DetailValue = str | int | bool | uuid.UUID | None
@@ -42,6 +44,8 @@ class AuditAction(StrEnum):
     COLLABORATOR_ROLE_CHANGED = "investigation.collaborator_role_changed"
     COLLABORATOR_REMOVED = "investigation.collaborator_removed"
     JOB_RETRIED = "operations.job_retried"
+    AUDIT_RETENTION_SET = "organization.audit_retention_set"
+    SECURITY_AUDIT_CLEANED = "organization.security_audit_cleaned"
 
 
 class SecurityAuditService:
