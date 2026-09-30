@@ -16,6 +16,9 @@ const CONTENT_LINKS = [
   { to: "/research", label: "Research" },
 ];
 
+// Only owners, admins and system admins manage the queues.
+const MANAGE_LINKS = [{ to: "/operations", label: "Operations" }];
+
 const ADMIN_LINKS = [
   { to: "/organizations", label: "Organizations" },
   { to: "/users", label: "Users" },
@@ -56,6 +59,8 @@ function NavList({ label, links }) {
 
 export function AppShell() {
   const { user, logout } = useAuth();
+  const { can } = useOrganization();
+  const contentLinks = can.manage ? [...CONTENT_LINKS, ...MANAGE_LINKS] : CONTENT_LINKS;
   return (
     <div className="shell">
       <header className="shell-header">
@@ -66,7 +71,7 @@ export function AppShell() {
           Sign out
         </button>
         <nav aria-label="Main" className="shell-nav">
-          <NavList label="Content" links={CONTENT_LINKS} />
+          <NavList label="Content" links={contentLinks} />
           <NavList label="Administration" links={ADMIN_LINKS} />
         </nav>
       </header>

@@ -13,6 +13,7 @@ import { EventClusterPage } from "../features/events/EventClusterPage.jsx";
 import { TimelinePage } from "../features/events/TimelinePage.jsx";
 import { InvestigationDetailPage } from "../features/investigations/InvestigationDetailPage.jsx";
 import { InvestigationsPage } from "../features/investigations/InvestigationsPage.jsx";
+import { OperationsPage } from "../features/operations/OperationsPage.jsx";
 import { AcceptInvitationPage } from "../features/invitations/AcceptInvitationPage.jsx";
 import { OrganizationDetailPage } from "../features/organizations/OrganizationDetailPage.jsx";
 import { OrganizationsPage } from "../features/organizations/OrganizationsPage.jsx";
@@ -68,6 +69,7 @@ export function AppRoutes() {
             <Route path="/research" element={<ResearchPage />} />
             <Route path="/research/new" element={<QuickResearchPage />} />
             <Route path="/research/:sessionId" element={<ResearchSessionPage />} />
+            <Route path="/operations" element={<OperationsPage />} />
           </Route>
           <Route path="/organizations" element={<OrganizationsPage />} />
           <Route path="/organizations/:organizationId" element={<OrganizationDetailPage />} />
