@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from signalscope.domain.operations.queues import OperationsQueue, ResourceType
 
@@ -55,3 +55,24 @@ class FailedJobRead(BaseModel):
     created_at: datetime
     finished_at: datetime | None
     error: str | None
+
+
+class FailedJobRetryRequest(BaseModel):
+    """Which failed job to put back in its queue."""
+
+    queue: OperationsQueue
+    job_id: uuid.UUID = Field(description="The ID of a failed job in that queue.")
+
+
+class RetriedJobRead(BaseModel):
+    """A failed job that was put back in its queue and is pending again."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    queue: OperationsQueue
+    job_id: uuid.UUID
+    status: str
+    resource_type: ResourceType
+    resource_id: uuid.UUID
+    attempt_count: int
+    available_at: datetime

@@ -149,3 +149,86 @@ async def test_failed_jobs_route(
     assert (member.status_code, viewer.status_code) == (403, 403)
     assert other.status_code == 404
     assert unknown_queue.status_code == 422
+
+
+def retry_path(organization_id: uuid.UUID) -> str:
+    return f"/operations/jobs/retry?organization_id={organization_id}"
+
+
+async def test_retry_route_requeues_a_failed_job(
+    auth_client: httpx.AsyncClient, session_factory: async_sessionmaker[AsyncSession]
+) -> None:
+    tenants: Tenants = await make_tenants(auth_client, session_factory)
+    a = tenants.a
+    harbour = await add_content(session_factory, a.id, "harbour")
+    job_id = await add_job(
+        session_factory,
+        OperationsQueue.EMBEDDING,
+        harbour,
+        "failed",
+        finished_at=LATE,
+        last_error="Model is not available.",
+        attempt_count=1,
+    )
+
+    body = {"queue": "embedding", "job_id": str(job_id)}
+    response = await auth_client.post(retry_path(a.id), json=body, headers=a.headers["admin"])
+
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["status"] == "pending"
+    assert payload["job_id"] == str(job_id)
+    assert payload["queue"] == "embedding"
+    assert payload["attempt_count"] == 1
+    assert set(payload) == {
+        "queue",
+        "job_id",
+        "status",
+        "resource_type",
+        "resource_id",
+        "attempt_count",
+        "available_at",
+    }
+    # The job now appears as pending, not failed.
+    listed = await auth_client.get(jobs_path(a.id), headers=a.headers["owner"])
+    assert listed.json()["total"] == 0
+
+
+async def test_retry_route_refused_callers_and_states(
+    auth_client: httpx.AsyncClient, session_factory: async_sessionmaker[AsyncSession]
+) -> None:
+    tenants: Tenants = await make_tenants(auth_client, session_factory)
+    a, b = tenants.a, tenants.b
+    harbour = await add_content(session_factory, a.id, "harbour")
+    failed_id = await add_job(
+        session_factory, OperationsQueue.EMBEDDING, harbour, "failed", finished_at=LATE, model="a"
+    )
+    pending_id = await add_job(
+        session_factory, OperationsQueue.EMBEDDING, harbour, "pending", model="b"
+    )
+
+    def body(job_id: uuid.UUID) -> dict[str, str]:
+        return {"queue": "embedding", "job_id": str(job_id)}
+
+    member = await auth_client.post(
+        retry_path(a.id), json=body(failed_id), headers=a.headers["member"]
+    )
+    viewer = await auth_client.post(
+        retry_path(a.id), json=body(failed_id), headers=a.headers["viewer"]
+    )
+    other = await auth_client.post(
+        retry_path(b.id), json=body(failed_id), headers=b.headers["owner"]
+    )
+    anonymous = await auth_client.post(retry_path(a.id), json=body(failed_id))
+    still_pending = await auth_client.post(
+        retry_path(a.id), json=body(pending_id), headers=a.headers["owner"]
+    )
+    unknown = await auth_client.post(
+        retry_path(a.id), json=body(uuid.uuid4()), headers=a.headers["owner"]
+    )
+
+    assert (member.status_code, viewer.status_code) == (403, 403)
+    assert other.status_code == 404
+    assert anonymous.status_code == 401
+    assert still_pending.status_code == 409
+    assert unknown.status_code == 404

@@ -92,3 +92,35 @@ def test_failed_jobs_refuse_unknown_values(query: str, field: str) -> None:
 
     assert response.status_code == 422
     assert response.json()["error"]["details"][0]["loc"] == ["query", field]
+
+
+def test_retry_is_in_openapi(app: FastAPI) -> None:
+    operation = app.openapi()["paths"]["/operations/jobs/retry"]["post"]
+    schemas = app.openapi()["components"]["schemas"]
+
+    assert [(item["name"], item["required"]) for item in operation["parameters"]] == [
+        ("organization_id", True)
+    ]
+    assert set(schemas["FailedJobRetryRequest"]["properties"]) == {"queue", "job_id"}
+    assert set(schemas["RetriedJobRead"]["properties"]) == {
+        "queue",
+        "job_id",
+        "status",
+        "resource_type",
+        "resource_id",
+        "attempt_count",
+        "available_at",
+    }
+
+
+def test_retry_refuses_an_unknown_queue() -> None:
+    app = create_app(Settings(database_url=FAKE_DATABASE_URL))
+
+    with TestClient(app) as client:
+        response = client.post(
+            f"/operations/jobs/retry?organization_id={uuid.uuid4()}",
+            json={"queue": "blob_cleanup", "job_id": str(uuid.uuid4())},
+        )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["details"][0]["loc"] == ["body", "queue"]

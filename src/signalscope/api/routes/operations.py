@@ -9,7 +9,14 @@ from signalscope.api.tenancy import Policy
 from signalscope.domain.operations.failed_jobs import FailedJobInspectionService
 from signalscope.domain.operations.overview import OrganizationOperationsService
 from signalscope.domain.operations.queues import OperationsQueue
-from signalscope.domain.operations.schemas import FailedJobRead, OperationsOverviewRead
+from signalscope.domain.operations.retry import FailedJobRetryService
+from signalscope.domain.operations.schemas import (
+    FailedJobRead,
+    FailedJobRetryRequest,
+    OperationsOverviewRead,
+    RetriedJobRead,
+)
+from signalscope.domain.sources.scheduling import utc_now
 
 router = APIRouter(prefix="/operations", tags=["Operations"])
 
@@ -57,3 +64,26 @@ async def failed_jobs(
         limit=page.limit,
         offset=page.offset,
     )
+
+
+@router.post("/jobs/retry")
+async def retry_failed_job(
+    organization_id: OrganizationId,
+    request: FailedJobRetryRequest,
+    session: DatabaseSession,
+    policy: Policy,
+) -> RetriedJobRead:
+    """Put one failed job back in its queue.
+
+    Needs authentication and the owner or admin role in the organization, or a
+    system admin. Only a job that is still failed can be retried; the job
+    becomes pending and available now, with its attempt count kept, so work
+    that is already pending or running is never queued twice. A successful
+    retry is recorded in the security audit, without any failure detail. The
+    retry is refused (409) when the job is not failed, and not found (404)
+    when the job is unknown or belongs to another organization.
+    """
+    retried = await FailedJobRetryService(session, policy).retry(
+        organization_id, request.queue, request.job_id, utc_now()
+    )
+    return RetriedJobRead.model_validate(retried)
