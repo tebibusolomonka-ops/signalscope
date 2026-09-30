@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { useOrganization } from "../../app/useOrganization.js";
 import { ErrorMessage, Loading } from "../../components/Status.jsx";
@@ -9,6 +9,11 @@ const RUNS_SHOWN = 10;
 const MAX_INTERVAL_MINUTES = 7 * 24 * 60;
 // Only these types have a worker adapter that fetches content.
 const FETCHED_TYPES = new Set(["web", "rss"]);
+// Runs that a worker will not change any more.
+const TERMINAL_STATUSES = new Set(["completed", "failed"]);
+// How often to check a run that is still pending or running. Conservative, so
+// the page does not hammer the API while a worker is busy.
+const POLL_INTERVAL_MS = 5000;
 
 /**
  * Ingestion of one source: queue a run now, the schedule, and recent runs.
@@ -28,6 +33,19 @@ export function SourceOperations({ source, onSourceChange }) {
     });
   }, [tenantApi, source.id]);
   const runs = useResource(loadRuns);
+
+  // Refresh while a run is still pending or running, and stop once every run
+  // is terminal. A newly queued run reloads the list, which starts this again.
+  // The reload uses the current source, and old data is dropped when the
+  // source changes, so a late answer for one source never shows for another.
+  const items = runs.data?.items ?? [];
+  const inFlight = items.some((run) => !TERMINAL_STATUSES.has(run.status));
+  const reload = runs.reload;
+  useEffect(() => {
+    if (!inFlight) return undefined;
+    const timer = setInterval(reload, POLL_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, [inFlight, reload]);
 
   return (
     <section className="panel" aria-labelledby="source-ingestion">

@@ -1,6 +1,6 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { held, notFound, page, provenance, run, source } from "../../test/content.js";
 import { USER, signedIn } from "../../test/fakeApi.js";
@@ -180,6 +180,48 @@ describe("source operations", () => {
       within(section).getByText(/upload sources are not fetched by a worker/),
     ).toBeInTheDocument();
     expect(within(section).queryByRole("button", { name: "Ingest now" })).not.toBeInTheDocument();
+  });
+
+  it("refreshes a running run until it finishes, then stops", async () => {
+    vi.useFakeTimers();
+    try {
+      let status = "running";
+      const { calls } = renderApp({
+        path: "/sources/s-1",
+        routes: routes({
+          "GET /ingestion-runs": () => page([run({ status, finished_at: null })]),
+        }),
+      });
+      const runCalls = () => calls.filter((call) => call.path === "/ingestion-runs").length;
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      const section = screen.getByRole("region", { name: "Ingestion" });
+      expect(within(section).getByText("running")).toBeInTheDocument();
+      const loaded = runCalls();
+
+      // A conservative poll while the run is not terminal.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000);
+      });
+      expect(runCalls()).toBe(loaded + 1);
+
+      status = "completed";
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000);
+      });
+      expect(within(section).getByText("completed")).toBeInTheDocument();
+      const afterDone = runCalls();
+
+      // Polling stops once the run is terminal.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(20000);
+      });
+      expect(runCalls()).toBe(afterDone);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("drops the runs when switching organization", async () => {
