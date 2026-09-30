@@ -151,3 +151,54 @@ async def test_export_unknown_session(client: httpx.AsyncClient) -> None:
     response = await client.get(f"/research/sessions/{uuid.uuid4()}/export")
 
     assert response.status_code == 404
+
+
+async def test_start_session_answers_the_first_question(
+    answering_client: httpx.AsyncClient, library: dict[str, uuid.UUID]
+) -> None:
+    response = await answering_client.post(
+        "/research/sessions/start",
+        json={"retrieval_mode": "lexical", "title": "Floods", "question": "harbour flood"},
+    )
+
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["session"]["title"] == "Floods"
+    assert body["turn"]["sequence"] == 1
+    assert body["turn"]["question"] == "harbour flood"
+    assert body["turn"]["answer"] is not None
+    assert [item["evidence_id"] for item in body["turn"]["evidence"]] == ["E1"]
+    # The session now has exactly the one turn.
+    listed = await answering_client.get(f"/research/sessions/{body['session']['id']}/turns")
+    assert listed.json()["total"] == 1
+
+
+async def test_start_session_without_a_model_saves_evidence_and_no_answer(
+    client: httpx.AsyncClient, library: dict[str, uuid.UUID]
+) -> None:
+    response = await client.post(
+        "/research/sessions/start",
+        json={"retrieval_mode": "lexical", "question": "harbour flood"},
+    )
+
+    assert response.status_code == 201, response.text
+    turn = response.json()["turn"]
+    assert turn["answer"] is None
+    assert [item["evidence_id"] for item in turn["evidence"]] == ["E1"]
+
+
+async def test_start_session_refuses_a_supplied_answer_or_evidence(
+    client: httpx.AsyncClient, library: dict[str, uuid.UUID]
+) -> None:
+    # The answer and evidence are the server's to make, so extra fields are refused.
+    response = await client.post(
+        "/research/sessions/start",
+        json={
+            "retrieval_mode": "lexical",
+            "question": "harbour flood",
+            "answer": "Made up by the browser.",
+            "evidence": [{"evidence_id": "E1"}],
+        },
+    )
+
+    assert response.status_code == 422

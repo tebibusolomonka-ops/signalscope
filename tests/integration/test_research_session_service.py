@@ -227,3 +227,31 @@ async def test_list_turns_page_is_stable_when_a_turn_is_added(
     assert new_total == 4
     assert [turn.sequence for turn in again] == [1, 2]
     assert [turn.sequence for turn in rest] == [3, 4]
+
+
+async def test_start_session_creates_a_session_and_first_turn(
+    session_factory: async_sessionmaker[AsyncSession], library: dict[str, uuid.UUID]
+) -> None:
+    generator = FakeAnswerGenerator()
+    async with session_factory() as session:
+        research, turn = await service(session, generator).start_session(
+            question="harbour flood", title="Floods", retrieval_mode=ResearchMode.LEXICAL
+        )
+    assert research.title == "Floods"
+    assert turn.sequence == 1
+    assert turn.question == "harbour flood"
+    assert turn.answer is not None
+    async with session_factory() as session:
+        turns = await service(session).list_turns(research.id)
+    assert [saved.id for saved in turns] == [turn.id]
+
+
+async def test_start_session_without_a_model_saves_evidence_and_no_answer(
+    session_factory: async_sessionmaker[AsyncSession], library: dict[str, uuid.UUID]
+) -> None:
+    async with session_factory() as session:
+        research, turn = await service(session).start_session(
+            question="harbour flood", retrieval_mode=ResearchMode.LEXICAL
+        )
+    assert turn.answer is None
+    assert turn.evidence_snapshot != []

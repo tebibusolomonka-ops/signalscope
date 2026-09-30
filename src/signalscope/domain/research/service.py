@@ -110,6 +110,32 @@ class ResearchSessionService:
             raise
         return research
 
+    async def start_session(
+        self,
+        *,
+        question: str,
+        limit: int = DEFAULT_EVIDENCE_LIMIT,
+        title: str | None = None,
+        retrieval_mode: ResearchMode = ResearchMode.HYBRID,
+        source_id: uuid.UUID | None = None,
+        organization_id: uuid.UUID | None = None,
+        scope: ContentScope | None = None,
+    ) -> tuple[ResearchSession, ResearchTurn]:
+        """Create a session and answer its first question, in one workflow.
+
+        The first turn does one evidence search and, when an answer model is
+        on, at most one generation, exactly as add_turn does. Without a model
+        the turn is still saved, with its evidence and no answer.
+        """
+        research = await self.create_session(
+            title=title,
+            retrieval_mode=retrieval_mode,
+            source_id=source_id,
+            organization_id=organization_id,
+        )
+        turn = await self.add_turn(research.id, question, limit, scope)
+        return await self.get_session(research.id), turn
+
     async def get_session(self, session_id: uuid.UUID) -> ResearchSession:
         research = await self.session.get(ResearchSession, session_id)
         if research is None:

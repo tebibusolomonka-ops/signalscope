@@ -47,6 +47,20 @@ class ResearchTurnCreate(BaseModel):
     limit: Annotated[int, Field(ge=1, le=MAX_EVIDENCE_LIMIT)] = DEFAULT_EVIDENCE_LIMIT
 
 
+class ResearchSessionStart(ResearchSessionCreate):
+    """Start a session and ask its first question in one request.
+
+    The server does the one retrieval and, when a model is on, the one
+    generation. The answer and evidence are never taken from the request, so a
+    browser cannot pass them off as the server's own.
+    """
+
+    question: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=MAX_QUERY_LENGTH)
+    ]
+    limit: Annotated[int, Field(ge=1, le=MAX_EVIDENCE_LIMIT)] = DEFAULT_EVIDENCE_LIMIT
+
+
 class TurnEvidenceRead(BaseModel):
     """One piece of the evidence a turn was answered from, as it was then."""
 

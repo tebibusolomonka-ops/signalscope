@@ -2,7 +2,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
-import { held, page, researchEvidence, source } from "../../test/content.js";
+import { held, page, researchEvidence, researchSession, source, turn } from "../../test/content.js";
 import { signedIn } from "../../test/fakeApi.js";
 import { HARBOUR, RIVER, organizations } from "../../test/organizations.js";
 import { renderApp } from "../../test/renderApp.jsx";
@@ -71,6 +71,41 @@ describe("quick research", () => {
       limit: 8,
       organization_id: "org-a",
     });
+  });
+
+  it("starts a saved session and opens it", async () => {
+    const started = [];
+    const { calls } = renderApp({
+      path: "/research/new",
+      routes: routes({
+        "POST /research/sessions/start": ({ body }) => {
+          started.push(body);
+          return {
+            status: 201,
+            body: { session: researchSession({ title: "Harbour" }), turn: turn(1) },
+          };
+        },
+        "GET /research/sessions/rs-1": { body: researchSession({ title: "Harbour" }) },
+        "GET /research/sessions/rs-1/turns": page([turn(1)]),
+      }),
+    });
+    const user = userEvent.setup();
+
+    await ask(user, "Why did the harbour close?", "Start research session", { mode: "lexical" });
+
+    // The new session page opens.
+    expect(await screen.findByRole("region", { name: "Conversation" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Harbour" })).toBeInTheDocument();
+    // The server was asked to start the session; no answer or evidence was sent.
+    expect(started).toEqual([
+      {
+        question: "Why did the harbour close?",
+        retrieval_mode: "lexical",
+        limit: 8,
+        organization_id: "org-a",
+      },
+    ]);
+    expect(researchCalls(calls).some((call) => call.path === "/research/context")).toBe(false);
   });
 
   it("answers with citations that lead to their evidence", async () => {

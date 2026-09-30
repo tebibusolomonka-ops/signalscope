@@ -19,6 +19,7 @@ from signalscope.domain.research.export import (
 from signalscope.domain.research.schemas import (
     ResearchSessionCreate,
     ResearchSessionRead,
+    ResearchSessionStart,
     ResearchTurnCreate,
     ResearchTurnRead,
     ResearchTurnResponse,
@@ -155,6 +156,44 @@ async def create_research_session(
         organization_id=organization_id,
     )
     return ResearchSessionRead.model_validate(research)
+
+
+@router.post("/sessions/start", status_code=status.HTTP_201_CREATED)
+async def start_research_session(
+    request: ResearchSessionStart,
+    session: DatabaseSession,
+    providers: EmbeddingProviders,
+    rerankers: Rerankers,
+    generators: AnswerGenerators,
+    policy: Policy,
+) -> ResearchTurnResponse:
+    """Start a session and answer its first question in one request.
+
+    The server does one evidence search and, when a model is on, at most one
+    generation. The answer and evidence come from the server, never from the
+    request. Without a model the turn is saved with its evidence and no answer.
+    Same access as starting a session: the member role or higher, and a
+    source_id must belong to the organization.
+    """
+    organization_id = await policy.new_content_owner(
+        request.organization_id, ContentCapability.CONTRIBUTE
+    )
+    if request.source_id is not None:
+        await policy.check_source_filter(request.source_id)
+    service = ResearchSessionService(session, providers, rerankers, generators)
+    research, turn = await service.start_session(
+        question=request.question,
+        limit=request.limit,
+        title=request.title,
+        retrieval_mode=request.retrieval_mode,
+        source_id=request.source_id,
+        organization_id=organization_id,
+        scope=policy.resource_scope(organization_id),
+    )
+    return ResearchTurnResponse(
+        session=ResearchSessionRead.model_validate(research),
+        turn=ResearchTurnRead.from_turn(turn),
+    )
 
 
 @router.get("/sessions")

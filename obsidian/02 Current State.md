@@ -82,8 +82,14 @@ organization audit retention policies).
   links show for managers. An event page at `/events/:eventId`, which the
   timeline's clusters and a cluster's member events open. Entity, claim and
   event evidence now carry the document title and source name (one join, no
-  N+1, scoped), shown in their evidence tables; research evidence already had
-  them.
+  N+1, scoped), shown in their evidence tables and through a reusable evidence
+  and source reference UI; research evidence already had them.
+- Research usability, done: turns are paged (oldest first, load more, no
+  repeats after a new turn); the source and investigation pickers load every
+  page instead of the first 100 and clear on an organization switch; a source's
+  recent runs refresh on a conservative poll while a run is not terminal and
+  stop when it is; and `/research/new` can start a saved session from the first
+  question and open it, through `POST /research/sessions/start`.
 - Tenant research workspace in the web app, done: content navigation that
   needs an active organization, sources (list, create,
   detail, provenance, ingest now, schedule, run history, delete), documents

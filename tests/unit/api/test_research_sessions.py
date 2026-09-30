@@ -17,8 +17,17 @@ def test_routes_are_in_openapi(app: FastAPI) -> None:
     schemas = app.openapi()["components"]["schemas"]
 
     assert set(paths["/research/sessions"]) == {"get", "post"}
+    assert set(paths["/research/sessions/start"]) == {"post"}
     assert set(paths["/research/sessions/{session_id}"]) == {"get"}
     assert set(paths["/research/sessions/{session_id}/turns"]) == {"get", "post"}
+    assert set(schemas["ResearchSessionStart"]["properties"]) == {
+        "title",
+        "retrieval_mode",
+        "source_id",
+        "organization_id",
+        "question",
+        "limit",
+    }
     assert set(schemas["ResearchTurnRead"]["properties"]) == {
         "id",
         "sequence",

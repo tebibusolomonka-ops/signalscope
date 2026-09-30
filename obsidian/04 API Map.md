@@ -231,6 +231,14 @@ system admins may look, members and viewers get 403, others 404. Queues:
   error. Unknown queues: 422.
 - Entity, claim and event evidence rows include the document title and the
   source id and name (one join, scoped), for readable summaries in the UI.
+- `POST /research/sessions/start` (body `question`, plus the session fields):
+  create a session and answer its first question in one request. The server
+  does one retrieval and at most one generation; the answer and evidence are
+  never taken from the request. Without a model the turn is saved with its
+  evidence and no answer.
+- `GET /research/sessions/{id}/turns` is paged (`limit`, `offset`), oldest
+  first, so a long session loads a page at a time and adding a turn never
+  changes an earlier page.
 - `POST /operations/jobs/retry` (body `queue`, `job_id`): put one failed job
   back in its queue. It becomes pending and available now, leases cleared,
   attempt count kept; a retried ingestion job also gets a fresh pending run.

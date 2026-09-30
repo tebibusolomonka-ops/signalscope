@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 
 import { useOrganization } from "../../app/useOrganization.js";
 import { PageHeading } from "../../components/PageHeading.jsx";
@@ -16,11 +16,13 @@ const SCOPE = "quick";
  * the answer model. Nothing here is stored.
  */
 export function QuickResearchPage() {
-  const { active, tenantApi } = useOrganization();
+  const { active, tenantApi, can } = useOrganization();
   const { sources, names } = useSourceOptions();
+  const navigate = useNavigate();
   const [state, setState] = useState({ busy: null, error: null, result: null });
   const [focus, setFocus] = useState(null);
-  // Which submit button was pressed: collect evidence, or also answer.
+  // Which submit button was pressed: collect evidence, also answer, or start a
+  // saved session from the question.
   const chosen = useRef("context");
 
   useEffect(() => {
@@ -31,13 +33,32 @@ export function QuickResearchPage() {
     event.preventDefault();
     const action = chosen.current;
     const form = new FormData(event.currentTarget);
+    const question = form.get("query").trim();
+    const sourceId = form.get("source_id");
+    if (action === "session") {
+      const body = {
+        question,
+        retrieval_mode: form.get("mode"),
+        limit: Number(form.get("limit")),
+        organization_id: tenantApi.organizationId,
+      };
+      if (sourceId) body.source_id = sourceId;
+      setState({ busy: action, error: null, result: null });
+      try {
+        const started = await tenantApi.post("/research/sessions/start", body);
+        navigate(`/research/${started.session.id}`);
+      } catch (error) {
+        setState({ busy: null, error: { action, error }, result: null });
+      }
+      return;
+    }
     const body = {
-      query: form.get("query").trim(),
+      query: question,
       mode: form.get("mode"),
       limit: Number(form.get("limit")),
       organization_id: tenantApi.organizationId,
     };
-    if (form.get("source_id")) body.source_id = form.get("source_id");
+    if (sourceId) body.source_id = sourceId;
     setState({ busy: action, error: null, result: null });
     try {
       const answer = await tenantApi.post(`/research/${action}`, body);
@@ -106,6 +127,16 @@ export function QuickResearchPage() {
             >
               {state.busy === "answer" ? "Answering..." : "Collect evidence and answer"}
             </button>
+            {can.contribute && (
+              <button
+                type="submit"
+                className="secondary"
+                disabled={state.busy !== null}
+                onClick={() => (chosen.current = "session")}
+              >
+                {state.busy === "session" ? "Starting..." : "Start research session"}
+              </button>
+            )}
           </div>
         </form>
         {state.error && <Failure {...state.error} />}
