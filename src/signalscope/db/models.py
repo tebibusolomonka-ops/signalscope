@@ -29,6 +29,7 @@ from signalscope.domain.organizations.model import Organization
 from signalscope.domain.processing.model import DocumentProcessingJob
 from signalscope.domain.research.session import ResearchSession
 from signalscope.domain.research.turn import ResearchTurn
+from signalscope.domain.retention.model import OrganizationRetentionPolicy
 from signalscope.domain.search.embedding_job import EmbeddingJob
 from signalscope.domain.search.embedding_model import ChunkEmbedding
 from signalscope.domain.sources.model import Source
@@ -66,6 +67,7 @@ __all__ = [
     "Organization",
     "OrganizationInvitation",
     "OrganizationMembership",
+    "OrganizationRetentionPolicy",
     "ResearchSession",
     "ResearchTurn",
     "SecurityAuditEvent",
