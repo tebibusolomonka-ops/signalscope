@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router";
 
 import { useOrganization } from "../../app/useOrganization.js";
 import { PageHeading } from "../../components/PageHeading.jsx";
+import { DocumentLink, SourceLink } from "../../components/references.jsx";
 import { ErrorMessage, Loading } from "../../components/Status.jsx";
 import { chunkLocation } from "../../lib/chunks.js";
 import { formatTime } from "../../lib/format.js";
@@ -69,12 +70,10 @@ export function EventPage() {
                   {data.evidence.map((row) => (
                     <tr key={row.chunk_id}>
                       <td className="wrap">
-                        <Link to={`/documents/${row.document_id}`}>
-                          {row.document_title || "Untitled document"}
-                        </Link>
+                        <DocumentLink documentId={row.document_id} title={row.document_title} />
                       </td>
                       <td>
-                        <Link to={`/sources/${row.source_id}`}>{row.source_name}</Link>
+                        <SourceLink sourceId={row.source_id} name={row.source_name} />
                       </td>
                       <td>{chunkLocation(row.chunk_metadata) || "-"}</td>
                       <td>{row.confidence === null ? "-" : Number(row.confidence).toFixed(2)}</td>

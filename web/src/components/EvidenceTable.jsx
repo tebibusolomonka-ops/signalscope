@@ -1,6 +1,5 @@
-import { Link } from "react-router";
-
 import { chunkLocation } from "../lib/chunks.js";
+import { DocumentLink, SourceLink } from "./references.jsx";
 
 /**
  * Where an entity or claim was found: one row per mention or evidence row,
@@ -24,12 +23,10 @@ export function EvidenceTable({ rows, label }) {
         {rows.map((row) => (
           <tr key={row.id}>
             <td className="wrap">
-              <Link to={`/documents/${row.document_id}`}>
-                {row.document_title || "Untitled document"}
-              </Link>
+              <DocumentLink documentId={row.document_id} title={row.document_title} />
             </td>
             <td>
-              <Link to={`/sources/${row.source_id}`}>{row.source_name}</Link>
+              <SourceLink sourceId={row.source_id} name={row.source_name} />
             </td>
             <td className="wrap">{row.surface_text}</td>
             <td>{chunkLocation(row.chunk_metadata) || "-"}</td>
