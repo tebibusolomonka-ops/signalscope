@@ -52,6 +52,9 @@ stops at the first failure, and checks that Alembic has one head.
 and `organizations.js` build content answers and two organizations; every
 content page has a test that switches organization while the new answer is
 held back and checks that nothing of the old organization stays visible.
+Lease tests never compare a 60 ms lease with the wall clock: recovery is
+asked about a fixed moment between the observed old and extended lease ends,
+so slow CI machines cannot change the result.
 `test_document_file_api.py` covers the upload route with file storage in a
 temporary folder. `ResearchFlow.test.jsx` walks one organization's workflow
 from sign in through a source, a document, search, an entity saved to an

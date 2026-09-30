@@ -243,23 +243,30 @@ async def test_heartbeat_keeps_the_job_from_being_recovered(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     source = await create_source(session_factory, SourceType.UPLOAD)
-    await import_file(session_factory, blobs, source)
+    imported = await import_file(session_factory, blobs, source)
     beats = Beats()
     watch_heartbeats(monkeypatch, DocumentProcessingWorker, beats)
     work = BlockingWork()
 
     task = asyncio.create_task(processing_worker(session_factory, work).run_once())
     await work.wait_until_started()
-    await beats.wait_for(3)
-    # The lease was extended past the old end, so recovery finds nothing.
+    claimed = await reload_processing_job(session_factory, imported.job.id)
+    await beats.wait_for(len(beats.results) + 2)
+    extended = await reload_processing_job(session_factory, imported.job.id)
+    assert claimed.lease_expires_at is not None
+    assert extended.lease_expires_at is not None
+    assert extended.lease_expires_at > claimed.lease_expires_at
+    # Recover at a moment after the old lease end but before the extended one.
+    # A fixed moment, not the wall clock, so a slow machine cannot let the
+    # lease run out between beats and make the result depend on timing.
+    moment = claimed.lease_expires_at + (extended.lease_expires_at - claimed.lease_expires_at) / 2
     async with session_factory() as session:
-        recovered = await DocumentProcessingJobRepository(session).recover_stale(
-            datetime.now(UTC), 10
-        )
+        recovered = await DocumentProcessingJobRepository(session).recover_stale(moment, 10)
         await session.commit()
     work.release.set()
     await asyncio.wait_for(task, TIMEOUT_SECONDS)
 
+    assert all(beats.results)
     assert recovered == []
 
 

@@ -1,12 +1,10 @@
 # Current State
 
-Last updated at planned commit 359, the end of batch 340 to 359 (the
-tenant research workspace in the web app). No corrective commit was needed
-before this one, so the batch ends at repository commit 359, "Add research
-and investigation exports", unless a later corrective commit follows (see
-`git log`). Batch 314 to 333 needed six corrective commits and ended at
-commit 339 (`5b1fcaa`). Alembic head: `a809b1740bcd` (Add event cluster
-organization); this batch added no migration.
+Batch 340 to 359 (the tenant research workspace in the web app) needed no
+corrective commit and ended at repository commit 359 (`e665ed3`). Current
+batch: 360 to 379, organization operations, failed job recovery, audit
+retention and research usability. Alembic head: `a809b1740bcd` (Add event
+cluster organization).
 
 ## Done
 
