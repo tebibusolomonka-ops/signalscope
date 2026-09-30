@@ -5,6 +5,7 @@ Alembic and the database test setup import Base from here.
 
 from signalscope.db.base import Base
 from signalscope.domain.audit.model import SecurityAuditEvent
+from signalscope.domain.audit.retention import OrganizationAuditRetentionPolicy
 from signalscope.domain.blobs.model import BlobCleanupTask
 from signalscope.domain.claims.job import ClaimExtractionJob
 from signalscope.domain.claims.model import Claim, ClaimEvidence
@@ -68,6 +69,7 @@ __all__ = [
     "OrganizationMembership",
     "ResearchSession",
     "ResearchTurn",
+    "OrganizationAuditRetentionPolicy",
     "SecurityAuditEvent",
     "Source",
     "User",
