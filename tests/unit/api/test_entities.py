@@ -29,6 +29,9 @@ def test_detail_schema(app: FastAPI) -> None:
     assert set(schemas["EntityMentionRead"]["properties"]) == {
         "id",
         "document_id",
+        "document_title",
+        "source_id",
+        "source_name",
         "chunk_id",
         "surface_text",
         "entity_type",

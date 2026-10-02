@@ -151,6 +151,11 @@ read. The filter is in the SQL, before ranking, fusion, reranking and limits.
   the web app sends the local E5 model.
 - `GET /embeddings/coverage`
 
+Entity, claim and event evidence rows also carry `document_title`,
+`source_id` and `source_name`, joined from the document and its source, so
+the web app needs no extra request to label them. These come only from
+evidence already in scope.
+
 ## Entities, events and claims
 
 Scoped with auth on through `organization_id`. Entities and claims are shared

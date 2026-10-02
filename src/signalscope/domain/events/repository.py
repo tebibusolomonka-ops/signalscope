@@ -8,8 +8,10 @@ from sqlalchemy import ColumnElement, delete, exists, func, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from signalscope.domain.documents.chunk import DocumentChunk
+from signalscope.domain.documents.model import Document
 from signalscope.domain.events.cluster import EventCluster, EventClusterMember
 from signalscope.domain.events.model import Event, EventEvidence
+from signalscope.domain.sources.model import Source
 from signalscope.domain.tenancy.scope import ContentScope
 
 # The most evidence rows an event detail shows.
@@ -49,6 +51,10 @@ class EvidenceWithChunk:
     document_id: uuid.UUID
     # Where the chunk came from, such as {"page_number": 3}.
     chunk_metadata: dict[str, Any]
+    # The document and source the evidence is in, for labels and links.
+    document_title: str | None
+    source_id: uuid.UUID
+    source_name: str
 
 
 class EventRepository:
@@ -110,8 +116,17 @@ class EventRepository:
         scope: ContentScope = UNRESTRICTED,
     ) -> list[EvidenceWithChunk]:
         rows = await self.session.execute(
-            select(EventEvidence, DocumentChunk.document_id, DocumentChunk.chunk_metadata)
+            select(
+                EventEvidence,
+                DocumentChunk.document_id,
+                DocumentChunk.chunk_metadata,
+                Document.title,
+                Document.source_id,
+                Source.name,
+            )
             .join(DocumentChunk, DocumentChunk.id == EventEvidence.chunk_id)
+            .join(Document, Document.id == DocumentChunk.document_id)
+            .join(Source, Source.id == Document.source_id)
             .where(
                 EventEvidence.event_id == event_id,
                 scope.chunk_condition(EventEvidence.chunk_id),
@@ -120,8 +135,8 @@ class EventRepository:
             .limit(limit)
         )
         return [
-            EvidenceWithChunk(evidence, document_id, dict(metadata))
-            for evidence, document_id, metadata in rows
+            EvidenceWithChunk(evidence, document_id, dict(metadata), title, source_id, source_name)
+            for evidence, document_id, metadata, title, source_id, source_name in rows
         ]
 
 

@@ -1,6 +1,6 @@
 # Known Issues
 
-Open problems as of commit 369. Remove an item when it is fixed.
+Open problems as of commit 374. Remove an item when it is fixed.
 
 ## Events
 
@@ -90,8 +90,6 @@ Open problems as of commit 369. Remove an item when it is fixed.
   the answer model is busy; reload the page to see new states.
 - Saving to an investigation offers the first 100 open investigations of the
   organization.
-- Entity and claim evidence rows link to their document but do not show its
-  title, because the API returns only the document ID.
 - Uploads are read into memory (at most 50 MB) before they are stored.
 - Source pickers in the web app offer the first 100 sources of an
   organization (the API's largest page).

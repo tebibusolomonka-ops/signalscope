@@ -26,10 +26,10 @@ time. What stays as it was:
 - The bearer token still lives in sessionStorage.
 
 Current batch, 360 to 379: organization operations, failed job recovery,
-audit retention and research usability. Done: the lease test no longer
-depends on timing, the operations overview, failed job list and retries,
-and audit retention (policy, preview, cleanup, command). To do: the
-operations and retention pages, an event page, richer evidence, turn
+audit retention and research usability. Done: the lease test no longer depends on timing, operations overview,
+failed job list and retries, audit retention (policy, preview, cleanup,
+command), the operations and retention pages, the event detail page and
+richer evidence summaries. To do: evidence navigation, research turn
 paging, paged pickers, live ingestion runs and starting a session with its
 first question.
 

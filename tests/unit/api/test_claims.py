@@ -29,6 +29,9 @@ def test_routes_are_in_openapi(app: FastAPI) -> None:
     assert set(schemas["ClaimEvidenceRead"]["properties"]) == {
         "id",
         "document_id",
+        "document_title",
+        "source_id",
+        "source_name",
         "chunk_id",
         "surface_text",
         "start_char",

@@ -57,7 +57,9 @@ asked about a fixed moment between the observed old and extended lease ends,
 so slow CI machines cannot change the result.
 `tests/operations_helpers.py` adds jobs of any queue and state for an
 organization; operations queries are also compiled in a unit test, so SQL
-shape errors show up without PostgreSQL.
+shape errors show up without PostgreSQL. `test_evidence_enrichment.py`
+checks that entity, claim and event evidence carry the document title and
+source name, from the requesting organization only.
 `test_document_file_api.py` covers the upload route with file storage in a
 temporary folder. `ResearchFlow.test.jsx` walks one organization's workflow
 from sign in through a source, a document, search, an entity saved to an

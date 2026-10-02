@@ -17,6 +17,9 @@ class EntityRead(BaseModel):
 class EntityMentionRead(BaseModel):
     id: uuid.UUID
     document_id: uuid.UUID
+    document_title: str | None
+    source_id: uuid.UUID
+    source_name: str
     chunk_id: uuid.UUID
     surface_text: str
     entity_type: str

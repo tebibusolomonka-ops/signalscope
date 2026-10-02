@@ -28,6 +28,9 @@ def test_routes_are_in_openapi(app: FastAPI) -> None:
     assert set(paths["/events/{event_id}"]) == {"get"}
     assert set(schemas["EventEvidenceRead"]["properties"]) == {
         "document_id",
+        "document_title",
+        "source_id",
+        "source_name",
         "chunk_id",
         "confidence",
         "provider",

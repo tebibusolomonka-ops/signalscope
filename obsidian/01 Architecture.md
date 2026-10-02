@@ -110,7 +110,9 @@ admin-focused.
   advisory link suggestions), source comparison, investigations (list,
   create, detail with saved items, collaborators, close, reopen, delete),
   research sessions (list, start, multi-turn conversation with citations and
-  a separate evidence panel) and one-shot research (`/research/new`). A
+  a separate evidence panel), one-shot research (`/research/new`), operations
+  (queue counts and failed-job retry, owners and admins only), audit
+  retention (on the organization page) and an event page. A
   shared `SaveToInvestigation` control saves sources, documents, events,
   clusters, entities, claims and research sessions into an open
   investigation of the active organization. `ExportActions` downloads the

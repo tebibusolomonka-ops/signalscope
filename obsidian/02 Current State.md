@@ -68,6 +68,9 @@ retention policies).
 - Audit retention: a per-organization policy (indefinite by default), a
   preview for owners and admins, cleanup for system admins through the API
   or `signalscope cleanup-security-audit --apply`.
+- Web pages for operations (queue counts, failed-job retry) and audit
+  retention, an event detail page, and entity, claim and event evidence that
+  now carries the document title and source name.
 - Tenant research workspace in the web app, done: content navigation that
   needs an active organization, sources (list, create,
   detail, provenance, ingest now, schedule, run history, delete), documents
