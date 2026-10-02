@@ -23,6 +23,7 @@ from signalscope.domain.ingestion.model import IngestionJob, IngestionRun
 from signalscope.domain.investigations.collaborator import InvestigationCollaborator
 from signalscope.domain.investigations.item import InvestigationItem
 from signalscope.domain.investigations.model import Investigation
+from signalscope.domain.operations.attempt import OperationAttempt
 from signalscope.domain.organizations.invitation import OrganizationInvitation
 from signalscope.domain.organizations.membership import OrganizationMembership
 from signalscope.domain.organizations.model import Organization
@@ -67,6 +68,7 @@ __all__ = [
     "Organization",
     "OrganizationInvitation",
     "OrganizationMembership",
+    "OperationAttempt",
     "OrganizationRetentionPolicy",
     "ResearchSession",
     "ResearchTurn",
