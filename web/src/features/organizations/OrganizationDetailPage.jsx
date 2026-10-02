@@ -8,6 +8,7 @@ import { useResource } from "../../lib/useResource.js";
 import { Invitations } from "../invitations/Invitations.jsx";
 import { AccessSummary } from "./AccessSummary.jsx";
 import { Members } from "./Members.jsx";
+import { Retention } from "./Retention.jsx";
 
 export function OrganizationDetailPage() {
   const { organizationId } = useParams();
@@ -44,6 +45,7 @@ export function OrganizationDetailPage() {
       <Members organizationId={organizationId} />
       <Invitations organizationId={organizationId} />
       <AccessSummary organizationId={organizationId} />
+      <Retention organizationId={organizationId} />
     </>
   );
 }
