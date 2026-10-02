@@ -63,11 +63,13 @@ commit. The repository has 382 commits before planned commit 380. Alembic head:
 - Organization operations, in progress: `GET /operations/overview` (job
   counts per queue), `GET /operations/jobs` (failed jobs) and
   `POST /operations/jobs/{queue}/{job_id}/retry` (audited) for owners,
-  admins and system admins of one organization.
+  admins and system admins of one organization. Worker claims and outcomes
+  for all six queues are durable tenant history, exposed by the filtered,
+  paged `GET /operations/history` route and the operations workspace.
 - Audit retention: a per-organization policy (indefinite by default), a
   preview for owners and admins, cleanup for system admins through the API
   or `signalscope cleanup-security-audit --apply`.
-- Web pages for operations (queue counts, failed-job retry) and audit
+- Web pages for operations (queue counts, failed-job retry, attempt history) and audit
   retention, an event detail page, and entity, claim and event evidence that
   now carries the document title and source name.
 - Tenant resource selectors page through Sources and open Investigations;

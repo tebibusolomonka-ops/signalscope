@@ -247,6 +247,9 @@ system admins may look, members and viewers get 403, others 404. Queues:
   first, paged. Each has the record it works on (source, document or chunk),
   provider and model for chunk jobs, attempts, times and the short stored
   error. Unknown queues: 422.
+- `GET /operations/history`: durable worker attempts, newest first and paged.
+  Filters: queue, outcome, resource type and ID, and created-from/to. It
+  returns only safe identifiers, times, outcomes and sanitized errors.
 - `POST /operations/jobs/{queue}/{job_id}/retry` with `{"organization_id"}`:
   puts one failed job back in its queue, available now, and returns its new
   state. Chunk jobs go through the queue's own requeue (409 when results are

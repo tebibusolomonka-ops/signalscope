@@ -21,6 +21,11 @@ operations API; each queue uses its own requeue rules (see [[04 API Map]]),
 and a retried ingestion keeps its failed run as history. The other six queues are scoped through the
 job's source, document or chunk.
 
+Each claim of an organization-owned job creates an `operation_attempts` row
+in the same transaction. Completion or terminal failure closes that row, and
+stale recovery marks it recovered before the job becomes pending again. A
+manual retry creates no attempt until a worker really claims the job.
+
 ## How a job runs
 
 - **Claim**: `SELECT ... FOR UPDATE SKIP LOCKED`, so workers never take the

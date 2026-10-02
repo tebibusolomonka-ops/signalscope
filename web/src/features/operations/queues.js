@@ -6,4 +6,7 @@ export const QUEUE_LABELS = {
   entity_extraction: "Entity extraction",
   event_extraction: "Event extraction",
   claim_extraction: "Claim extraction",
+  entity: "Entity extraction",
+  event: "Event extraction",
+  claim: "Claim extraction",
 };

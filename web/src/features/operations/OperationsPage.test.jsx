@@ -22,6 +22,7 @@ function routes(extra = {}, role = "owner", user) {
         },
       }),
     },
+    "GET /operations/history": { body: { items: [], total: 0, limit: 20, offset: 0 } },
     ...extra,
   };
 }
@@ -31,6 +32,58 @@ function overviewCalls(calls) {
 }
 
 describe("operations workspace", () => {
+  it("shows paged operation history with safe resource links", async () => {
+    renderApp({
+      path: "/operations",
+      routes: routes({
+        "GET /operations/history": {
+          body: {
+            items: [
+              {
+                id: "attempt-1",
+                queue_name: "processing",
+                resource_type: "document",
+                resource_id: "doc-1",
+                attempt_number: 2,
+                outcome: "failed",
+                started_at: "2026-10-02T10:00:00Z",
+                finished_at: "2026-10-02T10:01:00Z",
+                safe_error: "Parser failed.",
+              },
+            ],
+            total: 1,
+            limit: 20,
+            offset: 0,
+          },
+        },
+      }),
+    });
+
+    const history = await screen.findByRole("region", { name: "Operation history" });
+    expect(await within(history).findByRole("link", { name: "document doc-1" })).toHaveAttribute(
+      "href",
+      "/documents/doc-1",
+    );
+    expect(history).toHaveTextContent("Parser failed.");
+    expect(history).toHaveTextContent("2");
+  });
+
+  it("sends history filters and clears paging", async () => {
+    const { calls } = renderApp({ path: "/operations", routes: routes() });
+    const user = userEvent.setup();
+    const history = await screen.findByRole("region", { name: "Operation history" });
+
+    await user.selectOptions(within(history).getByLabelText("Queue"), "embedding");
+    await user.selectOptions(within(history).getByLabelText("Outcome"), "recovered");
+
+    await waitFor(() => {
+      const call = calls.filter((item) => item.path === "/operations/history").at(-1);
+      expect(call.query.get("queue")).toBe("embedding");
+      expect(call.query.get("outcome")).toBe("recovered");
+      expect(call.query.get("offset")).toBe("0");
+    });
+  });
+
   it("shows one row per queue with its counts", async () => {
     const { calls } = renderApp({ path: "/operations", routes: routes() });
 

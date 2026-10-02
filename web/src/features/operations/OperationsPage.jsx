@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { Link } from "react-router";
 
 import { useOrganization } from "../../app/useOrganization.js";
 import { ConfirmAction } from "../../components/ConfirmAction.jsx";
@@ -32,12 +33,111 @@ export function OperationsPage() {
         <>
           <Queues key={overviewKey} />
           <FailedJobs onRetried={refreshOverview} />
+          <OperationHistory />
         </>
       ) : (
         <p className="muted">Only organization owners and admins can see operations.</p>
       )}
     </>
   );
+}
+
+function OperationHistory() {
+  const { tenantApi } = useOrganization();
+  const [queue, setQueue] = useState("");
+  const [outcome, setOutcome] = useState("");
+  const [createdFrom, setCreatedFrom] = useState("");
+  const [createdTo, setCreatedTo] = useState("");
+  const [offset, setOffset] = useState(0);
+  const load = useCallback(
+    () =>
+      tenantApi.get("/operations/history", {
+        query: {
+          queue,
+          outcome,
+          created_from: createdFrom || null,
+          created_to: createdTo || null,
+          limit: PAGE_SIZE,
+          offset,
+        },
+      }),
+    [tenantApi, queue, outcome, createdFrom, createdTo, offset],
+  );
+  const { data, error, loading } = useResource(load);
+
+  function change(setter) {
+    return (event) => {
+      setOffset(0);
+      setter(event.target.value);
+    };
+  }
+
+  return (
+    <section className="panel" aria-labelledby="history-heading">
+      <h2 id="history-heading">Operation history</h2>
+      <div className="form-row">
+        <label>
+          Queue
+          <select value={queue} onChange={change(setQueue)}>
+            <option value="">All queues</option>
+            {Object.entries(QUEUE_LABELS)
+              .filter(([value]) => !value.endsWith("_extraction"))
+              .map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+          </select>
+        </label>
+        <label>
+          Outcome
+          <select value={outcome} onChange={change(setOutcome)}>
+            <option value="">All outcomes</option>
+            {['running', 'succeeded', 'failed', 'recovered'].map((value) => (
+              <option key={value} value={value}>{value}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          From
+          <input type="datetime-local" value={createdFrom} onChange={change(setCreatedFrom)} />
+        </label>
+        <label>
+          To
+          <input type="datetime-local" value={createdTo} onChange={change(setCreatedTo)} />
+        </label>
+      </div>
+      {loading && <Loading />}
+      <ErrorMessage error={error} />
+      {data && data.items.length > 0 && (
+        <table>
+          <thead><tr><th>Queue</th><th>Resource</th><th>Attempt</th><th>Outcome</th><th>Started</th><th>Finished</th><th>Error</th></tr></thead>
+          <tbody>
+            {data.items.map((attempt) => (
+              <tr key={attempt.id}>
+                <td>{QUEUE_LABELS[attempt.queue_name] ?? attempt.queue_name}</td>
+                <td><ResourceLink attempt={attempt} /></td>
+                <td>{attempt.attempt_number}</td>
+                <td>{attempt.outcome}</td>
+                <td>{attempt.started_at ? formatTime(attempt.started_at) : "-"}</td>
+                <td>{attempt.finished_at ? formatTime(attempt.finished_at) : "-"}</td>
+                <td className="wrap">{attempt.safe_error ?? "-"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {data && <Pager offset={offset} limit={PAGE_SIZE} count={data.items.length} total={data.total} onChange={setOffset} emptyText="No operation history." />}
+    </section>
+  );
+}
+
+function ResourceLink({ attempt }) {
+  const text = `${attempt.resource_type} ${attempt.resource_id ?? "-"}`;
+  if (!attempt.resource_id) return text;
+  if (attempt.resource_type === "source") return <Link to={`/sources/${attempt.resource_id}`}>{text}</Link>;
+  if (attempt.resource_type === "document") return <Link to={`/documents/${attempt.resource_id}`}>{text}</Link>;
+  return text;
 }
 
 function Queues() {

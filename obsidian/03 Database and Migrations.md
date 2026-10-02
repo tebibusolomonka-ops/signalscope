@@ -67,6 +67,12 @@ retention policies).
   `security_audit_days` checked to be 30 to 3650. No row, or NULL, means
   events are kept indefinitely.
 
+- **Operations**: `operation_attempts` records each tenant-owned worker claim
+  for the six content queues, including its attempt number, safe resource ID,
+  start and finish times, outcome and sanitized error. Job and resource IDs
+  are not foreign keys, so history survives queue and content deletion. Lease
+  tokens, tracebacks, prompts and content are not stored.
+
 ## Deletion behavior
 
 - Deleting a chunk deletes its embeddings, mentions, evidence and jobs.

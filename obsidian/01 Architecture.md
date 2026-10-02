@@ -67,6 +67,10 @@ One Python package, `src/signalscope`, with one PostgreSQL database. See
   `FailedJobInspectionService` lists failed jobs of all queues with one
   `UNION ALL`, filtered per queue before ordering and paging.
   `FailedJobRecoveryService` retries one failed job with that queue's own
+  requeue rules. `OperationAttempt` keeps tenant-owned claim, outcome and
+  recovery history after queue rows or content are removed; no lease token,
+  traceback, prompt or content is stored. `OperationHistoryService` filters
+  and pages that history for operations administrators.
   requeue rules and records it in the audit log.
 - `domain/retention/`: `OrganizationRetentionPolicy` (one row per
   organization) and `AuditRetentionService` (policy, preview, bounded
@@ -111,7 +115,7 @@ admin-focused.
   create, detail with saved items, collaborators, close, reopen, delete),
   research sessions (list, start, multi-turn conversation with citations and
   a separate evidence panel), one-shot research (`/research/new`), operations
-  (queue counts and failed-job retry, owners and admins only), audit
+  (queue counts, failed-job retry and operation history, owners and admins only), audit
   retention (on the organization page) and an event page. A
   shared `SaveToInvestigation` control saves sources, documents, events,
   clusters, entities, claims and research sessions into an open
