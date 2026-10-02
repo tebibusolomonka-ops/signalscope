@@ -24,6 +24,7 @@ from signalscope.domain.investigations.collaborator import InvestigationCollabor
 from signalscope.domain.investigations.item import InvestigationItem
 from signalscope.domain.investigations.model import Investigation
 from signalscope.domain.operations.attempt import OperationAttempt
+from signalscope.domain.organizations.export_record import OrganizationExport
 from signalscope.domain.organizations.invitation import OrganizationInvitation
 from signalscope.domain.organizations.membership import OrganizationMembership
 from signalscope.domain.organizations.model import Organization
@@ -66,6 +67,7 @@ __all__ = [
     "InvestigationCollaborator",
     "InvestigationItem",
     "Organization",
+    "OrganizationExport",
     "OrganizationInvitation",
     "OrganizationMembership",
     "OperationAttempt",
