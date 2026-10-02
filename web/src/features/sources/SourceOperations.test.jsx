@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { held, notFound, page, provenance, run, source } from "../../test/content.js";
 import { USER, signedIn } from "../../test/fakeApi.js";
@@ -26,6 +26,8 @@ async function ingestion() {
 }
 
 describe("source operations", () => {
+  afterEach(() => vi.useRealTimers());
+
   it("shows the newest runs first, from the last page", async () => {
     const older = Array.from({ length: 10 }, (_, index) =>
       run({
@@ -100,6 +102,51 @@ describe("source operations", () => {
     expect(posted).toHaveLength(1);
     expect(posted[0].body).toEqual({ source_id: "s-1" });
     expect(posted[0].query.get("organization_id")).toBe("org-a");
+  });
+
+  it("polls active runs until they are completed", async () => {
+    let request = 0;
+    const { calls } = renderApp({
+      path: "/sources/s-1",
+      routes: routes({
+        "GET /ingestion-runs": () => {
+          const statuses = ["pending", "running", "completed"];
+          const status = statuses[Math.min(request, statuses.length - 1)];
+          request += 1;
+          return page([
+            run({
+              status,
+              started_at: status === "pending" ? null : "2026-09-05T07:01:00Z",
+              finished_at: status === "completed" ? "2026-09-05T07:02:00Z" : null,
+            }),
+          ]);
+        },
+      }),
+    });
+
+    const section = await ingestion();
+    await within(section).findByText("pending");
+    vi.useFakeTimers();
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(await within(section).findByText("running")).toBeInTheDocument();
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(await within(section).findByText("completed")).toBeInTheDocument();
+    const count = calls.filter((call) => call.path === "/ingestion-runs").length;
+    await vi.advanceTimersByTimeAsync(10000);
+    expect(calls.filter((call) => call.path === "/ingestion-runs")).toHaveLength(count);
+  });
+
+  it("keeps manual refresh available", async () => {
+    const { calls } = renderApp({ path: "/sources/s-1", routes: routes() });
+    const user = userEvent.setup();
+    const section = await ingestion();
+    await within(section).findByText("completed");
+
+    await user.click(within(section).getByRole("button", { name: "Refresh runs" }));
+
+    await waitFor(() =>
+      expect(calls.filter((call) => call.path === "/ingestion-runs")).toHaveLength(2),
+    );
   });
 
   it("shows a refused run", async () => {

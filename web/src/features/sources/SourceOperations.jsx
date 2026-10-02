@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { useOrganization } from "../../app/useOrganization.js";
 import { ErrorMessage, Loading } from "../../components/Status.jsx";
@@ -6,6 +6,8 @@ import { formatTime } from "../../lib/format.js";
 import { useResource } from "../../lib/useResource.js";
 
 const RUNS_SHOWN = 10;
+const REFRESH_INTERVAL = 5000;
+const TERMINAL_STATUSES = new Set(["completed", "failed"]);
 const MAX_INTERVAL_MINUTES = 7 * 24 * 60;
 // Only these types have a worker adapter that fetches content.
 const FETCHED_TYPES = new Set(["web", "rss"]);
@@ -29,6 +31,12 @@ export function SourceOperations({ source, onSourceChange }) {
   }, [tenantApi, source.id]);
   const runs = useResource(loadRuns);
 
+  useEffect(() => {
+    if (!runs.data?.items.some((run) => !TERMINAL_STATUSES.has(run.status))) return undefined;
+    const timer = window.setTimeout(runs.reload, REFRESH_INTERVAL);
+    return () => window.clearTimeout(timer);
+  }, [runs.data, runs.reload]);
+
   return (
     <section className="panel" aria-labelledby="source-ingestion">
       <h2 id="source-ingestion">Ingestion</h2>
@@ -44,6 +52,9 @@ export function SourceOperations({ source, onSourceChange }) {
         </>
       )}
       <h3>Recent runs</h3>
+      <button type="button" className="secondary" onClick={runs.reload} disabled={runs.loading}>
+        Refresh runs
+      </button>
       {runs.loading && <Loading />}
       <ErrorMessage error={runs.error} />
       {runs.data && <RunTable page={runs.data} />}
