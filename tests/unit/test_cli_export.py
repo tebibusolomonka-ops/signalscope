@@ -4,7 +4,13 @@ from pathlib import Path
 
 import pytest
 
-from signalscope.cli import _write_atomically, build_parser, export_investigation
+from signalscope.cli import (
+    _write_atomically,
+    _write_bytes_atomically,
+    build_parser,
+    export_investigation,
+    export_organization,
+)
 from signalscope.core.exports import ExportFormat
 from signalscope.core.settings import Settings
 
@@ -46,6 +52,25 @@ def test_bad_format(capsys: pytest.CaptureFixture[str]) -> None:
     assert "argument --format" in capsys.readouterr().err
 
 
+def test_organization_export_arguments() -> None:
+    organization_id = uuid.uuid4()
+    args = build_parser().parse_args(
+        [
+            "export-organization",
+            str(organization_id),
+            "--output",
+            "tenant.zip",
+            "--overwrite",
+        ]
+    )
+
+    assert (args.organization_id, args.output, args.overwrite) == (
+        organization_id,
+        Path("tenant.zip"),
+        True,
+    )
+
+
 async def test_existing_file_is_not_replaced(tmp_path: Path) -> None:
     path = tmp_path / "report.md"
     path.write_text("keep me", encoding="utf-8")
@@ -62,6 +87,15 @@ async def test_needs_a_database() -> None:
     out, err = io.StringIO(), io.StringIO()
 
     assert await export_investigation(uuid.uuid4(), Settings(), out, err) == 1
+    assert "SIGNALSCOPE_DATABASE_URL" in err.getvalue()
+
+
+async def test_organization_export_needs_a_database(tmp_path: Path) -> None:
+    out, err = io.StringIO(), io.StringIO()
+
+    assert (
+        await export_organization(uuid.uuid4(), tmp_path / "tenant.zip", Settings(), out, err) == 1
+    )
     assert "SIGNALSCOPE_DATABASE_URL" in err.getvalue()
 
 
@@ -83,3 +117,13 @@ def test_atomic_write_leaves_nothing_on_failure(tmp_path: Path) -> None:
         _write_atomically(missing_folder, "text")
 
     assert list(tmp_path.iterdir()) == []
+
+
+def test_atomic_binary_write_replaces_whole_file(tmp_path: Path) -> None:
+    path = tmp_path / "tenant.zip"
+    path.write_bytes(b"old")
+
+    _write_bytes_atomically(path, b"new archive")
+
+    assert path.read_bytes() == b"new archive"
+    assert [item.name for item in tmp_path.iterdir()] == ["tenant.zip"]

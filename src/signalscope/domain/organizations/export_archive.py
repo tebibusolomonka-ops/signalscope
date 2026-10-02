@@ -11,6 +11,7 @@ from typing import Any
 from sqlalchemy import inspect
 from sqlalchemy.orm import DeclarativeBase
 
+from signalscope.core.errors import ServiceUnavailableError
 from signalscope.domain.organizations.export_inventory import (
     OrganizationExportInventory,
     OrganizationExportInventoryService,
@@ -61,7 +62,7 @@ class OrganizationExportArchiveService:
     def __init__(
         self,
         inventory: OrganizationExportInventoryService,
-        blobs: BlobStore,
+        blobs: BlobStore | None = None,
         clock: Clock = utc_now,
     ) -> None:
         self.inventory = inventory
@@ -93,6 +94,8 @@ class OrganizationExportArchiveService:
         self, organization_id: uuid.UUID, artifact_key: str
     ) -> OrganizationExportArchive:
         archive = await self.build(organization_id)
+        if self.blobs is None:
+            raise ServiceUnavailableError("File storage is not configured.")
         await self.blobs.put(artifact_key, archive.data)
         return archive
 

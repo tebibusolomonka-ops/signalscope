@@ -61,6 +61,8 @@ from signalscope.domain.investigations.export import (
     InvestigationExportService,
     investigation_markdown,
 )
+from signalscope.domain.organizations.export_archive import OrganizationExportArchiveService
+from signalscope.domain.organizations.export_inventory import OrganizationExportInventoryService
 from signalscope.domain.organizations.invitation_cleanup import InvitationCleanupService
 from signalscope.domain.processing.file_import import FileImportService
 from signalscope.domain.processing.job_repository import DocumentProcessingJobRepository
@@ -294,6 +296,15 @@ def main(argv: Sequence[str] | None = None) -> int:
                 overwrite=args.overwrite,
             )
         )
+    if args.command == "export-organization":
+        return asyncio.run(
+            export_organization(
+                args.organization_id,
+                args.output,
+                settings,
+                overwrite=args.overwrite,
+            )
+        )
     if args.command == "link-events":
         return asyncio.run(link_events(settings, limit=args.limit))
     if args.command == "queue-claims":
@@ -468,6 +479,19 @@ def build_parser() -> argparse.ArgumentParser:
         "--output", type=Path, default=None, help="write to this file (default: standard output)"
     )
     export_command.add_argument(
+        "--overwrite", action="store_true", help="replace the output file if it exists"
+    )
+
+    organization_export = commands.add_parser(
+        "export-organization", help="write a portable organization ZIP archive"
+    )
+    organization_export.add_argument(
+        "organization_id", type=uuid.UUID, help="ID of the organization"
+    )
+    organization_export.add_argument(
+        "--output", type=Path, required=True, help="write the ZIP archive to this file"
+    )
+    organization_export.add_argument(
         "--overwrite", action="store_true", help="replace the output file if it exists"
     )
 
@@ -1010,12 +1034,60 @@ async def export_investigation(
     return 0
 
 
+async def export_organization(
+    organization_id: uuid.UUID,
+    output: Path,
+    settings: Settings,
+    out: TextIO | None = None,
+    err: TextIO | None = None,
+    *,
+    overwrite: bool = False,
+) -> int:
+    """Write a portable organization archive to a local file."""
+    out = sys.stdout if out is None else out
+    err = sys.stderr if err is None else err
+    if output.exists() and not overwrite:
+        print(f"Error: {output} already exists. Use --overwrite to replace it.", file=err)
+        return 1
+    if settings.database_url is None:
+        print(NO_DATABASE_ERROR, file=err)
+        return 1
+
+    async with _database(settings) as session_factory, session_factory() as session:
+        try:
+            archive = await OrganizationExportArchiveService(
+                OrganizationExportInventoryService(session)
+            ).build(organization_id)
+        except NotFoundError as error:
+            print(f"Error: {error}", file=err)
+            return 1
+    try:
+        _write_bytes_atomically(output, archive.data)
+    except OSError as error:
+        print(f"Error: Cannot write {output}: {error.strerror}", file=err)
+        return 1
+    print(f"Wrote {output}", file=out)
+    return 0
+
+
 def _write_atomically(path: Path, text: str) -> None:
     """Write text to a temporary file next to path, then move it over path."""
     handle, temporary = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
     try:
         with os.fdopen(handle, "w", encoding="utf-8", newline="") as file:
             file.write(text)
+        os.replace(temporary, path)
+    except BaseException:
+        Path(temporary).unlink(missing_ok=True)
+        raise
+
+
+def _write_bytes_atomically(path: Path, data: bytes) -> None:
+    """Write bytes to a temporary file next to path, then move it over path."""
+    handle, temporary = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
+    try:
+        with os.fdopen(handle, "wb") as file:
+            file.write(data)
         os.replace(temporary, path)
     except BaseException:
         Path(temporary).unlink(missing_ok=True)
