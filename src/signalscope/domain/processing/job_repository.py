@@ -6,7 +6,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from signalscope.core.errors import NotFoundError, short_error_message
 from signalscope.core.leases import DEFAULT_LEASE_POLICY, JobNotHeldError, LeasePolicy
+from signalscope.domain.documents.model import Document
+from signalscope.domain.operations.attempt import OperationAttemptOutcome, OperationAttemptQueue
+from signalscope.domain.operations.attempts import finish_attempt, start_attempt
 from signalscope.domain.processing.model import DocumentProcessingJob, ProcessingJobStatus
+from signalscope.domain.sources.model import Source
 
 
 class InvalidProcessingJobStatusChangeError(JobNotHeldError):
@@ -84,6 +88,21 @@ class DocumentProcessingJobRepository:
         job.lease_token = uuid.uuid4()
         # The row is locked, so no other transaction can change the count meanwhile.
         job.attempt_count += 1
+        organization_id = await self.session.scalar(
+            select(Source.organization_id)
+            .join(Document, Document.source_id == Source.id)
+            .where(Document.id == job.document_id)
+        )
+        await start_attempt(
+            self.session,
+            organization_id=organization_id,
+            queue=OperationAttemptQueue.PROCESSING,
+            job_id=job.id,
+            attempt_number=job.attempt_count,
+            resource_type="document",
+            resource_id=job.document_id,
+            started_at=now,
+        )
         await self.session.flush()
         return job
 
@@ -137,6 +156,15 @@ class DocumentProcessingJobRepository:
         )
         jobs = list(result.all())
         for job in jobs:
+            await finish_attempt(
+                self.session,
+                queue=OperationAttemptQueue.PROCESSING,
+                job_id=job.id,
+                attempt_number=job.attempt_count,
+                outcome=OperationAttemptOutcome.RECOVERED,
+                finished_at=now,
+                error="Worker lease expired.",
+            )
             job.status = ProcessingJobStatus.PENDING
             job.available_at = now
             job.claimed_at = None
@@ -189,6 +217,19 @@ class DocumentProcessingJobRepository:
         job.status = status
         job.finished_at = now
         job.last_error = last_error
+        await finish_attempt(
+            self.session,
+            queue=OperationAttemptQueue.PROCESSING,
+            job_id=job.id,
+            attempt_number=job.attempt_count,
+            outcome=(
+                OperationAttemptOutcome.SUCCEEDED
+                if status is ProcessingJobStatus.COMPLETED
+                else OperationAttemptOutcome.FAILED
+            ),
+            finished_at=now,
+            error=last_error,
+        )
         # A finished job is no longer held, so it can never look stale.
         job.lease_expires_at = None
         job.lease_token = None
