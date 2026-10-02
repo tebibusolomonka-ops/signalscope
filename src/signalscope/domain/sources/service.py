@@ -40,13 +40,21 @@ class SourceService:
         return source
 
     async def list_page(
-        self, limit: int, offset: int, scope: ContentScope | None = None
+        self,
+        limit: int,
+        offset: int,
+        scope: ContentScope | None = None,
+        query: str | None = None,
     ) -> tuple[list[Source], int]:
-        """Return one page of sources in scope and how many there are."""
+        """Return one page of sources in scope and how many there are.
+
+        query keeps sources whose name or URL contains it, so a picker can search
+        instead of loading every source.
+        """
         scope = scope or ContentScope.unrestricted()
         return (
-            await self.repository.list_page(limit, offset, scope),
-            await self.repository.count(scope),
+            await self.repository.list_page(limit, offset, scope, query),
+            await self.repository.count(scope, query),
         )
 
     async def delete(self, source_id: uuid.UUID) -> None:

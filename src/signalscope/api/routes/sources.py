@@ -1,7 +1,7 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 
 from signalscope.api.dependencies import DatabaseSession
 from signalscope.api.pagination import Page, Pagination
@@ -47,9 +47,24 @@ async def create_source(data: SourceCreate, sources: Sources, policy: Policy) ->
 
 
 @router.get("")
-async def list_sources(page: Pagination, sources: Sources, scope: ReadScope) -> Page[SourceRead]:
-    """Sources of the organization_id organization, or legacy sources for system admins."""
-    items, total = await sources.list_page(page.limit, page.offset, scope)
+async def list_sources(
+    page: Pagination,
+    sources: Sources,
+    scope: ReadScope,
+    query: Annotated[
+        str | None,
+        Query(
+            min_length=1,
+            max_length=200,
+            description="Keep sources whose name or URL contains this.",
+        ),
+    ] = None,
+) -> Page[SourceRead]:
+    """Sources of the organization_id organization, or legacy sources for system admins.
+
+    query keeps sources whose name or URL contains it, so a picker can search.
+    """
+    items, total = await sources.list_page(page.limit, page.offset, scope, query)
     return Page[SourceRead](
         items=[SourceRead.model_validate(source) for source in items],
         total=total,

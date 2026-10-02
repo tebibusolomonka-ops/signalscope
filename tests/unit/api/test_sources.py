@@ -58,6 +58,17 @@ def test_source_routes_are_in_openapi(app: FastAPI) -> None:
     assert set(paths["/sources/{source_id}/schedule"]) == {"put", "delete"}
     assert paths["/sources"]["post"]["tags"] == ["Sources"]
     assert paths["/sources/{source_id}/schedule"]["put"]["tags"] == ["Sources"]
+    assert "query" in {parameter["name"] for parameter in paths["/sources"]["get"]["parameters"]}
+
+
+@pytest.mark.parametrize("query", ["", "x" * 201])
+def test_invalid_source_query_is_rejected(query: str) -> None:
+    app = create_app(Settings(database_url=FAKE_DATABASE_URL))
+
+    with TestClient(app) as client:
+        response = client.get("/sources", params={"query": query})
+
+    assert response.status_code == 422
 
 
 def test_schedule_schema_is_in_openapi(app: FastAPI) -> None:

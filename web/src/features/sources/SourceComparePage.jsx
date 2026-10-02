@@ -32,7 +32,8 @@ const SIGNALS = [
  */
 export function SourceComparePage() {
   const { active, tenantApi } = useOrganization();
-  const { sources, loaded, error: sourcesError } = useSourceOptions();
+  const sourceOptions = useSourceOptions();
+  const { sources, loaded, error: sourcesError } = sourceOptions;
   const [selected, setSelected] = useState([]);
   const [state, setState] = useState({ busy: false, error: null, result: null });
 
@@ -70,6 +71,24 @@ export function SourceComparePage() {
         <h2 id="compare-choose">Sources</h2>
         {!loaded && <Loading />}
         <ErrorMessage error={sourcesError} />
+        <label>
+          Find source
+          <input
+            type="search"
+            value={sourceOptions.query}
+            onChange={(event) => sourceOptions.setQuery(event.target.value)}
+          />
+        </label>
+        {sourceOptions.hasMore && (
+          <button
+            type="button"
+            className="secondary"
+            onClick={sourceOptions.loadMore}
+            disabled={sourceOptions.loading}
+          >
+            {sourceOptions.loading ? "Loading..." : "Load more sources"}
+          </button>
+        )}
         {loaded && sources.length < MIN && (
           <p className="muted">This organization needs at least two sources to compare.</p>
         )}

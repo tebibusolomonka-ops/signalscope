@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import ColumnElement, delete, func, select
+from sqlalchemy import ColumnElement, delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from signalscope.domain.sources.model import Source
@@ -68,24 +68,40 @@ class SourceRepository:
         return list(result.all())
 
     async def list_page(
-        self, limit: int, offset: int, scope: ContentScope = UNRESTRICTED
+        self,
+        limit: int,
+        offset: int,
+        scope: ContentScope = UNRESTRICTED,
+        query: str | None = None,
     ) -> list[Source]:
         result = await self.session.scalars(
             select(Source)
-            .where(scope.owner_condition(Source.organization_id))
+            .where(*self._conditions(scope, query))
             .order_by(Source.created_at, Source.id)
             .limit(limit)
             .offset(offset)
         )
         return list(result.all())
 
-    async def count(self, scope: ContentScope = UNRESTRICTED) -> int:
+    async def count(self, scope: ContentScope = UNRESTRICTED, query: str | None = None) -> int:
         result = await self.session.execute(
-            select(func.count())
-            .select_from(Source)
-            .where(scope.owner_condition(Source.organization_id))
+            select(func.count()).select_from(Source).where(*self._conditions(scope, query))
         )
         return result.scalar_one()
+
+    @staticmethod
+    def _conditions(scope: ContentScope, query: str | None) -> list[ColumnElement[bool]]:
+        conditions: list[ColumnElement[bool]] = [scope.owner_condition(Source.organization_id)]
+        if query:
+            # Plain text: % and _ have no special meaning.
+            pattern = f"%{_escape(query)}%"
+            conditions.append(
+                or_(
+                    Source.name.ilike(pattern, escape="\\"),
+                    Source.url.ilike(pattern, escape="\\"),
+                )
+            )
+        return conditions
 
     async def delete(self, source_id: uuid.UUID) -> bool:
         """Delete a source. Returns False when there was no source with that ID."""
@@ -97,3 +113,8 @@ class SourceRepository:
 
 def _due(now: datetime) -> list[ColumnElement[bool]]:
     return [Source.ingestion_enabled.is_(True), Source.next_ingestion_at <= now]
+
+
+def _escape(value: str) -> str:
+    """Escape LIKE wildcards so a search is taken as plain text."""
+    return value.replace("\\", "\\\\").replace("%", r"\%").replace("_", r"\_")

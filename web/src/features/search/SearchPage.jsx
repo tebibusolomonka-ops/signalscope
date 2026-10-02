@@ -7,6 +7,7 @@ import { EvidenceReference } from "../../components/EvidenceReference.jsx";
 import { ErrorMessage, Loading } from "../../components/Status.jsx";
 import { useResource } from "../../lib/useResource.js";
 import { SaveToInvestigation } from "../investigations/SaveToInvestigation.jsx";
+import { SourcePicker } from "../sources/SourcePicker.jsx";
 import { useSourceOptions } from "../sources/useSourceOptions.js";
 
 // Semantic and hybrid search name their embedding model. The API's local
@@ -30,7 +31,8 @@ const LIMITS = [10, 25, 50];
  */
 export function SearchPage() {
   const { active } = useOrganization();
-  const { sources, names } = useSourceOptions();
+  const sourceOptions = useSourceOptions();
+  const { names } = sourceOptions;
   const [params, setParams] = useSearchParams();
   const current = params.get("org") === active.id;
   const search = {
@@ -55,13 +57,13 @@ export function SearchPage() {
       <PageHeading title="Search">
         <span className="muted">{active.name}</span>
       </PageHeading>
-      <SearchForm key={params.toString()} search={search} sources={sources} onSubmit={submit} />
+      <SearchForm key={params.toString()} search={search} sourceOptions={sourceOptions} onSubmit={submit} />
       {search.q && <Results search={search} names={names} />}
     </>
   );
 }
 
-function SearchForm({ search, sources, onSubmit }) {
+function SearchForm({ search, sourceOptions, onSubmit }) {
   return (
     <section className="panel" aria-labelledby="search-form">
       <h2 id="search-form">Query</h2>
@@ -80,17 +82,7 @@ function SearchForm({ search, sources, onSubmit }) {
             ))}
           </select>
         </label>
-        <label>
-          Source
-          <select name="source_id" defaultValue={search.source_id}>
-            <option value="">All sources</option>
-            {sources.map((source) => (
-              <option key={source.id} value={source.id}>
-                {source.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <SourcePicker options={sourceOptions} defaultValue={search.source_id} />
         <label>
           Results
           <select name="limit" defaultValue={String(search.limit)}>

@@ -135,6 +135,38 @@ describe("save to investigation", () => {
     expect(call.query.get("organization_id")).toBe("org-a");
   });
 
+  it("loads and saves to an investigation from a later page", async () => {
+    const saved = [];
+    renderApp({
+      path: "/entities/e-1",
+      routes: routes(saved, {
+        "GET /investigations": ({ query }) =>
+          query.get("offset") === "50"
+            ? page([investigation({ id: "inv-101", title: "Later investigation" })], {
+                total: 51,
+                offset: 50,
+              })
+            : page([investigation()], { total: 51 }),
+        "POST /investigations/inv-101/items": ({ body }) => {
+          saved.push({ ...body, investigation: "inv-101" });
+          return { status: 201, body: savedItem(body.item_type, {}) };
+        },
+      }),
+    });
+    const user = userEvent.setup();
+
+    const form = await saveFrom(user);
+    await user.click(within(form).getByRole("button", { name: "Load more investigations" }));
+    await within(form).findByRole("option", { name: "Later investigation" });
+    await user.selectOptions(within(form).getByLabelText("Investigation"), "inv-101");
+    await user.click(within(form).getByRole("button", { name: "Save" }));
+
+    await within(form).findByRole("status");
+    expect(saved).toEqual([
+      { item_type: "entity", reference_id: "e-1", investigation: "inv-101" },
+    ]);
+  });
+
   it("says when there is no open investigation", async () => {
     renderApp({ path: "/entities/e-1", routes: routes([], { "GET /investigations": page([]) }) });
     const user = userEvent.setup();

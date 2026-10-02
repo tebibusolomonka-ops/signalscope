@@ -7,6 +7,7 @@ import { Pager } from "../../components/Pager.jsx";
 import { ErrorMessage, Loading } from "../../components/Status.jsx";
 import { formatTime } from "../../lib/format.js";
 import { useResource } from "../../lib/useResource.js";
+import { SourcePicker } from "../sources/SourcePicker.jsx";
 import { useSourceOptions } from "../sources/useSourceOptions.js";
 
 const PAGE_SIZE = 50;
@@ -37,7 +38,7 @@ function dayAfter(day) {
  */
 export function TimelinePage() {
   const { active, tenantApi } = useOrganization();
-  const { sources } = useSourceOptions();
+  const sourceOptions = useSourceOptions();
   const [filters, setFilters] = useState(NO_FILTERS);
   const [offset, setOffset] = useState(0);
   const load = useCallback(
@@ -95,17 +96,7 @@ export function TimelinePage() {
             To (UTC)
             <input type="date" name="occurred_to" defaultValue={filters.occurred_to} />
           </label>
-          <label>
-            Source
-            <select name="source_id" defaultValue={filters.source_id}>
-              <option value="">All sources</option>
-              {sources.map((source) => (
-                <option key={source.id} value={source.id}>
-                  {source.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          <SourcePicker options={sourceOptions} defaultValue={filters.source_id} />
           <label>
             Order
             <select name="order" defaultValue={filters.order}>

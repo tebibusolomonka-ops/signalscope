@@ -7,6 +7,7 @@ import { Pager } from "../../components/Pager.jsx";
 import { ErrorMessage, Loading } from "../../components/Status.jsx";
 import { formatTime } from "../../lib/format.js";
 import { useResource } from "../../lib/useResource.js";
+import { SourcePicker } from "../sources/SourcePicker.jsx";
 import { useSourceOptions } from "../sources/useSourceOptions.js";
 import { RESEARCH_MODES } from "./modes.js";
 
@@ -15,7 +16,8 @@ const PAGE_SIZE = 50;
 /** Research sessions of the active organization, and a form to start one. */
 export function ResearchPage() {
   const { active, tenantApi, can } = useOrganization();
-  const { sources, names } = useSourceOptions();
+  const sourceOptions = useSourceOptions();
+  const { names } = sourceOptions;
   const [offset, setOffset] = useState(0);
   const load = useCallback(
     () => tenantApi.get("/research/sessions", { query: { limit: PAGE_SIZE, offset } }),
@@ -81,7 +83,7 @@ export function ResearchPage() {
         )}
       </section>
       {can.contribute ? (
-        <StartSession sources={sources} />
+        <StartSession sourceOptions={sourceOptions} />
       ) : (
         <p className="muted">Your role in this organization can read sessions but not start one.</p>
       )}
@@ -89,7 +91,7 @@ export function ResearchPage() {
   );
 }
 
-function StartSession({ sources }) {
+function StartSession({ sourceOptions }) {
   const { tenantApi } = useOrganization();
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
@@ -137,17 +139,7 @@ function StartSession({ sources }) {
             ))}
           </select>
         </label>
-        <label>
-          Source
-          <select name="source_id" defaultValue="">
-            <option value="">All sources</option>
-            {sources.map((source) => (
-              <option key={source.id} value={source.id}>
-                {source.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <SourcePicker options={sourceOptions} />
         <ErrorMessage error={error} />
         <button type="submit" disabled={busy}>
           {busy ? "Starting..." : "Start session"}

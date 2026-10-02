@@ -124,6 +124,45 @@ describe("search workspace", () => {
     expect(searchCalls(calls)[0].query.get("source_id")).toBe("s-2");
   });
 
+  it("loads and selects a source from a later page without duplicates", async () => {
+    const { calls } = renderApp({
+      path: "/search",
+      routes: routes({
+        "GET /sources": ({ query }) => {
+          if (query.get("offset") === "50") {
+            return page([
+              source({ id: "s-2", name: "Harbour Site" }),
+              source({ id: "s-101", name: "Later Source" }),
+            ], { total: 101, offset: 50 });
+          }
+          return page([source(), source({ id: "s-2", name: "Harbour Site" })], { total: 101 });
+        },
+      }),
+    });
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: "Load more sources" }));
+    const form = screen.getByRole("search", { name: "Search documents" });
+    await within(form).findByRole("option", { name: "Later Source" });
+    expect(within(form).getAllByRole("option", { name: "Harbour Site" })).toHaveLength(1);
+    await user.selectOptions(within(form).getByLabelText("Source"), "s-101");
+    await runSearch(user, "later");
+
+    expect(searchCalls(calls).at(-1).query.get("source_id")).toBe("s-101");
+  });
+
+  it("searches source options on the server", async () => {
+    const { calls } = renderApp({ path: "/search", routes: routes() });
+    const user = userEvent.setup();
+
+    await user.type(await screen.findByLabelText("Find source"), "site");
+
+    await waitFor(() =>
+      expect(calls.some((call) => call.path === "/sources" && call.query.get("query") === "site"))
+        .toBe(true),
+    );
+  });
+
   it("explains a model that is not enabled", async () => {
     renderApp({
       path: "/search",

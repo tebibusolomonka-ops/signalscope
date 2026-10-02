@@ -4,6 +4,7 @@ import { Link } from "react-router";
 import { useOrganization } from "../../app/useOrganization.js";
 import { PageHeading } from "../../components/PageHeading.jsx";
 import { ErrorMessage } from "../../components/Status.jsx";
+import { SourcePicker } from "../sources/SourcePicker.jsx";
 import { useSourceOptions } from "../sources/useSourceOptions.js";
 import { AnswerText, EvidenceCard } from "./Evidence.jsx";
 import { focusEvidence } from "./evidenceFocus.js";
@@ -17,7 +18,8 @@ const SCOPE = "quick";
  */
 export function QuickResearchPage() {
   const { active, tenantApi } = useOrganization();
-  const { sources, names } = useSourceOptions();
+  const sourceOptions = useSourceOptions();
+  const { names } = sourceOptions;
   const [state, setState] = useState({ busy: null, error: null, result: null });
   const [focus, setFocus] = useState(null);
   // Which submit button was pressed: collect evidence, or also answer.
@@ -75,17 +77,7 @@ export function QuickResearchPage() {
                 ))}
               </select>
             </label>
-            <label>
-              Source
-              <select name="source_id" defaultValue="">
-                <option value="">All sources</option>
-                {sources.map((source) => (
-                  <option key={source.id} value={source.id}>
-                    {source.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <SourcePicker options={sourceOptions} />
             <label>
               Evidence pieces
               <input name="limit" type="number" min={1} max={20} defaultValue={8} />

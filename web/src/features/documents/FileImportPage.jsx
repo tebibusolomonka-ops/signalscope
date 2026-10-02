@@ -49,7 +49,8 @@ export function FileImportPage() {
   const { active, tenantApi, can } = useOrganization();
   const loadLimits = useCallback(() => tenantApi.get("/documents/files/limits"), [tenantApi]);
   const limits = useResource(loadLimits);
-  const { sources, loaded, error: sourcesError } = useSourceOptions();
+  const sourceOptions = useSourceOptions();
+  const { sources, loaded, error: sourcesError } = sourceOptions;
   const uploads = sources.filter((source) => source.type === "upload");
 
   return (
@@ -77,7 +78,7 @@ export function FileImportPage() {
             </p>
           )}
           {limits.data && uploads.length > 0 && (
-            <ImportForm limits={limits.data} uploads={uploads} />
+            <ImportForm limits={limits.data} uploads={uploads} sourceOptions={sourceOptions} />
           )}
         </section>
       )}
@@ -85,7 +86,7 @@ export function FileImportPage() {
   );
 }
 
-function ImportForm({ limits, uploads }) {
+function ImportForm({ limits, uploads, sourceOptions }) {
   const { tenantApi } = useOrganization();
   const [sourceId, setSourceId] = useState(uploads[0].id);
   const [file, setFile] = useState(null);
@@ -114,6 +115,17 @@ function ImportForm({ limits, uploads }) {
   return (
     <form className="form" onSubmit={submit}>
       <label>
+        Find upload source
+        <input
+          type="search"
+          value={sourceOptions.query}
+          onChange={(event) => {
+            setSourceId("");
+            sourceOptions.setQuery(event.target.value);
+          }}
+        />
+      </label>
+      <label>
         Upload source
         <select value={sourceId} onChange={(event) => setSourceId(event.target.value)}>
           {uploads.map((source) => (
@@ -123,6 +135,16 @@ function ImportForm({ limits, uploads }) {
           ))}
         </select>
       </label>
+      {sourceOptions.hasMore && (
+        <button
+          type="button"
+          className="secondary"
+          onClick={sourceOptions.loadMore}
+          disabled={sourceOptions.loading}
+        >
+          {sourceOptions.loading ? "Loading..." : "Load more sources"}
+        </button>
+      )}
       <label>
         File
         <input

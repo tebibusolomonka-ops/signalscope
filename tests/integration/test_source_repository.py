@@ -103,6 +103,22 @@ async def test_count(session_factory: async_sessionmaker[AsyncSession]) -> None:
         assert await SourceRepository(session).count() == 2
 
 
+async def test_query_filters_names_and_urls_before_paging(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    await add_source(session_factory, "Harbour Feed", "https://example.com/news")
+    await add_source(session_factory, "River Feed", "https://harbour.example.org/rss")
+    await add_source(session_factory, "Other", "https://example.com/other")
+
+    async with session_factory() as session:
+        repository = SourceRepository(session)
+        sources = await repository.list_page(limit=1, offset=1, query="HARBOUR")
+        total = await repository.count(query="HARBOUR")
+
+    assert [source.name for source in sources] == ["River Feed"]
+    assert total == 2
+
+
 async def test_delete_removes_source(session_factory: async_sessionmaker[AsyncSession]) -> None:
     source = await add_source(session_factory, "Old feed")
 
