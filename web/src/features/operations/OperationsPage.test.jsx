@@ -71,7 +71,8 @@ describe("operations workspace", () => {
         },
       }),
     });
-    expect(await screen.findByRole("alert")).toHaveTextContent("Database is not configured.");
+    const queues = await screen.findByRole("region", { name: "Queues" });
+    expect(await within(queues).findByRole("alert")).toHaveTextContent("Database is not configured.");
   });
 
   it("tells members they cannot see operations", async () => {
