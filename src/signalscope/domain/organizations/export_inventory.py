@@ -68,10 +68,16 @@ class OrganizationExportInventoryService:
         if organization is None:
             raise NotFoundError("Organization was not found.")
 
-        tenant_documents = Document.source_id.in_(
-            select(Source.id).where(Source.organization_id == organization_id)
+        tenant_document_ids = select(Document.id).where(
+            Document.source_id.in_(
+                select(Source.id).where(Source.organization_id == organization_id)
+            )
         )
-        tenant_chunks = DocumentChunk.document_id.in_(select(Document.id).where(tenant_documents))
+        tenant_documents = Document.id.in_(tenant_document_ids)
+        tenant_chunk_ids = select(DocumentChunk.id).where(
+            DocumentChunk.document_id.in_(tenant_document_ids)
+        )
+        tenant_chunks = DocumentChunk.id.in_(tenant_chunk_ids)
         tenant_investigations = Investigation.id.in_(
             select(Investigation.id).where(Investigation.organization_id == organization_id)
         )
@@ -79,13 +85,13 @@ class OrganizationExportInventoryService:
             select(ResearchSession.id).where(ResearchSession.organization_id == organization_id)
         )
         tenant_entity_ids = select(EntityMention.entity_id).where(
-            EntityMention.document_id.in_(select(Document.id).where(tenant_documents))
+            EntityMention.document_id.in_(tenant_document_ids)
         )
         tenant_claim_ids = select(ClaimEvidence.claim_id).where(
-            ClaimEvidence.chunk_id.in_(tenant_chunks)
+            ClaimEvidence.chunk_id.in_(tenant_chunk_ids)
         )
         tenant_event_ids = select(EventEvidence.event_id).where(
-            EventEvidence.chunk_id.in_(tenant_chunks)
+            EventEvidence.chunk_id.in_(tenant_chunk_ids)
         )
         tenant_cluster_ids = select(EventCluster.id).where(
             EventCluster.organization_id == organization_id
@@ -106,9 +112,7 @@ class OrganizationExportInventoryService:
             ),
             document_revisions=await self._rows(
                 select(DocumentRevision)
-                .where(
-                    DocumentRevision.document_id.in_(select(Document.id).where(tenant_documents))
-                )
+                .where(DocumentRevision.document_id.in_(tenant_document_ids))
                 .order_by(DocumentRevision.document_id, DocumentRevision.version)
             ),
             document_chunks=await self._rows(
@@ -118,7 +122,7 @@ class OrganizationExportInventoryService:
             ),
             document_assets=await self._rows(
                 select(DocumentAsset)
-                .where(DocumentAsset.document_id.in_(select(Document.id).where(tenant_documents)))
+                .where(DocumentAsset.document_id.in_(tenant_document_ids))
                 .order_by(DocumentAsset.document_id, DocumentAsset.id)
             ),
             entities=await self._rows(
@@ -126,7 +130,7 @@ class OrganizationExportInventoryService:
             ),
             entity_mentions=await self._rows(
                 select(EntityMention)
-                .where(EntityMention.document_id.in_(select(Document.id).where(tenant_documents)))
+                .where(EntityMention.document_id.in_(tenant_document_ids))
                 .order_by(EntityMention.id)
             ),
             claims=await self._rows(
@@ -134,7 +138,7 @@ class OrganizationExportInventoryService:
             ),
             claim_evidence=await self._rows(
                 select(ClaimEvidence)
-                .where(ClaimEvidence.chunk_id.in_(tenant_chunks))
+                .where(ClaimEvidence.chunk_id.in_(tenant_chunk_ids))
                 .order_by(ClaimEvidence.id)
             ),
             events=await self._rows(
@@ -142,7 +146,7 @@ class OrganizationExportInventoryService:
             ),
             event_evidence=await self._rows(
                 select(EventEvidence)
-                .where(EventEvidence.chunk_id.in_(tenant_chunks))
+                .where(EventEvidence.chunk_id.in_(tenant_chunk_ids))
                 .order_by(EventEvidence.id)
             ),
             event_clusters=await self._rows(

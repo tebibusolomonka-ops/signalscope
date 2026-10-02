@@ -29,6 +29,7 @@ ROLES = ("owner", "admin", "member", "viewer")
 @dataclass
 class Tenant:
     id: uuid.UUID
+    owner_id: uuid.UUID
     # Bearer headers of this organization's users, by role.
     headers: dict[str, dict[str, str]] = field(default_factory=dict)
 
@@ -65,7 +66,7 @@ async def make_tenants(
                 await service.add_member(
                     users["owner"], organization.id, users[role].id, OrganizationRole(role)
                 )
-        tenant = Tenant(organization.id)
+        tenant = Tenant(organization.id, users["owner"].id)
         for role in ROLES:
             tenant.headers[role] = bearer(await login(client, f"{name}-{role}@example.org"))
         tenants.append(tenant)

@@ -50,9 +50,10 @@ class OrganizationExportService:
         if self.blobs is None:
             raise ServiceUnavailableError("File storage is not configured.")
         now = self.clock()
+        actor_id = self.actor.id
         export = OrganizationExport(
             organization_id=organization_id,
-            requested_by_user_id=self.actor.id,
+            requested_by_user_id=actor_id,
             status=OrganizationExportStatus.RUNNING,
             format_version=EXPORT_FORMAT_VERSION,
             started_at=now,
@@ -60,6 +61,8 @@ class OrganizationExportService:
         self.session.add(export)
         await self.session.flush()
         export.artifact_key = f"organization-exports/{export.id}.zip"
+        export_id = export.id
+        artifact_key = export.artifact_key
         try:
             archive = await OrganizationExportArchiveService(
                 OrganizationExportInventoryService(self.session), self.blobs, self.clock
@@ -70,7 +73,7 @@ class OrganizationExportService:
             export.sha256 = archive.sha256
             SecurityAuditService(self.session).record(
                 AuditAction.ORGANIZATION_EXPORT_CREATED,
-                actor_user_id=self.actor.id,
+                actor_user_id=actor_id,
                 organization_id=organization_id,
                 resource_type="organization_export",
                 resource_id=export.id,
@@ -78,13 +81,13 @@ class OrganizationExportService:
             await self.session.commit()
         except Exception as error:
             await self.session.rollback()
-            if export.artifact_key is not None:
+            if artifact_key is not None:
                 with suppress(SignalScopeError):
-                    await self.blobs.delete(export.artifact_key)
+                    await self.blobs.delete(artifact_key)
             failed = OrganizationExport(
-                id=export.id,
+                id=export_id,
                 organization_id=organization_id,
-                requested_by_user_id=self.actor.id,
+                requested_by_user_id=actor_id,
                 status=OrganizationExportStatus.FAILED,
                 format_version=EXPORT_FORMAT_VERSION,
                 started_at=now,

@@ -26,7 +26,7 @@ SHA256 = hashlib.sha256(b"archive").hexdigest()
 def export_for(tenants: Tenants, **values: Any) -> OrganizationExport:
     fields: dict[str, Any] = {
         "organization_id": tenants.a.id,
-        "requested_by_user_id": tenants.owner.id,
+        "requested_by_user_id": tenants.a.owner_id,
         "status": OrganizationExportStatus.PENDING,
         "format_version": "1",
     }
@@ -129,4 +129,4 @@ async def test_requesting_user_cannot_be_deleted_while_export_exists(
 
     async with session_factory() as session:
         with pytest.raises(IntegrityError):
-            await session.execute(delete(User).where(User.id == tenants.owner.id))
+            await session.execute(delete(User).where(User.id == tenants.a.owner_id))
