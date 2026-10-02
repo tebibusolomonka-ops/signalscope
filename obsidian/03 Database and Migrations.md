@@ -1,8 +1,7 @@
 # Database and Migrations
 
 PostgreSQL 17 with the pgvector extension. Current Alembic head:
-`c4e1d7a29b35` (Add organization
-retention policies).
+`b7e4c6a91d02` (Create organization exports).
 
 ## Rules
 
@@ -49,7 +48,9 @@ retention policies).
   (SHA-256 token hash only, expiry, revoked time).
 - **Organizations**: `organizations` (unique slug, creator), and
   `organization_memberships` (one role per user and organization, role as
-  text with a check).
+  text with a check). `organization_exports` records each requested portable
+  export, its lifecycle, format version, expiry and safe BlobStore artifact
+  metadata; rows are deleted with the organization.
 - **Invitations**: `organization_invitations` (normalized email, role
   admin, member or viewer, never owner; the SHA-256 of the token, unique;
   expiry, accepted and revoked times, inviter). Status is computed from the

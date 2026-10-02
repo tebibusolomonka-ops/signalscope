@@ -49,6 +49,9 @@ function answer(status, body, type) {
   if (type === "text") {
     return new Response(body, { status, headers: { "Content-Type": "text/markdown" } });
   }
+  if (type === "blob") {
+    return new Response(body, { status, headers: { "Content-Type": "application/zip" } });
+  }
   return new Response(JSON.stringify(body), {
     status,
     headers: { "Content-Type": "application/json" },

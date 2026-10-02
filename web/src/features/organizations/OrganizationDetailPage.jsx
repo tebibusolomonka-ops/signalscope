@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { useParams } from "react-router";
+import { Link, useParams } from "react-router";
 
 import { useAuth } from "../../app/useAuth.js";
 import { PageHeading } from "../../components/PageHeading.jsx";
@@ -42,6 +42,11 @@ export function OrganizationDetailPage() {
         <dt>Your role</dt>
         <dd>{role ?? "Not a member (system admin access)"}</dd>
       </dl>
+      {(role === "owner" || role === "admin" || role === null) && (
+        <p>
+          <Link to={`/organizations/${organizationId}/exports`}>Manage portable exports</Link>
+        </p>
+      )}
       <Members organizationId={organizationId} />
       <Invitations organizationId={organizationId} />
       <AccessSummary organizationId={organizationId} />

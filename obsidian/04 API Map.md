@@ -278,6 +278,12 @@ Aggregates only; no record lists, scores or rankings.
 Relation extraction and extraction evaluation are command line only
 (`signalscope evaluate-extraction`, `signalscope check-structured-model`).
 Investigations can also be exported with `signalscope export-investigation`.
+Portable tenant archives are administered with `POST` and `GET`
+`/organizations/{organization_id}/exports`, inspected at
+`/organizations/{organization_id}/exports/{export_id}`, and downloaded from
+the nested `/download` route after authorization. Owners, admins and system
+admins may use them. `signalscope export-organization ORGANIZATION_ID
+--output FILE.zip` builds the same versioned archive locally.
 There is no relation route, because no relations are stored.
 
 See [[06 Search and AI]] for the models behind these routes.

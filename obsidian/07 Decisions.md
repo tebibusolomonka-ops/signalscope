@@ -184,6 +184,12 @@ Decisions that should hold unless there is a clear reason to change them.
   Markdown is never rewritten in JavaScript, nothing is searched or answered
   again, and file names come from fixed words and the record ID, never a
   title.
+- **Organization exports are stored portable snapshots.** A fixed-path,
+  versioned ZIP is built from a deterministic tenant inventory and stored
+  through BlobStore. Global Entity and Claim rows enter only through evidence
+  visible to that tenant. Binary asset bytes and authentication secrets stay
+  out. Downloads authorize before the artifact is opened, and the UI never
+  receives its storage key.
 - **Answers are conversation, evidence is evidence.** Research pages show
   earlier answers in the conversation and the saved evidence in a separate
   panel; citation buttons move focus to the cited evidence. A turn without

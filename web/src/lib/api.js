@@ -52,8 +52,14 @@ export function createApiClient({ baseUrl, getToken = () => null, fetchImpl }) {
 
   // file sends a File or Blob as the raw body, with its own content type.
   // text reads the answer as text, for Markdown exports.
-  async function request(method, path, { body, query, file, contentType, text = false } = {}) {
-    const headers = { Accept: text ? "text/markdown, text/plain" : "application/json" };
+  async function request(
+    method,
+    path,
+    { body, query, file, contentType, text = false, blob = false } = {},
+  ) {
+    const headers = {
+      Accept: blob ? "application/zip" : text ? "text/markdown, text/plain" : "application/json",
+    };
     if (body !== undefined) headers["Content-Type"] = "application/json";
     if (file !== undefined) headers["Content-Type"] = contentType;
     const token = getToken();
@@ -70,13 +76,14 @@ export function createApiClient({ baseUrl, getToken = () => null, fetchImpl }) {
     }
     if (!response.ok) throw await parseError(response);
     if (response.status === 204) return null;
-    return text ? response.text() : response.json();
+    return blob ? response.blob() : text ? response.text() : response.json();
   }
 
   return {
     request,
     get: (path, options) => request("GET", path, options),
     getText: (path, options) => request("GET", path, { ...options, text: true }),
+    getBlob: (path, options) => request("GET", path, { ...options, blob: true }),
     post: (path, body, options) => request("POST", path, { ...options, body }),
     put: (path, body, options) => request("PUT", path, { ...options, body }),
     patch: (path, body, options) => request("PATCH", path, { ...options, body }),

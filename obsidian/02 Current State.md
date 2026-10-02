@@ -1,9 +1,8 @@
 # Current State
 
-Batch 360 to 379, organization operations, failed job recovery, audit
-retention and research usability, is complete at `03dd287` after one corrective
-commit. The repository has 382 commits before planned commit 380. Alembic head:
-`d8f2c91a4e60` (Align operation attempt columns).
+Batch 380 to 419 is in progress. Durable operation history and portable
+organization exports are complete through planned commit 389. Alembic head:
+`b7e4c6a91d02` (Create organization exports).
 
 ## Done
 
@@ -66,6 +65,13 @@ commit. The repository has 382 commits before planned commit 380. Alembic head:
   admins and system admins of one organization. Worker claims and outcomes
   for all six queues are durable tenant history, exposed by the filtered,
   paged `GET /operations/history` route and the operations workspace.
+- Portable organization exports: durable export records, a deterministic
+  versioned ZIP with tenant-scoped JSON and JSONL files, safe global Entity
+  and Claim scoping through tenant evidence, BlobStore artifacts, owner/admin
+  API administration and downloads, `signalscope export-organization`, and
+  the `/organizations/:organizationId/exports` workspace. Passwords, session
+  hashes, invitation hashes, model caches and binary asset contents are not
+  exported.
 - Audit retention: a per-organization policy (indefinite by default), a
   preview for owners and admins, cleanup for system admins through the API
   or `signalscope cleanup-security-audit --apply`.

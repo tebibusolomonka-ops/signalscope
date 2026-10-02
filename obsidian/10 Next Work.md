@@ -31,6 +31,10 @@ evidence summaries and navigation, research turn paging, paged tenant
 resource pickers, live ingestion run refresh, and starting a research session
 with its first question.
 
+Batch 380 to 419 is in progress. Operation attempt history and portable
+organization export records, inventory, ZIP generation, administration and
+web workspace are complete through planned commit 389.
+
 ## Next batch
 
 1. Run the real structured-extraction and answer-model smoke checks
