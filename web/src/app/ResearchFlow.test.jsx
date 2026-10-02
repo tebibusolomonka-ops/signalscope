@@ -93,9 +93,9 @@ function riverRoutes(state) {
     "GET /investigations/inv-r/export": { body: INVESTIGATION_MARKDOWN, type: "text" },
     "GET /research/sessions": page([RIVER_SESSION]),
     "GET /research/sessions/rs-r": { body: RIVER_SESSION },
-    "GET /research/sessions/rs-r/turns": {
-      body: [turn(1, { id: "t-r1", question: "Where did it flood?" })],
-    },
+    "GET /research/sessions/rs-r/turns": page([
+      turn(1, { id: "t-r1", question: "Where did it flood?" }),
+    ]),
     "POST /research/sessions/rs-r/turns": ({ body }) => ({
       status: 201,
       body: {

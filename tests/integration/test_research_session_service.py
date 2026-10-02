@@ -203,5 +203,10 @@ async def test_turns_saved_at_once_get_different_numbers(
 
     assert sorted(turn.sequence for turn in turns) == [1, 2, 3, 4]
     async with session_factory() as session:
-        listed = await service(session).list_turns(session_id)
+        listed, total = await service(session).list_turns(session_id, 50, 0)
     assert [turn.sequence for turn in listed] == [1, 2, 3, 4]
+    assert total == 4
+    async with session_factory() as session:
+        page_two, total = await service(session).list_turns(session_id, 2, 2)
+    assert [turn.sequence for turn in page_two] == [3, 4]
+    assert total == 4

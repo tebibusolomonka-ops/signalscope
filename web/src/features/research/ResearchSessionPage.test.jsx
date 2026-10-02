@@ -21,7 +21,7 @@ function routes(turns, extra = {}, role = "member") {
     ...organizations([HARBOUR, RIVER], role),
     "GET /sources": page([source()]),
     "GET /research/sessions/rs-1": { body: researchSession() },
-    "GET /research/sessions/rs-1/turns": { body: turns },
+    "GET /research/sessions/rs-1/turns": page(turns),
     ...extra,
   };
 }
@@ -168,6 +168,58 @@ describe("multi turn research", () => {
 
     const talk = await conversation();
     expect(within(talk).queryByRole("form", { name: "Ask a question" })).not.toBeInTheDocument();
+  });
+
+  it("loads more turns without duplicating them", async () => {
+    const first = [turn(1, { id: "t-1", question: "First?" })];
+    const second = [turn(2, { id: "t-2", question: "Second?" })];
+    const calls = [];
+    renderApp({
+      path: "/research/rs-1",
+      routes: routes([], {
+        "GET /research/sessions/rs-1/turns": ({ query }) => {
+          calls.push(query.get("offset"));
+          return query.get("offset") === "1"
+            ? page(second, { total: 2, offset: 1 })
+            : page(first, { total: 2 });
+        },
+      }),
+    });
+    const user = userEvent.setup();
+
+    const talk = await conversation();
+    await within(talk).findByText("First?");
+    expect(within(talk).queryByText("Second?")).not.toBeInTheDocument();
+    await user.click(within(talk).getByRole("button", { name: /Load more turns/ }));
+
+    expect(await within(talk).findByText("Second?")).toBeInTheDocument();
+    expect(within(talk).getAllByText("First?")).toHaveLength(1);
+    expect(within(talk).queryByRole("button", { name: /Load more turns/ })).not.toBeInTheDocument();
+    expect(calls).toEqual([null, "1"]);
+  });
+
+  it("adds a follow-up without a Load more appearing for it", async () => {
+    renderApp({
+      path: "/research/rs-1",
+      routes: routes([turn(1, { id: "t-1", question: "First?" })], {
+        "POST /research/sessions/rs-1/turns": ({ body }) => ({
+          body: {
+            session: researchSession(),
+            turn: turn(2, { id: "t-2", question: body.question, answer: "Later [E1]." }),
+          },
+        }),
+      }),
+    });
+    const user = userEvent.setup();
+
+    const talk = await conversation();
+    const form = within(talk).getByRole("form", { name: "Ask a question" });
+    await user.type(within(form).getByLabelText("Question"), "Second?");
+    await user.click(within(form).getByRole("button", { name: "Ask" }));
+
+    expect(await within(talk).findByText(/Later/)).toBeInTheDocument();
+    expect(within(talk).queryByRole("button", { name: /Load more turns/ })).not.toBeInTheDocument();
+    expect(within(talk).getAllByText(/First\?|Second\?/)).toHaveLength(2);
   });
 
   it("does not keep the session after switching organization", async () => {

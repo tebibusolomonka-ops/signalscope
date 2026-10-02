@@ -133,15 +133,28 @@ class ResearchSessionService:
         )
         return list(items), total or 0
 
-    async def list_turns(self, session_id: uuid.UUID) -> list[ResearchTurn]:
-        """Every turn of a session, oldest first."""
+    async def list_turns(
+        self, session_id: uuid.UUID, limit: int, offset: int
+    ) -> tuple[list[ResearchTurn], int]:
+        """One page of a session's turns, oldest first, with the total number.
+
+        This does not change the bounded history the answer model sees; that
+        is a separate query in _history.
+        """
         await self.get_session(session_id)
         turns = await self.session.scalars(
             select(ResearchTurn)
             .where(ResearchTurn.session_id == session_id)
             .order_by(ResearchTurn.sequence)
+            .limit(limit)
+            .offset(offset)
         )
-        return list(turns)
+        total = await self.session.scalar(
+            select(func.count())
+            .select_from(ResearchTurn)
+            .where(ResearchTurn.session_id == session_id)
+        )
+        return list(turns), total or 0
 
     async def add_turn(
         self,

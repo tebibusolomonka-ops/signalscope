@@ -91,7 +91,11 @@ async def test_conversation(
     assert [item.title for item in generator.requests[1].evidence] == ["Bridge closed"]
 
     listed = await answering_client.get(f"/research/sessions/{research['id']}/turns")
-    assert [item["question"] for item in listed.json()] == ["harbour flood", "bridge closed"]
+    assert [item["question"] for item in listed.json()["items"]] == [
+        "harbour flood",
+        "bridge closed",
+    ]
+    assert listed.json()["total"] == 2
     fetched = await answering_client.get(f"/research/sessions/{research['id']}")
     assert fetched.json()["id"] == research["id"]
 

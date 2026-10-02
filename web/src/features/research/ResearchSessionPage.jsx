@@ -14,6 +14,7 @@ import { focusEvidence } from "./evidenceFocus.js";
 
 const DEFAULT_LIMIT = 8;
 const MAX_LIMIT = 20;
+const TURN_PAGE_SIZE = 50;
 
 /**
  * One research session: the conversation so far, the evidence of one turn,
@@ -28,7 +29,9 @@ export function ResearchSessionPage() {
   const load = useCallback(async () => {
     const session = await tenantApi.get(`/research/sessions/${sessionId}`);
     if (session.organization_id !== active.id) return { elsewhere: true };
-    const turns = await tenantApi.get(`/research/sessions/${sessionId}/turns`);
+    const turns = await tenantApi.get(`/research/sessions/${sessionId}/turns`, {
+      query: { limit: TURN_PAGE_SIZE },
+    });
     return { session, turns };
   }, [tenantApi, sessionId, active.id]);
   const { data, error, loading } = useResource(load);
@@ -45,19 +48,47 @@ export function ResearchSessionPage() {
           This research session does not belong to the active organization.
         </p>
       )}
-      {data?.session && <Session session={data.session} initialTurns={data.turns} />}
+      {data?.session && (
+        <Session
+          session={data.session}
+          initialTurns={data.turns.items}
+          initialTotal={data.turns.total}
+        />
+      )}
     </>
   );
 }
 
-function Session({ session, initialTurns }) {
-  const { can } = useOrganization();
+function Session({ session, initialTurns, initialTotal }) {
+  const { tenantApi, can } = useOrganization();
   const { names } = useSourceOptions();
   const [turns, setTurns] = useState(initialTurns);
+  const [total, setTotal] = useState(initialTotal);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [moreError, setMoreError] = useState(null);
   const [selectedId, setSelectedId] = useState(initialTurns.at(-1)?.id ?? null);
   const [pending, setPending] = useState(null);
   const [focus, setFocus] = useState(null);
   const selected = turns.find((turn) => turn.id === selectedId) ?? null;
+
+  async function loadMore() {
+    setLoadingMore(true);
+    setMoreError(null);
+    try {
+      const next = await tenantApi.get(`/research/sessions/${session.id}/turns`, {
+        query: { limit: TURN_PAGE_SIZE, offset: turns.length },
+      });
+      setTotal(next.total);
+      setTurns((current) => {
+        const seen = new Set(current.map((turn) => turn.id));
+        return [...current, ...next.items.filter((turn) => !seen.has(turn.id))];
+      });
+    } catch (failure) {
+      setMoreError(failure);
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   useEffect(() => {
     if (focus) focusEvidence(focus.turnId, focus.evidenceId);
@@ -70,7 +101,10 @@ function Session({ session, initialTurns }) {
   }
 
   function added(turn) {
-    setTurns((current) => [...current, turn]);
+    setTurns((current) =>
+      current.some((item) => item.id === turn.id) ? current : [...current, turn],
+    );
+    setTotal((current) => current + 1);
     setSelectedId(turn.id);
     setPending(null);
   }
@@ -125,6 +159,12 @@ function Session({ session, initialTurns }) {
               </li>
             )}
           </ol>
+          {turns.length < total && (
+            <button type="button" className="secondary" onClick={loadMore} disabled={loadingMore}>
+              {loadingMore ? "Loading..." : `Load more turns (${total - turns.length} left)`}
+            </button>
+          )}
+          <ErrorMessage error={moreError} />
           {can.contribute ? (
             <AskForm
               sessionId={session.id}
