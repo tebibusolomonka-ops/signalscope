@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Query
@@ -6,12 +7,15 @@ from fastapi import APIRouter, Query
 from signalscope.api.dependencies import DatabaseSession
 from signalscope.api.pagination import Page, Pagination
 from signalscope.api.tenancy import Policy
+from signalscope.domain.operations.attempt import OperationAttemptOutcome, OperationAttemptQueue
 from signalscope.domain.operations.failed_jobs import FailedJobInspectionService
+from signalscope.domain.operations.history import OperationHistoryService
 from signalscope.domain.operations.overview import OrganizationOperationsService
 from signalscope.domain.operations.queues import OperationsQueue
 from signalscope.domain.operations.recovery import FailedJobRecoveryService
 from signalscope.domain.operations.schemas import (
     JobRetryRequest,
+    OperationAttemptRead,
     OperationsJobRead,
     OperationsOverviewRead,
 )
@@ -58,6 +62,39 @@ async def failed_jobs(
     )
     return Page[OperationsJobRead](
         items=[OperationsJobRead.model_validate(item) for item in items],
+        total=total,
+        limit=page.limit,
+        offset=page.offset,
+    )
+
+
+@router.get("/history")
+async def operation_history(
+    organization_id: OrganizationId,
+    session: DatabaseSession,
+    policy: Policy,
+    page: Pagination,
+    queue: OperationAttemptQueue | None = None,
+    outcome: OperationAttemptOutcome | None = None,
+    resource_type: Annotated[str | None, Query(max_length=32)] = None,
+    resource_id: uuid.UUID | None = None,
+    created_from: datetime | None = None,
+    created_to: datetime | None = None,
+) -> Page[OperationAttemptRead]:
+    """Worker attempts of one organization, newest first."""
+    items, total = await OperationHistoryService(session, policy).list_page(
+        organization_id,
+        queue=queue,
+        outcome=outcome,
+        resource_type=resource_type,
+        resource_id=resource_id,
+        created_from=created_from,
+        created_to=created_to,
+        limit=page.limit,
+        offset=page.offset,
+    )
+    return Page[OperationAttemptRead](
+        items=[OperationAttemptRead.model_validate(item) for item in items],
         total=total,
         limit=page.limit,
         offset=page.offset,

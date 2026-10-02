@@ -3,6 +3,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
+from signalscope.domain.operations.attempt import OperationAttemptOutcome, OperationAttemptQueue
 from signalscope.domain.operations.queues import OperationsQueue, ResourceType
 
 
@@ -62,3 +63,20 @@ class OperationsJobRead(BaseModel):
     created_at: datetime
     finished_at: datetime | None
     error: str | None
+
+
+class OperationAttemptRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    organization_id: uuid.UUID
+    queue_name: OperationAttemptQueue
+    job_id: uuid.UUID
+    attempt_number: int
+    resource_type: str
+    resource_id: uuid.UUID | None
+    started_at: datetime | None
+    finished_at: datetime | None
+    outcome: OperationAttemptOutcome
+    safe_error: str | None
+    created_at: datetime

@@ -55,7 +55,6 @@ def test_overview_needs_a_database(client: TestClient) -> None:
 
 def test_failed_jobs_are_in_openapi(app: FastAPI) -> None:
     operation = app.openapi()["paths"]["/operations/jobs"]["get"]
-    schemas = app.openapi()["components"]["schemas"]
 
     assert {item["name"] for item in operation["parameters"]} == {
         "organization_id",
@@ -64,6 +63,7 @@ def test_failed_jobs_are_in_openapi(app: FastAPI) -> None:
         "limit",
         "offset",
     }
+    schemas = app.openapi()["components"]["schemas"]
     assert set(schemas["OperationsJobRead"]["properties"]) == {
         "queue",
         "job_id",
@@ -77,6 +77,37 @@ def test_failed_jobs_are_in_openapi(app: FastAPI) -> None:
         "created_at",
         "finished_at",
         "error",
+    }
+
+
+def test_operation_history_is_in_openapi(app: FastAPI) -> None:
+    operation = app.openapi()["paths"]["/operations/history"]["get"]
+    schemas = app.openapi()["components"]["schemas"]
+
+    assert {item["name"] for item in operation["parameters"]} == {
+        "organization_id",
+        "queue",
+        "outcome",
+        "resource_type",
+        "resource_id",
+        "created_from",
+        "created_to",
+        "limit",
+        "offset",
+    }
+    assert set(schemas["OperationAttemptRead"]["properties"]) == {
+        "id",
+        "organization_id",
+        "queue_name",
+        "job_id",
+        "attempt_number",
+        "resource_type",
+        "resource_id",
+        "started_at",
+        "finished_at",
+        "outcome",
+        "safe_error",
+        "created_at",
     }
 
 

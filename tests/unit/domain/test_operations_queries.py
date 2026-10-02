@@ -12,6 +12,7 @@ from sqlalchemy.dialects import postgresql
 
 from signalscope.core.errors import ServiceUnavailableError
 from signalscope.domain.operations.failed_jobs import FailedJobInspectionService
+from signalscope.domain.operations.history import OperationHistoryService
 from signalscope.domain.operations.overview import OrganizationOperationsService
 from signalscope.domain.operations.queues import QUEUE_TABLES, OperationsQueue, ResourceType
 from signalscope.domain.tenancy.scope import ContentScope
@@ -39,6 +40,10 @@ class CompilingSession:
         )
         self.sql.append(str(compiled))
         return Result()
+
+    async def scalars(self, statement: Any) -> list[Any]:
+        await self.execute(statement)
+        return []
 
     async def scalar(self, statement: Any) -> int:
         await self.execute(statement)
@@ -109,3 +114,25 @@ async def test_failed_jobs_filter_each_queue_before_paging() -> None:
     assert "count(*)" in total
     assert "UNION ALL" not in single
     assert "document_processing_jobs" in single
+
+
+async def test_history_filters_tenant_before_ordering_and_paging() -> None:
+    session = CompilingSession()
+    service = OperationHistoryService(session, Policy())  # type: ignore[arg-type]
+
+    await service.list_page(
+        ORGANIZATION,
+        queue=None,
+        outcome=None,
+        resource_type="document",
+        resource_id=None,
+        limit=10,
+        offset=20,
+    )
+
+    page, total = session.sql
+    assert "operation_attempts.organization_id = " in page
+    assert "operation_attempts.resource_type = " in page
+    assert "ORDER BY operation_attempts.created_at DESC, operation_attempts.id DESC" in page
+    assert "LIMIT" in page and "OFFSET" in page
+    assert "count(*)" in total
