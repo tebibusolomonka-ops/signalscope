@@ -60,7 +60,7 @@ async def test_claim_and_failure_record_one_safe_attempt(
     assert (attempt.attempt_number, attempt.outcome) == (1, OperationAttemptOutcome.FAILED)
     assert attempt.started_at == NOW
     assert attempt.finished_at == NOW + timedelta(minutes=1)
-    assert attempt.safe_error is not None and len(attempt.safe_error) == 500
+    assert attempt.safe_error is not None and len(attempt.safe_error) == 1000
     assert "lease_token" not in {column.name for column in attempt.__table__.columns}
 
 

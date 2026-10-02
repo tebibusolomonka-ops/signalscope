@@ -3,7 +3,7 @@
 Batch 360 to 379, organization operations, failed job recovery, audit
 retention and research usability, is complete at `03dd287` after one corrective
 commit. The repository has 382 commits before planned commit 380. Alembic head:
-`921da3185dcc` (Create operation attempts).
+`d8f2c91a4e60` (Align operation attempt columns).
 
 ## Done
 
