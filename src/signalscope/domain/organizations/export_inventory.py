@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from signalscope.core.errors import NotFoundError
 from signalscope.domain.audit.model import SecurityAuditEvent
 from signalscope.domain.claims.model import Claim, ClaimEvidence
+from signalscope.domain.documents.asset import DocumentAsset
 from signalscope.domain.documents.chunk import DocumentChunk
 from signalscope.domain.documents.model import Document
 from signalscope.domain.documents.revision import DocumentRevision
@@ -34,6 +35,7 @@ class OrganizationExportInventory:
     documents: tuple[Document, ...]
     document_revisions: tuple[DocumentRevision, ...]
     document_chunks: tuple[DocumentChunk, ...]
+    document_assets: tuple[DocumentAsset, ...]
     entities: tuple[Entity, ...]
     entity_mentions: tuple[EntityMention, ...]
     claims: tuple[Claim, ...]
@@ -113,6 +115,11 @@ class OrganizationExportInventoryService:
                 select(DocumentChunk)
                 .where(tenant_chunks)
                 .order_by(DocumentChunk.document_id, DocumentChunk.position)
+            ),
+            document_assets=await self._rows(
+                select(DocumentAsset)
+                .where(DocumentAsset.document_id.in_(select(Document.id).where(tenant_documents)))
+                .order_by(DocumentAsset.document_id, DocumentAsset.id)
             ),
             entities=await self._rows(
                 select(Entity).where(Entity.id.in_(tenant_entity_ids)).order_by(Entity.id)

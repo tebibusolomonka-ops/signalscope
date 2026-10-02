@@ -12,6 +12,7 @@ def test_inventory_counts_every_safe_collection() -> None:
         documents=(SimpleNamespace(), SimpleNamespace()),
         document_revisions=(),
         document_chunks=(),
+        document_assets=(),
         entities=(),
         entity_mentions=(),
         claims=(),
