@@ -3,8 +3,8 @@ import { Link, useSearchParams } from "react-router";
 
 import { useOrganization } from "../../app/useOrganization.js";
 import { PageHeading } from "../../components/PageHeading.jsx";
+import { EvidenceReference } from "../../components/EvidenceReference.jsx";
 import { ErrorMessage, Loading } from "../../components/Status.jsx";
-import { chunkLocation } from "../../lib/chunks.js";
 import { useResource } from "../../lib/useResource.js";
 import { SaveToInvestigation } from "../investigations/SaveToInvestigation.jsx";
 import { useSourceOptions } from "../sources/useSourceOptions.js";
@@ -166,15 +166,18 @@ function scores(item, mode) {
 }
 
 function Result({ item, mode, sourceName }) {
-  const location = chunkLocation(item.chunk_metadata);
   return (
     <li className="result">
       <h3>
         <Link to={`/documents/${item.document_id}`}>{item.title || "Untitled document"}</Link>
       </h3>
       <p className="muted">
-        <Link to={`/sources/${item.source_id}`}>{sourceName ?? "Source"}</Link>
-        {location && ` · ${location}`}
+        <EvidenceReference
+          showDocument={false}
+          sourceId={item.source_id}
+          sourceName={sourceName}
+          metadata={item.chunk_metadata}
+        />
       </p>
       {item.excerpt && <p>{item.excerpt}</p>}
       <SaveToInvestigation itemType="document" referenceId={item.document_id} />

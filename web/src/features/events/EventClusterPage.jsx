@@ -3,8 +3,8 @@ import { Link, useParams } from "react-router";
 
 import { useOrganization } from "../../app/useOrganization.js";
 import { PageHeading } from "../../components/PageHeading.jsx";
+import { EvidenceReference } from "../../components/EvidenceReference.jsx";
 import { ErrorMessage, Loading } from "../../components/Status.jsx";
-import { chunkLocation } from "../../lib/chunks.js";
 import { formatTime } from "../../lib/format.js";
 import { useResource } from "../../lib/useResource.js";
 import { SaveToInvestigation } from "../investigations/SaveToInvestigation.jsx";
@@ -77,9 +77,7 @@ function Member({ member, clusterId }) {
       <table aria-label={`Evidence for ${member.title}`}>
         <thead>
           <tr>
-            <th scope="col">Source</th>
-            <th scope="col">Document</th>
-            <th scope="col">Location</th>
+            <th scope="col">Where</th>
             <th scope="col">Confidence</th>
             <th scope="col">Found by</th>
           </tr>
@@ -88,12 +86,13 @@ function Member({ member, clusterId }) {
           {member.evidence.map((row) => (
             <tr key={row.chunk_id}>
               <td>
-                <Link to={`/sources/${row.source_id}`}>{row.source_name}</Link>
+                <EvidenceReference
+                  documentId={row.document_id}
+                  sourceId={row.source_id}
+                  sourceName={row.source_name}
+                  metadata={row.chunk_metadata}
+                />
               </td>
-              <td>
-                <Link to={`/documents/${row.document_id}`}>Open document</Link>
-              </td>
-              <td>{chunkLocation(row.chunk_metadata) || "-"}</td>
               <td>{row.confidence === null ? "-" : Number(row.confidence).toFixed(2)}</td>
               <td className="wrap">{`${row.provider} / ${row.model}`}</td>
             </tr>

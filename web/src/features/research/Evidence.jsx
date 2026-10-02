@@ -1,7 +1,6 @@
 import { Fragment } from "react";
-import { Link } from "react-router";
 
-import { chunkLocation } from "../../lib/chunks.js";
+import { EvidenceReference } from "../../components/EvidenceReference.jsx";
 import { evidenceElementId } from "./evidenceFocus.js";
 
 const MARKER = /\[(E\d+)\]/g;
@@ -35,7 +34,6 @@ export function AnswerText({ text, onCite }) {
 
 /** One numbered piece of evidence: an excerpt of a document chunk. */
 export function EvidenceCard({ item, scope, sourceName, cited = false }) {
-  const location = chunkLocation(item.chunk_metadata);
   return (
     <li
       id={evidenceElementId(scope, item.evidence_id)}
@@ -44,12 +42,15 @@ export function EvidenceCard({ item, scope, sourceName, cited = false }) {
       aria-label={`Evidence ${item.evidence_id}`}
     >
       <p className="evidence-head">
-        <strong>{item.evidence_id}</strong>{" "}
-        <Link to={`/documents/${item.document_id}`}>{item.title || "Untitled document"}</Link>
-        {" · "}
-        <Link to={`/sources/${item.source_id}`}>{sourceName ?? "Source"}</Link>
-        {location && ` · ${location}`}
-        {cited && <span className="muted"> · cited</span>}
+        <EvidenceReference
+          citationId={item.evidence_id}
+          documentId={item.document_id}
+          documentTitle={item.title}
+          sourceId={item.source_id}
+          sourceName={sourceName}
+          metadata={item.chunk_metadata}
+          cited={cited}
+        />
       </p>
       <blockquote>{item.excerpt}</blockquote>
     </li>
