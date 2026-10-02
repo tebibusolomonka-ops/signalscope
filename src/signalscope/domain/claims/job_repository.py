@@ -8,6 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from signalscope.core.errors import NotFoundError, short_error_message
 from signalscope.core.leases import DEFAULT_LEASE_POLICY, JobNotHeldError, LeasePolicy
 from signalscope.domain.claims.job import ClaimExtractionJob, ClaimExtractionJobStatus
+from signalscope.domain.operations.attempt import OperationAttemptOutcome, OperationAttemptQueue
+from signalscope.domain.operations.attempts import finish_attempt, start_chunk_attempt
 
 
 class InvalidClaimExtractionJobStatusChangeError(JobNotHeldError):
@@ -67,6 +69,14 @@ class ClaimExtractionJobRepository:
         if job is None:
             return None
         _start(job, now, lease)
+        await start_chunk_attempt(
+            self.session,
+            queue=OperationAttemptQueue.CLAIM,
+            job_id=job.id,
+            attempt_number=job.attempt_count,
+            chunk_id=job.chunk_id,
+            started_at=now,
+        )
         await self.session.flush()
         return job
 
@@ -119,6 +129,15 @@ class ClaimExtractionJobRepository:
         )
         jobs = list(result.all())
         for job in jobs:
+            await finish_attempt(
+                self.session,
+                queue=OperationAttemptQueue.CLAIM,
+                job_id=job.id,
+                attempt_number=job.attempt_count,
+                outcome=OperationAttemptOutcome.RECOVERED,
+                finished_at=now,
+                error="Worker lease expired.",
+            )
             job.status = ClaimExtractionJobStatus.PENDING
             job.available_at = now
             job.claimed_at = None
@@ -171,6 +190,17 @@ class ClaimExtractionJobRepository:
         job.status = status
         job.finished_at = now
         job.last_error = last_error
+        await finish_attempt(
+            self.session,
+            queue=OperationAttemptQueue.CLAIM,
+            job_id=job.id,
+            attempt_number=job.attempt_count,
+            outcome=OperationAttemptOutcome.SUCCEEDED
+            if status is ClaimExtractionJobStatus.COMPLETED
+            else OperationAttemptOutcome.FAILED,
+            finished_at=now,
+            error=last_error,
+        )
         # A finished job is no longer held, so it can never look stale.
         job.lease_expires_at = None
         job.lease_token = None
