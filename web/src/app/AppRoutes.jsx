@@ -19,6 +19,7 @@ import { OrganizationsPage } from "../features/organizations/OrganizationsPage.j
 import { QuickResearchPage } from "../features/research/QuickResearchPage.jsx";
 import { ResearchSessionPage } from "../features/research/ResearchSessionPage.jsx";
 import { ResearchPage } from "../features/research/ResearchPage.jsx";
+import { OperationsPage } from "../features/operations/OperationsPage.jsx";
 import { SearchPage } from "../features/search/SearchPage.jsx";
 import { SecurityPage } from "../features/security/SecurityPage.jsx";
 import { SourceComparePage } from "../features/sources/SourceComparePage.jsx";
@@ -66,6 +67,7 @@ export function AppRoutes() {
             <Route path="/investigations" element={<InvestigationsPage />} />
             <Route path="/investigations/:investigationId" element={<InvestigationDetailPage />} />
             <Route path="/research" element={<ResearchPage />} />
+            <Route path="/operations" element={<OperationsPage />} />
             <Route path="/research/new" element={<QuickResearchPage />} />
             <Route path="/research/:sessionId" element={<ResearchSessionPage />} />
           </Route>

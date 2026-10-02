@@ -14,6 +14,7 @@ const CONTENT_LINKS = [
   { to: "/events", label: "Events" },
   { to: "/investigations", label: "Investigations" },
   { to: "/research", label: "Research" },
+  { to: "/operations", label: "Operations" },
 ];
 
 const ADMIN_LINKS = [

@@ -211,3 +211,49 @@ export function turn(sequence, overrides = {}) {
     ...overrides,
   };
 }
+
+export function queueSummary(queue, overrides = {}) {
+  return {
+    queue,
+    pending_count: 0,
+    running_count: 0,
+    failed_count: 0,
+    oldest_pending_at: null,
+    oldest_failed_at: null,
+    ...overrides,
+  };
+}
+
+const QUEUE_NAMES = [
+  "ingestion",
+  "processing",
+  "embedding",
+  "entity_extraction",
+  "event_extraction",
+  "claim_extraction",
+];
+
+export function operationsOverview(perQueue = {}) {
+  return {
+    organization: { id: "org-a", name: "Harbour Watch", slug: "harbour" },
+    queues: QUEUE_NAMES.map((queue) => queueSummary(queue, perQueue[queue] ?? {})),
+  };
+}
+
+export function operationsJob(overrides = {}) {
+  return {
+    queue: "embedding",
+    job_id: "job-1",
+    status: "failed",
+    resource_type: "chunk",
+    resource_id: "chunk-1",
+    provider: "sentence_transformers",
+    model: "intfloat/multilingual-e5-small",
+    attempt_count: 2,
+    available_at: "2026-09-10T08:00:00Z",
+    created_at: "2026-09-10T07:00:00Z",
+    finished_at: "2026-09-10T08:05:00Z",
+    error: "Model is not available.",
+    ...overrides,
+  };
+}

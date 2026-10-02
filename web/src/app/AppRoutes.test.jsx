@@ -17,6 +17,7 @@ const CONTENT = [
   "Events",
   "Investigations",
   "Research",
+  "Operations",
 ];
 
 function routes(items = [HARBOUR, RIVER]) {
