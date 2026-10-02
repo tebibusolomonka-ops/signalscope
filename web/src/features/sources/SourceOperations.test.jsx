@@ -105,6 +105,7 @@ describe("source operations", () => {
   });
 
   it("polls active runs until they are completed", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     let request = 0;
     const { calls } = renderApp({
       path: "/sources/s-1",
@@ -126,7 +127,6 @@ describe("source operations", () => {
 
     const section = await ingestion();
     await within(section).findByText("pending");
-    vi.useFakeTimers();
     await vi.advanceTimersByTimeAsync(5000);
     expect(await within(section).findByText("running")).toBeInTheDocument();
     await vi.advanceTimersByTimeAsync(5000);
@@ -213,7 +213,9 @@ describe("source operations", () => {
 
     const section = await ingestion();
     expect(await within(section).findByText("completed")).toBeInTheDocument();
-    expect(within(section).queryByRole("button")).not.toBeInTheDocument();
+    expect(within(section).queryByRole("button", { name: "Ingest now" })).not.toBeInTheDocument();
+    expect(within(section).queryByRole("form", { name: "Schedule" })).not.toBeInTheDocument();
+    expect(within(section).getByRole("button", { name: "Refresh runs" })).toBeEnabled();
   });
 
   it("explains that upload sources are not fetched", async () => {
