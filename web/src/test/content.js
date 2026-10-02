@@ -257,3 +257,30 @@ export function operationsJob(overrides = {}) {
     ...overrides,
   };
 }
+
+export function eventDetail(overrides = {}) {
+  return {
+    event: {
+      id: "ev-1",
+      event_type: "storm",
+      title: "Storm closes the harbour",
+      summary: "The harbour shut at noon.",
+      occurred_at: "2026-09-05T00:00:00Z",
+      created_at: "2026-09-05T07:00:00Z",
+    },
+    evidence: [
+      {
+        document_id: "d-1",
+        document_title: "Storm report",
+        source_id: "s-1",
+        source_name: "Harbour Feed",
+        chunk_id: "c-1",
+        confidence: 0.91,
+        provider: "gliner2",
+        model: "fastino/gliner2.5-multi-v1",
+        chunk_metadata: { page_number: 2 },
+      },
+    ],
+    ...overrides,
+  };
+}

@@ -10,6 +10,7 @@ import { FileImportPage } from "../features/documents/FileImportPage.jsx";
 import { DocumentDetailPage } from "../features/documents/DocumentDetailPage.jsx";
 import { DocumentsPage } from "../features/documents/DocumentsPage.jsx";
 import { EventClusterPage } from "../features/events/EventClusterPage.jsx";
+import { EventDetailPage } from "../features/events/EventDetailPage.jsx";
 import { TimelinePage } from "../features/events/TimelinePage.jsx";
 import { InvestigationDetailPage } from "../features/investigations/InvestigationDetailPage.jsx";
 import { InvestigationsPage } from "../features/investigations/InvestigationsPage.jsx";
@@ -63,6 +64,7 @@ export function AppRoutes() {
             <Route path="/claims" element={<ClaimsPage />} />
             <Route path="/claims/:claimId" element={<ClaimDetailPage />} />
             <Route path="/events" element={<TimelinePage />} />
+            <Route path="/events/:eventId" element={<EventDetailPage />} />
             <Route path="/event-clusters/:clusterId" element={<EventClusterPage />} />
             <Route path="/investigations" element={<InvestigationsPage />} />
             <Route path="/investigations/:investigationId" element={<InvestigationDetailPage />} />

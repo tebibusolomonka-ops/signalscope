@@ -69,7 +69,9 @@ function Member({ member, clusterId }) {
   const [showSuggestions, setShowSuggestions] = useState(false);
   return (
     <article className="member" aria-labelledby={`event-${member.event_id}`}>
-      <h3 id={`event-${member.event_id}`}>{member.title}</h3>
+      <h3 id={`event-${member.event_id}`}>
+        <Link to={`/events/${member.event_id}`}>{member.title}</Link>
+      </h3>
       <p className="muted">{`Occurred: ${occurred(member.occurred_at)}`}</p>
       {member.summary && <p>{member.summary}</p>}
       <table aria-label={`Evidence for ${member.title}`}>
