@@ -19,6 +19,7 @@ from signalscope.domain.research.export import (
 from signalscope.domain.research.schemas import (
     ResearchSessionCreate,
     ResearchSessionRead,
+    ResearchSessionStart,
     ResearchTurnCreate,
     ResearchTurnRead,
     ResearchTurnResponse,
@@ -155,6 +156,37 @@ async def create_research_session(
         organization_id=organization_id,
     )
     return ResearchSessionRead.model_validate(research)
+
+
+@router.post("/sessions/start", status_code=status.HTTP_201_CREATED)
+async def start_research_session(
+    request: ResearchSessionStart,
+    session: DatabaseSession,
+    providers: EmbeddingProviders,
+    rerankers: Rerankers,
+    generators: AnswerGenerators,
+    policy: Policy,
+) -> ResearchTurnResponse:
+    """Start a research session and save its first question in one workflow."""
+    organization_id = await policy.new_content_owner(
+        request.organization_id, ContentCapability.CONTRIBUTE
+    )
+    if request.source_id is not None:
+        await policy.check_source_filter(request.source_id)
+    scope = policy.resource_scope(organization_id)
+    service = ResearchSessionService(session, providers, rerankers, generators)
+    research, turn = await service.start_session(
+        request.question,
+        title=request.title,
+        retrieval_mode=request.retrieval_mode,
+        source_id=request.source_id,
+        organization_id=organization_id,
+        scope=scope,
+    )
+    return ResearchTurnResponse(
+        session=ResearchSessionRead.model_validate(research),
+        turn=ResearchTurnRead.from_turn(turn),
+    )
 
 
 @router.get("/sessions")

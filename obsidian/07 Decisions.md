@@ -188,9 +188,16 @@ Decisions that should hold unless there is a clear reason to change them.
   earlier answers in the conversation and the saved evidence in a separate
   panel; citation buttons move focus to the cited evidence. A turn without
   an answer model says that evidence was collected and no answer written.
-- **One-shot research is not saved.** `/research/new` only calls
-  `POST /research/context` or `POST /research/answer`; starting a session
-  from it would run the answer again, so there is no such button.
+- **Starting research is one server workflow.** `/research/new` keeps its
+  one-shot actions and separately calls `POST /research/sessions/start` to
+  create a session with its first turn. The browser never submits an answer
+  or evidence. A failed first turn removes the empty new session.
+- **Tenant pickers page on the server.** Source selectors and open
+  Investigation selectors load more pages and deduplicate IDs. Source search
+  is a SQL name-or-URL filter, not a client filter over one page.
+- **Active ingestion runs use polling.** Source operations refresh every five
+  seconds only while a visible run is non-terminal; no realtime service is
+  added.
 - **Link suggestions stay advisory in the web app.** They load only when
   asked for, are labelled as suggestions, show the raw cosine similarity,
   and have no merge or link control.

@@ -25,6 +25,12 @@ class ResearchSessionCreate(BaseModel):
     organization_id: uuid.UUID | None = None
 
 
+class ResearchSessionStart(ResearchSessionCreate):
+    question: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=MAX_QUERY_LENGTH)
+    ]
+
+
 class ResearchSessionRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

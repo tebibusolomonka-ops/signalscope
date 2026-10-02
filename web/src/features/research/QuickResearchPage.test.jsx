@@ -29,6 +29,10 @@ function routes(extra = {}) {
         evidence: EVIDENCE,
       },
     }),
+    "POST /research/sessions/start": {
+      status: 201,
+      body: { session: { id: "rs-start" }, turn: { answer: null, evidence: EVIDENCE } },
+    },
     ...extra,
   };
 }
@@ -105,6 +109,72 @@ describe("quick research", () => {
     const [call] = researchCalls(calls);
     expect(call.body.mode).toBe("lexical");
     expect(call.body.source_id).toBe("s-2");
+  });
+
+  it("starts a saved session with the first question without a one-shot request", async () => {
+    const { calls } = renderApp({ path: "/research/new", routes: routes() });
+    const user = userEvent.setup();
+    const form = await screen.findByRole("form", { name: "Research question" });
+    await user.type(within(form).getByLabelText("Session title (optional)"), "Harbour review");
+
+    await ask(user, "Why did the harbour close?", "Start research session", {
+      mode: "lexical",
+      source: "s-2",
+    });
+
+    expect(await screen.findByText("Not found.")).toBeInTheDocument();
+    const oneShot = researchCalls(calls).filter(
+      (call) => call.path === "/research/context" || call.path === "/research/answer",
+    );
+    expect(oneShot).toEqual([]);
+    const start = researchCalls(calls).find(
+      (call) => call.method === "POST" && call.path === "/research/sessions/start",
+    );
+    expect(start.body).toEqual({
+      question: "Why did the harbour close?",
+      title: "Harbour review",
+      retrieval_mode: "lexical",
+      source_id: "s-2",
+      organization_id: "org-a",
+    });
+  });
+
+  it("shows a start-session API error", async () => {
+    renderApp({
+      path: "/research/new",
+      routes: routes({
+        "POST /research/sessions/start": {
+          status: 503,
+          body: { error: { code: "service_unavailable", message: "Answer generation failed." } },
+        },
+      }),
+    });
+    const user = userEvent.setup();
+
+    await ask(user, "Harbour?", "Start research session");
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Answer generation failed.");
+  });
+
+  it("does not navigate from an old organization start request", async () => {
+    const response = held();
+    const { calls } = renderApp({
+      path: "/research/new",
+      routes: routes({
+        "POST /research/sessions/start": async () => {
+          await response.ready;
+          return { status: 201, body: { session: { id: "rs-old" }, turn: {} } };
+        },
+      }),
+    });
+    const user = userEvent.setup();
+
+    await ask(user, "Harbour?", "Start research session");
+    await user.selectOptions(screen.getByLabelText("Active organization"), "org-b");
+    expect(await screen.findByLabelText("Question", { selector: "textarea" })).toHaveValue("");
+    response.release();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(calls.some((call) => call.path === "/research/sessions/rs-old")).toBe(false);
   });
 
   it("explains a missing answer model", async () => {

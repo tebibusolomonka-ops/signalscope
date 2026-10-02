@@ -110,6 +110,40 @@ class ResearchSessionService:
             raise
         return research
 
+    async def start_session(
+        self,
+        question: str,
+        *,
+        title: str | None = None,
+        retrieval_mode: ResearchMode = ResearchMode.HYBRID,
+        source_id: uuid.UUID | None = None,
+        organization_id: uuid.UUID | None = None,
+        scope: ContentScope | None = None,
+    ) -> tuple[ResearchSession, ResearchTurn]:
+        """Create a session and its first turn, removing an empty session on failure."""
+        research = await self.create_session(
+            title=title,
+            retrieval_mode=retrieval_mode,
+            source_id=source_id,
+            organization_id=organization_id,
+        )
+        try:
+            turn = await self.add_turn(research.id, question, scope=scope)
+        except Exception:
+            await self.session.rollback()
+            saved = await self.session.get(ResearchSession, research.id)
+            if saved is not None:
+                turn_count = await self.session.scalar(
+                    select(func.count())
+                    .select_from(ResearchTurn)
+                    .where(ResearchTurn.session_id == research.id)
+                )
+                if not turn_count:
+                    await self.session.delete(saved)
+                    await self.session.commit()
+            raise
+        return research, turn
+
     async def get_session(self, session_id: uuid.UUID) -> ResearchSession:
         research = await self.session.get(ResearchSession, session_id)
         if research is None:

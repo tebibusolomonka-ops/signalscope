@@ -1,10 +1,8 @@
 # Current State
 
-Batch 340 to 359 (the tenant research workspace in the web app) needed no
-corrective commit and ended at repository commit 359 (`e665ed3`). Current
-batch: 360 to 379, organization operations, failed job recovery, audit
-retention and research usability. Alembic head: `c4e1d7a29b35` (Add organization
-retention policies).
+Batch 360 to 379, organization operations, failed job recovery, audit
+retention and research usability, is complete. Alembic head: `c4e1d7a29b35`
+(Add organization retention policies).
 
 ## Done
 
@@ -71,6 +69,12 @@ retention policies).
 - Web pages for operations (queue counts, failed-job retry) and audit
   retention, an event detail page, and entity, claim and event evidence that
   now carries the document title and source name.
+- Tenant resource selectors page through Sources and open Investigations;
+  Source selectors search on the server and do not stop at the first 100.
+- Source ingestion runs poll every five seconds while a recent run is active,
+  and stop when all visible runs are terminal.
+- `POST /research/sessions/start` creates a session and its first turn without
+  repeating retrieval or answer generation. `/research/new` uses it directly.
 - Tenant research workspace in the web app, done: content navigation that
   needs an active organization, sources (list, create,
   detail, provenance, ingest now, schedule, run history, delete), documents

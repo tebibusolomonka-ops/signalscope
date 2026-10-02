@@ -100,6 +100,45 @@ async def test_conversation(
     assert fetched.json()["id"] == research["id"]
 
 
+async def test_start_session_saves_first_turn_once(
+    answering_client: httpx.AsyncClient,
+    library: dict[str, uuid.UUID],
+    generator: FakeAnswerGenerator,
+) -> None:
+    response = await answering_client.post(
+        "/research/sessions/start",
+        json={
+            "title": "Harbour",
+            "retrieval_mode": "lexical",
+            "source_id": str(library["wire"]),
+            "question": "harbour flood",
+        },
+    )
+
+    assert response.status_code == 201, response.text
+    result = response.json()
+    assert result["session"]["title"] == "Harbour"
+    assert result["turn"]["sequence"] == 1
+    assert result["turn"]["question"] == "harbour flood"
+    assert [item["source_id"] for item in result["turn"]["evidence"]] == [str(library["wire"])]
+    assert result["turn"]["citation_ids"] == ["E1"]
+    assert len(generator.requests) == 1
+
+
+async def test_start_session_without_model_keeps_evidence(
+    client: httpx.AsyncClient, library: dict[str, uuid.UUID]
+) -> None:
+    response = await client.post(
+        "/research/sessions/start",
+        json={"retrieval_mode": "lexical", "question": "harbour flood"},
+    )
+
+    assert response.status_code == 201, response.text
+    turn = response.json()["turn"]
+    assert turn["answer"] is None
+    assert len(turn["evidence"]) == 1
+
+
 async def test_source_scoped_session_without_a_model(
     client: httpx.AsyncClient, library: dict[str, uuid.UUID]
 ) -> None:

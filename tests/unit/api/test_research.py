@@ -98,6 +98,22 @@ def test_answer_route_is_in_openapi(app: FastAPI) -> None:
     }
 
 
+def test_start_session_route_is_in_openapi(app: FastAPI) -> None:
+    openapi = app.openapi()
+    post = openapi["paths"]["/research/sessions/start"]["post"]
+    schema = openapi["components"]["schemas"]["ResearchSessionStart"]
+
+    assert post["tags"] == ["Research"]
+    assert set(schema["properties"]) == {
+        "title",
+        "retrieval_mode",
+        "source_id",
+        "organization_id",
+        "question",
+    }
+    assert "question" in schema["required"]
+
+
 def test_no_answer_model_is_configured_by_default(app: FastAPI) -> None:
     assert app.state.answer_generators.keys() == []
 

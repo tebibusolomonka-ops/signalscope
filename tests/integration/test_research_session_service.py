@@ -9,6 +9,7 @@ from fake_answers import FakeAnswerGenerator
 from signalscope.core.errors import NotFoundError, ServiceUnavailableError
 from signalscope.domain.research.service import MAX_HISTORY_TURNS, ResearchSessionService
 from signalscope.domain.research.turn import ResearchTurn
+from signalscope.domain.tenancy.scope import ContentScope
 from signalscope.embeddings.registry import EmbeddingProviderRegistry
 from signalscope.reranking.registry import RerankerRegistry
 from signalscope.research.evidence import ResearchMode
@@ -190,6 +191,24 @@ async def test_no_evidence_does_not_ask_the_generator(
 
     assert (turn.answer, turn.evidence_snapshot) == (None, [])
     assert generator.requests == []
+
+
+async def test_start_session_cleans_up_when_first_turn_fails(
+    session_factory: async_sessionmaker[AsyncSession], library: dict[str, uuid.UUID]
+) -> None:
+    generator = FakeAnswerGenerator()
+    generator.error = RuntimeError("model failed")
+
+    async with session_factory() as session:
+        research_service = service(session, generator)
+        with pytest.raises(ServiceUnavailableError):
+            await research_service.start_session(
+                "harbour flood", retrieval_mode=ResearchMode.LEXICAL
+            )
+        listed, total = await research_service.list_sessions(ContentScope.unrestricted(), 50, 0)
+
+    assert listed == []
+    assert total == 0
 
 
 async def test_turns_saved_at_once_get_different_numbers(

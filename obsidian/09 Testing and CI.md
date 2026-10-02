@@ -97,3 +97,10 @@ Work is done in groups of five commits. Each commit is checked with targeted
 tests and Ruff. After each group: `python scripts/check.py`, Alembic heads and
 history, one normal push, and one CI run. A red run gets the smallest
 corrective commit. History is never rewritten.
+
+Paged-picker tests cover later Source and Investigation pages, deduplication,
+server Source search and saving to a later Investigation. Source operation
+tests use fake timers for active polling and verify that terminal runs stop
+polling. Research start tests cover the direct request, no duplicate one-shot
+request, navigation, errors and organization switches. Backend integration
+coverage runs when `SIGNALSCOPE_TEST_DATABASE_URL` names a `_test` database.

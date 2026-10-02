@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 
 import { useOrganization } from "../../app/useOrganization.js";
 import { PageHeading } from "../../components/PageHeading.jsx";
@@ -18,16 +18,25 @@ const SCOPE = "quick";
  */
 export function QuickResearchPage() {
   const { active, tenantApi } = useOrganization();
+  const navigate = useNavigate();
   const sourceOptions = useSourceOptions();
   const { names } = sourceOptions;
   const [state, setState] = useState({ busy: null, error: null, result: null });
   const [focus, setFocus] = useState(null);
+  const mounted = useRef(true);
   // Which submit button was pressed: collect evidence, or also answer.
   const chosen = useRef("context");
 
   useEffect(() => {
     if (focus) focusEvidence(SCOPE, focus.evidenceId);
   }, [focus]);
+
+  useEffect(
+    () => () => {
+      mounted.current = false;
+    },
+    [],
+  );
 
   async function run(event) {
     event.preventDefault();
@@ -42,10 +51,22 @@ export function QuickResearchPage() {
     if (form.get("source_id")) body.source_id = form.get("source_id");
     setState({ busy: action, error: null, result: null });
     try {
+      if (action === "start") {
+        const start = {
+          question: body.query,
+          retrieval_mode: body.mode,
+          organization_id: body.organization_id,
+        };
+        if (body.source_id) start.source_id = body.source_id;
+        if (form.get("title").trim()) start.title = form.get("title").trim();
+        const result = await tenantApi.post("/research/sessions/start", start);
+        if (mounted.current) navigate(`/research/${result.session.id}`);
+        return;
+      }
       const answer = await tenantApi.post(`/research/${action}`, body);
-      setState({ busy: null, error: null, result: { action, ...answer } });
+      if (mounted.current) setState({ busy: null, error: null, result: { action, ...answer } });
     } catch (error) {
-      setState({ busy: null, error: { action, error }, result: null });
+      if (mounted.current) setState({ busy: null, error: { action, error }, result: null });
     }
   }
 
@@ -59,12 +80,16 @@ export function QuickResearchPage() {
       <section className="panel" aria-labelledby="quick-question">
         <h2 id="quick-question">Question</h2>
         <p className="muted">
-          One question, not saved. To keep questions and answers, start a research session.
+          Collect one-off evidence and answers, or start a saved session with this question.
         </p>
         <form className="form" onSubmit={run} aria-label="Research question">
           <label>
             Question
             <textarea name="query" rows={3} required maxLength={1000} />
+          </label>
+          <label>
+            Session title (optional)
+            <input name="title" maxLength={200} />
           </label>
           <div className="form-row">
             <label>
@@ -97,6 +122,13 @@ export function QuickResearchPage() {
               onClick={() => (chosen.current = "answer")}
             >
               {state.busy === "answer" ? "Answering..." : "Collect evidence and answer"}
+            </button>
+            <button
+              type="submit"
+              disabled={state.busy !== null}
+              onClick={() => (chosen.current = "start")}
+            >
+              {state.busy === "start" ? "Starting..." : "Start research session"}
             </button>
           </div>
         </form>
@@ -149,6 +181,7 @@ export function QuickResearchPage() {
 
 function Failure({ action, error }) {
   if (error.status !== 503) return <ErrorMessage error={error} />;
+  if (action === "start") return <ErrorMessage error={error} />;
   const text =
     action === "answer"
       ? "No answer model is enabled on the server, so answers cannot be written. Collecting evidence still works."

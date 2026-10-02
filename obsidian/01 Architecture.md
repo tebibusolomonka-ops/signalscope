@@ -117,6 +117,12 @@ admin-focused.
   clusters, entities, claims and research sessions into an open
   investigation of the active organization. `ExportActions` downloads the
   backend's JSON and Markdown exports in the browser, named by record ID.
+- Tenant Source selectors and `SaveToInvestigation` load options in pages.
+  Source selectors search names and URLs on the server. Source ingestion runs
+  refresh every five seconds while a visible recent run is active.
+- `/research/new` can start a saved session and first turn with one server
+  request, using the same retrieval, generation and citation checks as later
+  turns.
 - The development server proxies `/api` to the API, which has no CORS
   support; production must serve both from one origin.
 - The API decides every permission. The app may hide actions, but it never

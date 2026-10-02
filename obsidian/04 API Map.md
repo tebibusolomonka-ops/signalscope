@@ -110,7 +110,8 @@ content routes below with the active organization's `organization_id`.
 
 ## Sources and ingestion
 
-- `POST /sources`, `GET /sources`, `GET /sources/{id}`, `DELETE /sources/{id}`
+- `POST /sources`, `GET /sources`, `GET /sources/{id}`, `DELETE /sources/{id}`.
+  The list is paged and accepts `query` over names and URLs.
 - `PUT /sources/{id}/schedule`, `DELETE /sources/{id}/schedule`
 - `GET /sources/{id}/provenance`: observed counts and dates, no score
 - `POST /sources/compare`: 2 to 10 sources side by side, with shared clusters,
@@ -199,6 +200,8 @@ system admins.
 - `POST /research/sessions`, `GET /research/sessions` (the
   `organization_id` organization's sessions, newest first, paged; any role),
   `GET /research/sessions/{id}`
+- `POST /research/sessions/start`: create a session and its first turn in one
+  workflow, with one retrieval and at most one answer generation.
 - `GET /research/sessions/{id}/turns`, `POST /research/sessions/{id}/turns`:
   each turn has its question, answer (or null without a model), citations and
   evidence summaries. Prompts and chunk text are not returned.

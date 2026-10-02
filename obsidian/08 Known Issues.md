@@ -1,6 +1,6 @@
 # Known Issues
 
-Open problems as of commit 374. Remove an item when it is fixed.
+Open problems after batch 360 to 379. Remove an item when it is fixed.
 
 ## Events
 
@@ -46,7 +46,6 @@ Open problems as of commit 374. Remove an item when it is fixed.
 
 ## Operations
 
-- The operations and retention pages of the web app are not built yet.
 - A retried job keeps its attempt count, so a retried ingestion that fails
   again is not tried again automatically.
 - Retention covers security audit events only.
@@ -85,14 +84,9 @@ Open problems as of commit 374. Remove an item when it is fixed.
   origin (the development server proxies `/api`).
 - Collaborator management offers members of the active organization; the
   API decides who may change roles and keeps the last owner.
-- Research session pages load all turns at once; there is no paging.
-- Ingestion runs and research turns are not refreshed while a worker or
-  the answer model is busy; reload the page to see new states.
-- Saving to an investigation offers the first 100 open investigations of the
-  organization.
+- Research turns are not refreshed while the answer model is busy; reload the
+  page to see a new turn completed elsewhere.
 - Uploads are read into memory (at most 50 MB) before they are stored.
-- Source pickers in the web app offer the first 100 sources of an
-  organization (the API's largest page).
 
 ## Code
 

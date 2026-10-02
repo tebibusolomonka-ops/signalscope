@@ -25,13 +25,11 @@ time. What stays as it was:
 - Deployment is still same-origin: the API sends no CORS headers.
 - The bearer token still lives in sessionStorage.
 
-Current batch, 360 to 379: organization operations, failed job recovery,
-audit retention and research usability. Done: the lease test no longer depends on timing, operations overview,
-failed job list and retries, audit retention (policy, preview, cleanup,
-command), the operations and retention pages, the event detail page and
-richer evidence summaries. To do: evidence navigation, research turn
-paging, paged pickers, live ingestion runs and starting a session with its
-first question.
+Batch 360 to 379 is done: organization operations, failed job recovery,
+audit retention, the operations and retention pages, event detail, richer
+evidence summaries and navigation, research turn paging, paged tenant
+resource pickers, live ingestion run refresh, and starting a research session
+with its first question.
 
 ## Next batch
 
