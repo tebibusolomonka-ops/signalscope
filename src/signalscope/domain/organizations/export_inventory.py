@@ -78,11 +78,11 @@ class OrganizationExportInventoryService:
             DocumentChunk.document_id.in_(tenant_document_ids)
         )
         tenant_chunks = DocumentChunk.id.in_(tenant_chunk_ids)
-        tenant_investigations = Investigation.id.in_(
-            select(Investigation.id).where(Investigation.organization_id == organization_id)
+        tenant_investigation_ids = select(Investigation.id).where(
+            Investigation.organization_id == organization_id
         )
-        tenant_sessions = ResearchSession.id.in_(
-            select(ResearchSession.id).where(ResearchSession.organization_id == organization_id)
+        tenant_session_ids = select(ResearchSession.id).where(
+            ResearchSession.organization_id == organization_id
         )
         tenant_entity_ids = select(EntityMention.entity_id).where(
             EntityMention.document_id.in_(tenant_document_ids)
@@ -166,12 +166,12 @@ class OrganizationExportInventoryService:
             ),
             investigation_items=await self._rows(
                 select(InvestigationItem)
-                .where(InvestigationItem.investigation_id.in_(tenant_investigations))
+                .where(InvestigationItem.investigation_id.in_(tenant_investigation_ids))
                 .order_by(InvestigationItem.id)
             ),
             investigation_collaborators=await self._rows(
                 select(InvestigationCollaborator)
-                .where(InvestigationCollaborator.investigation_id.in_(tenant_investigations))
+                .where(InvestigationCollaborator.investigation_id.in_(tenant_investigation_ids))
                 .order_by(
                     InvestigationCollaborator.investigation_id,
                     InvestigationCollaborator.user_id,
@@ -184,7 +184,7 @@ class OrganizationExportInventoryService:
             ),
             research_turns=await self._rows(
                 select(ResearchTurn)
-                .where(ResearchTurn.session_id.in_(tenant_sessions))
+                .where(ResearchTurn.session_id.in_(tenant_session_ids))
                 .order_by(ResearchTurn.session_id, ResearchTurn.sequence)
             ),
             security_audit=await self._rows(
