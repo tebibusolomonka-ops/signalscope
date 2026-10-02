@@ -43,7 +43,7 @@ async def test_claim_and_failure_record_one_safe_attempt(
         assert claimed is not None and claimed.lease_token is not None
         await session.commit()
         await jobs.mark_failed(  # type: ignore[attr-defined]
-            job_id, claimed.lease_token, NOW + timedelta(minutes=1), "x" * 800
+            job_id, claimed.lease_token, NOW + timedelta(minutes=1), "x" * 1200
         )
         await session.commit()
 
