@@ -95,6 +95,10 @@ class MultilingualE5SmallProvider:
         inputs = [prefix + text for text in texts]
         return await asyncio.to_thread(self._encode, encoder, inputs)
 
+    async def load(self) -> None:
+        """Load the model for an explicit developer benchmark."""
+        await self._load()
+
     def _encode(self, encoder: SentenceEncoder, inputs: list[str]) -> list[list[float]]:
         vectors = encoder.encode(
             inputs,

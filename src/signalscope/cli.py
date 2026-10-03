@@ -85,7 +85,10 @@ from signalscope.domain.tenancy.assignment import LegacySourceAssignmentService
 from signalscope.domain.users.authentication import AuthenticationService
 from signalscope.domain.users.passwords import PasswordHasher
 from signalscope.domain.users.session_cleanup import SessionCleanupService
-from signalscope.embeddings.local import LocalEmbeddingsNotInstalledError
+from signalscope.embeddings.local import (
+    LocalEmbeddingsNotInstalledError,
+    MultilingualE5SmallProvider,
+)
 from signalscope.embeddings.models import MULTILINGUAL_E5_SMALL
 from signalscope.embeddings.provider import EmbeddingInputRole, EmbeddingProvider, embed
 from signalscope.embeddings.registry import EmbeddingProviderRegistry
@@ -94,6 +97,11 @@ from signalscope.entities.local import LocalEntitiesNotInstalledError
 from signalscope.entities.registry import EntityExtractorRegistry
 from signalscope.entities.runtime import create_entity_extractor_registry, local_entity_model
 from signalscope.evaluation.dataset import EvaluationDataError
+from signalscope.evaluation.embedding_benchmark import (
+    BenchmarkEmbeddingProvider,
+    benchmark_embedding,
+    fingerprint_bytes,
+)
 from signalscope.evaluation.extraction.claims import evaluate_claims
 from signalscope.evaluation.extraction.events import evaluate_events
 from signalscope.evaluation.extraction.gates import (
@@ -264,6 +272,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(check_answer_model(settings))
     if args.command == "model-environment":
         return model_environment(json_output=args.json)
+    if args.command == "benchmark-embedding":
+        return asyncio.run(
+            benchmark_embedding_command(args.dataset, args.output, settings, limit=args.limit)
+        )
     if args.command == "queue-embeddings":
         return asyncio.run(
             queue_embeddings(settings, document_id=args.document_id, limit=args.limit)
@@ -609,6 +621,17 @@ def build_parser() -> argparse.ArgumentParser:
         "model-environment", help="report local model dependencies without loading models"
     )
     environment_report.add_argument("--json", action="store_true", help="write JSON output")
+
+    embedding_benchmark = commands.add_parser(
+        "benchmark-embedding", help="run the real local embedding model on a retrieval dataset"
+    )
+    embedding_benchmark.add_argument("dataset", type=Path, help="retrieval dataset JSON file")
+    embedding_benchmark.add_argument(
+        "--output", type=Path, required=True, help="write the benchmark JSON report here"
+    )
+    embedding_benchmark.add_argument(
+        "--limit", type=positive_int, default=None, help="most labelled queries to run"
+    )
 
     worker = commands.add_parser("run-worker", help="run queued ingestion jobs")
     _add_worker_options(worker)
@@ -1181,6 +1204,53 @@ def model_environment(out: TextIO | None = None, *, json_output: bool = False) -
     print(f"CUDA device: {report.cuda_device or 'none'}", file=out)
     for use, model in report.models.items():
         print(f"{use} model: {model}", file=out)
+    return 0
+
+
+async def benchmark_embedding_command(
+    dataset_path: Path,
+    output: Path,
+    settings: Settings,
+    out: TextIO | None = None,
+    err: TextIO | None = None,
+    *,
+    limit: int | None = None,
+    provider: BenchmarkEmbeddingProvider | None = None,
+) -> int:
+    """Run the explicit E5 benchmark and write its JSON report."""
+    out = sys.stdout if out is None else out
+    err = sys.stderr if err is None else err
+    try:
+        dataset = load_dataset(dataset_path)
+        fingerprint = fingerprint_bytes(dataset_path.read_bytes())
+    except (EvaluationDataError, OSError) as error:
+        print(f"Error: {error}", file=err)
+        return 1
+    if provider is None:
+        if importlib.util.find_spec("sentence_transformers") is None:
+            print(f"Error: {LocalEmbeddingsNotInstalledError()}", file=err)
+            return 1
+        provider = MultilingualE5SmallProvider(
+            device=settings.local_embedding_device,
+            batch_size=settings.local_embedding_batch_size,
+            cache_dir=settings.local_embedding_cache_dir,
+        )
+    try:
+        report = await benchmark_embedding(
+            provider,
+            dataset,
+            fingerprint,
+            timestamp=utc_now(),
+            limit=limit,
+        )
+        _write_atomically(output, json.dumps(report.to_dict(), indent=2, sort_keys=True) + "\n")
+    except SignalScopeError as error:
+        print(f"Error: {error}", file=err)
+        return 1
+    except OSError as error:
+        print(f"Error: Cannot write {output}: {error.strerror}", file=err)
+        return 1
+    print(f"Wrote {output}", file=out)
     return 0
 
 
