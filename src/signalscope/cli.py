@@ -97,6 +97,7 @@ from signalscope.entities.local import LocalEntitiesNotInstalledError
 from signalscope.entities.registry import EntityExtractorRegistry
 from signalscope.entities.runtime import create_entity_extractor_registry, local_entity_model
 from signalscope.evaluation.answer_benchmark import benchmark_answers, load_answer_dataset
+from signalscope.evaluation.comparison import compare_evaluation_reports, format_comparison
 from signalscope.evaluation.dataset import EvaluationDataError
 from signalscope.evaluation.embedding_benchmark import (
     BenchmarkEmbeddingProvider,
@@ -278,6 +279,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(check_answer_model(settings))
     if args.command == "model-environment":
         return model_environment(json_output=args.json)
+    if args.command == "compare-evaluation-reports":
+        return compare_evaluation_reports_command(args.reports, json_output=args.json)
     if args.command == "benchmark-embedding":
         return asyncio.run(
             benchmark_embedding_command(args.dataset, args.output, settings, limit=args.limit)
@@ -635,6 +638,12 @@ def build_parser() -> argparse.ArgumentParser:
         "model-environment", help="report local model dependencies without loading models"
     )
     environment_report.add_argument("--json", action="store_true", help="write JSON output")
+
+    comparison = commands.add_parser(
+        "compare-evaluation-reports", help="compare factual metrics from compatible reports"
+    )
+    comparison.add_argument("reports", type=Path, nargs="+")
+    comparison.add_argument("--json", action="store_true", help="write JSON output")
 
     embedding_benchmark = commands.add_parser(
         "benchmark-embedding", help="run the real local embedding model on a retrieval dataset"
@@ -1235,6 +1244,27 @@ def model_environment(out: TextIO | None = None, *, json_output: bool = False) -
     print(f"CUDA device: {report.cuda_device or 'none'}", file=out)
     for use, model in report.models.items():
         print(f"{use} model: {model}", file=out)
+    return 0
+
+
+def compare_evaluation_reports_command(
+    paths: list[Path],
+    *,
+    json_output: bool = False,
+    out: TextIO | None = None,
+    err: TextIO | None = None,
+) -> int:
+    out = sys.stdout if out is None else out
+    err = sys.stderr if err is None else err
+    try:
+        comparison = compare_evaluation_reports(paths)
+    except (EvaluationDataError, ValueError) as error:
+        print(f"Error: {error}", file=err)
+        return 1
+    if json_output:
+        print(json.dumps(comparison.to_dict(), indent=2, sort_keys=True), file=out)
+    else:
+        print(format_comparison(comparison), end="", file=out)
     return 0
 
 
