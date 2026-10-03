@@ -88,6 +88,7 @@ function Member({ member, clusterId }) {
               <td>
                 <EvidenceReference
                   documentId={row.document_id}
+                  chunkId={row.chunk_id}
                   sourceId={row.source_id}
                   sourceName={row.source_name}
                   metadata={row.chunk_metadata}

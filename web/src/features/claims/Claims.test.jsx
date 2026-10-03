@@ -89,7 +89,7 @@ describe("claim workspace", () => {
     expect(rows[0]).toHaveTextContent("10 to 31");
     expect(within(rows[1]).getByRole("link", { name: "Harbour report" })).toHaveAttribute(
       "href",
-      "/documents/d-2",
+      "/documents/d-2?chunk=c-1",
     );
     expect(rows[1]).toHaveTextContent("-");
     expect(screen.getByRole("main")).not.toHaveTextContent(VERDICTS);

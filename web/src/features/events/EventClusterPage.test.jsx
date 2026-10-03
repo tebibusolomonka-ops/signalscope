@@ -104,7 +104,7 @@ describe("event cluster", () => {
     );
     expect(within(table).getByRole("link", { name: "Open document" })).toHaveAttribute(
       "href",
-      "/documents/d-2",
+      "/documents/d-2?chunk=c-2",
     );
     const first = screen.getByRole("article", { name: "Storm closes the harbour" });
     expect(first).toHaveTextContent("Ships stayed in port.");

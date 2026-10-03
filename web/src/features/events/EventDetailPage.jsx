@@ -65,6 +65,7 @@ export function EventDetailPage() {
                         <EvidenceReference
                           documentId={row.document_id}
                           documentTitle={row.document_title}
+                          chunkId={row.chunk_id}
                           sourceId={row.source_id}
                           sourceName={row.source_name}
                           metadata={row.chunk_metadata}

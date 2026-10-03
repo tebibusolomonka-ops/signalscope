@@ -349,8 +349,12 @@ citation's evidence card, link to `/documents/<id>?chunk=<chunk-id>`, which
 opens the document with that chunk highlighted and focused. The chunk ID is
 not secret, so it may be in the URL; chunk text, excerpts and the bearer
 token never are. Research citations still focus the evidence card in place as
-well; opening it in the document is a separate action. `GET /documents/<id>/chunks`
-(paged) backs this navigation.
+well; opening it in the document is a separate action. Entity, claim and
+event evidence rows link to their exact chunk too. The focused passage has
+Previous and Next buttons that step through the document and update the
+`?chunk=` value. `GET /documents/<id>/chunks/<chunk-id>` looks a chunk up
+directly and `GET /documents/<id>/chunks/<chunk-id>/context` returns the
+passage before and after it; `GET /documents/<id>/chunks` (paged) lists them.
 
 Administration pages: organizations (members, invitations and the access
 summary), users (system admins: search, create, deactivate and see another

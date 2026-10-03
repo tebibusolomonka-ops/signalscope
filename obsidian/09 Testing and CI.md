@@ -67,7 +67,9 @@ source name, from the requesting organization only.
 `test_document_file_api.py` covers the upload route with file storage in a
 temporary folder. `test_document_chunks_api.py` covers the paged chunk
 navigation route and its tenant scope.
-`ResearchNavigationFlow.test.jsx` is a web end-to-end test: it signs in,
+`EvidenceNavigationFlow.test.jsx` opens evidence at an exact late chunk from
+search and entity pages and steps passages, proving the direct lookup needs
+no page scan. `ResearchNavigationFlow.test.jsx` is a web end-to-end test: it signs in,
 searches, opens a result at its exact chunk, opens entity evidence, follows a
 research citation and opens that evidence in the document, then switches
 organization and checks that no marker of the first organization remains. `ResearchFlow.test.jsx` walks one organization's workflow

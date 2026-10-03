@@ -96,7 +96,7 @@ describe("entity workspace", () => {
     expect(rows).toHaveLength(2);
     expect(within(rows[0]).getByRole("link", { name: "Harbour report" })).toHaveAttribute(
       "href",
-      "/documents/d-1",
+      "/documents/d-1?chunk=c-1",
     );
     expect(within(rows[0]).getByRole("link", { name: "Harbour Feed" })).toHaveAttribute(
       "href",

@@ -91,10 +91,10 @@ function routes() {
     ),
     "GET /sources/s-a": { body: A_SOURCE },
     "GET /documents/d-a/revisions": { body: { items: [] } },
-    "GET /documents/d-a/chunks": byOrg(page(A_CHUNKS), {
-      status: 404,
-      body: { error: { code: "not_found", message: "Document was not found." } },
-    }),
+    "GET /documents/d-a/chunks/c-a1/context": byOrg(
+      { body: { previous: A_CHUNKS[0], current: A_CHUNKS[1], next: null } },
+      { status: 404, body: { error: { code: "not_found", message: "Document was not found." } } },
+    ),
     "GET /entities": byOrg(
       page([A_ENTITY]),
       page([entity({ id: "e-b", canonical_name: "Beta Council" })]),

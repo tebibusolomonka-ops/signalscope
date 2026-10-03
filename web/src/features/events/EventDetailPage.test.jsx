@@ -40,7 +40,7 @@ describe("event detail", () => {
     );
     expect(within(row).getByRole("link", { name: "Storm report" })).toHaveAttribute(
       "href",
-      "/documents/d-1",
+      "/documents/d-1?chunk=c-1",
     );
     expect(row).toHaveTextContent("Page 2");
     expect(row).toHaveTextContent("0.91");

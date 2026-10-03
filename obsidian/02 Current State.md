@@ -1,8 +1,10 @@
 # Current State
 
-Batch 380 to 419 is in progress. Durable operation history and portable
-organization exports, model evaluation evidence tooling and authentication
-hardening are complete through planned commit 414. Evidence navigation is
+Batch 420 to 459 is in progress on top of a 428-commit history (HEAD
+c4b5355 at its start). Durable operation history and portable organization
+exports, model evaluation evidence tooling and authentication hardening were
+complete through commit 414, and exact evidence navigation through commit
+419. Evidence navigation is
 complete through planned commit 419: a paged document chunk API, a focused
 chunk on the document page, and search results and research citations that
 link to the exact passage. Alembic head: `e4a7c8d91f20` (Create
