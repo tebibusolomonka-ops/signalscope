@@ -72,8 +72,6 @@ def _example(raw: dict[str, Any]) -> RelationExample:
     reference = None if reference is None else _text(reference)
     mentions = tuple(_text(value) for value in raw.get("mentions", []))
     relations = tuple(_triple(value) for value in raw["relations"])
-    if not relations:
-        raise ValueError(f"Relation example {key!r} has no expected relations.")
     normalized = [
         (
             normalize_relation_part(item.subject),
