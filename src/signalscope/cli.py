@@ -2,6 +2,7 @@ import argparse
 import asyncio
 import getpass
 import importlib.util
+import json
 import math
 import mimetypes
 import os
@@ -116,6 +117,7 @@ from signalscope.evaluation.gates import (
 )
 from signalscope.evaluation.json_report import report_data, write_json_report
 from signalscope.evaluation.loader import load_dataset
+from signalscope.evaluation.model_environment import model_environment_report
 from signalscope.evaluation.report import format_reports
 from signalscope.evaluation.retrieval import (
     DEFAULT_KS,
@@ -260,6 +262,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(check_structured_model(settings))
     if args.command == "check-answer-model":
         return asyncio.run(check_answer_model(settings))
+    if args.command == "model-environment":
+        return model_environment(json_output=args.json)
     if args.command == "queue-embeddings":
         return asyncio.run(
             queue_embeddings(settings, document_id=args.document_id, limit=args.limit)
@@ -600,6 +604,11 @@ def build_parser() -> argparse.ArgumentParser:
     commands.add_parser(
         "check-answer-model", help="load the local answer model and answer one small question"
     )
+
+    environment_report = commands.add_parser(
+        "model-environment", help="report local model dependencies without loading models"
+    )
+    environment_report.add_argument("--json", action="store_true", help="write JSON output")
 
     worker = commands.add_parser("run-worker", help="run queued ingestion jobs")
     _add_worker_options(worker)
@@ -1152,6 +1161,27 @@ def verify_organization_export(
     for problem in result.problems:
         print(f"Problem: {problem}", file=out)
     return 0 if result.valid else 1
+
+
+def model_environment(out: TextIO | None = None, *, json_output: bool = False) -> int:
+    """Print a secret-free summary of the machine and configured model IDs."""
+    out = sys.stdout if out is None else out
+    report = model_environment_report()
+    if json_output:
+        print(json.dumps(report.to_dict(), sort_keys=True), file=out)
+        return 0
+    print(f"Python: {report.python_version}", file=out)
+    print(f"Platform: {report.platform}", file=out)
+    print(f"CPU architecture: {report.cpu_architecture}", file=out)
+    ram = "unknown" if report.available_ram_bytes is None else str(report.available_ram_bytes)
+    print(f"Available RAM bytes: {ram}", file=out)
+    for name, version in report.dependencies.items():
+        print(f"{name}: {version or 'not installed'}", file=out)
+    print(f"CUDA available: {'yes' if report.cuda_available else 'no'}", file=out)
+    print(f"CUDA device: {report.cuda_device or 'none'}", file=out)
+    for use, model in report.models.items():
+        print(f"{use} model: {model}", file=out)
+    return 0
 
 
 def _write_atomically(path: Path, text: str) -> None:
