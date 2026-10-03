@@ -1,7 +1,7 @@
 import uuid
 from collections.abc import Sequence
 
-from sqlalchemy import delete, literal, select, tuple_
+from sqlalchemy import delete, func, literal, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from signalscope.domain.documents.chunk import DocumentChunk
@@ -28,6 +28,27 @@ class DocumentChunkRepository:
             .order_by(DocumentChunk.position)
         )
         return list(result.all())
+
+    async def list_page(
+        self, document_id: uuid.UUID, limit: int, offset: int
+    ) -> list[DocumentChunk]:
+        """One page of a document's chunks, in position order."""
+        result = await self.session.scalars(
+            select(DocumentChunk)
+            .where(DocumentChunk.document_id == document_id)
+            .order_by(DocumentChunk.position)
+            .limit(limit)
+            .offset(offset)
+        )
+        return list(result.all())
+
+    async def count_for_document(self, document_id: uuid.UUID) -> int:
+        result = await self.session.execute(
+            select(func.count())
+            .select_from(DocumentChunk)
+            .where(DocumentChunk.document_id == document_id)
+        )
+        return result.scalar_one()
 
     async def replace_for_document(
         self, document_id: uuid.UUID, chunks: Sequence[TextChunk]

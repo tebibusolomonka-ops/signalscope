@@ -50,7 +50,15 @@ def test_document_routes_are_in_openapi(app: FastAPI) -> None:
 
     assert set(paths["/documents"]) == {"get", "post"}
     assert set(paths["/documents/{document_id}"]) == {"get", "delete"}
+    assert set(paths["/documents/{document_id}/chunks"]) == {"get"}
     assert paths["/documents"]["post"]["tags"] == ["Documents"]
+    schemas = app.openapi()["components"]["schemas"]
+    assert set(schemas["DocumentChunkRead"]["properties"]) == {
+        "chunk_id",
+        "position",
+        "text",
+        "chunk_metadata",
+    }
 
 
 @pytest.mark.parametrize(

@@ -4,6 +4,7 @@ from typing import Annotated, Any
 
 from pydantic import AfterValidator, AwareDatetime, BaseModel, ConfigDict, StringConstraints
 
+from signalscope.domain.documents.chunk import DocumentChunk
 from signalscope.domain.documents.language import normalize_language
 from signalscope.domain.documents.model import (
     EXTERNAL_ID_MAX_LENGTH,
@@ -124,3 +125,24 @@ class DocumentRevisionRead(BaseModel):
     # What the parser reported for this state, such as a page count.
     parser_metadata: dict[str, Any]
     created_at: datetime
+
+
+class DocumentChunkRead(BaseModel):
+    """One chunk of a document, for reading a document in order or focusing one."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    chunk_id: uuid.UUID
+    position: int
+    text: str
+    # Where the chunk came from, such as {"page_number": 3}.
+    chunk_metadata: dict[str, Any]
+
+    @classmethod
+    def from_chunk(cls, chunk: "DocumentChunk") -> "DocumentChunkRead":
+        return cls(
+            chunk_id=chunk.id,
+            position=chunk.position,
+            text=chunk.text,
+            chunk_metadata=chunk.chunk_metadata,
+        )

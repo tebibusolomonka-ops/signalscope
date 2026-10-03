@@ -9,10 +9,12 @@ from signalscope.api.pagination import Page, Pagination
 from signalscope.api.tenancy import OrganizationFilter, Policy, ReadScope
 from signalscope.core.errors import InvalidInputError, ServiceUnavailableError
 from signalscope.domain.documents.asset import FILENAME_MAX_LENGTH
+from signalscope.domain.documents.chunk_repository import DocumentChunkRepository
 from signalscope.domain.documents.files import MAX_FILE_BYTES
 from signalscope.domain.documents.repository import DocumentFilters
 from signalscope.domain.documents.revision_service import DocumentRevisionService
 from signalscope.domain.documents.schemas import (
+    DocumentChunkRead,
     DocumentCreate,
     DocumentFileRead,
     DocumentRead,
@@ -160,6 +162,27 @@ async def delete_document(document_id: uuid.UUID, documents: Documents, policy: 
     """Delete a document and what was made from it. Needs the member role or higher."""
     await policy.authorize_document(document_id, ContentCapability.CONTRIBUTE)
     await documents.delete(document_id)
+
+
+@router.get("/{document_id}/chunks")
+async def list_document_chunks(
+    document_id: uuid.UUID, session: DatabaseSession, policy: Policy, page: Pagination
+) -> Page[DocumentChunkRead]:
+    """A document's chunks in position order, for reading or focusing one piece.
+
+    The document's organization comes from its source; a document the caller
+    may not see is not found. With authentication off it works as before.
+    """
+    await policy.authorize_document(document_id)
+    chunks = DocumentChunkRepository(session)
+    items = await chunks.list_page(document_id, page.limit, page.offset)
+    total = await chunks.count_for_document(document_id)
+    return Page[DocumentChunkRead](
+        items=[DocumentChunkRead.from_chunk(chunk) for chunk in items],
+        total=total,
+        limit=page.limit,
+        offset=page.offset,
+    )
 
 
 @router.get("/{document_id}/revisions")
