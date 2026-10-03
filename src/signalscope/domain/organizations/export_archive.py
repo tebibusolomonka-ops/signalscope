@@ -19,7 +19,7 @@ from signalscope.domain.organizations.export_inventory import (
 from signalscope.domain.sources.scheduling import Clock, utc_now
 from signalscope.storage.blob import BlobStore
 
-EXPORT_FORMAT_VERSION = "1"
+EXPORT_FORMAT_VERSION = "2"
 MANIFEST_FILE = "manifest.json"
 FILES = {
     "organization": "organization.json",
@@ -79,8 +79,14 @@ class OrganizationExportArchiveService:
             "record_counts": {
                 name: inventory.counts[name] for name in FILES if inventory.counts[name]
             },
-            "files": list(files),
-            "archive_sha256": None,
+            "files": [
+                {
+                    "path": path,
+                    "size_bytes": len(content),
+                    "sha256": hashlib.sha256(content).hexdigest(),
+                }
+                for path, content in files.items()
+            ],
         }
         archive_data = self._zip(manifest, files)
         return OrganizationExportArchive(

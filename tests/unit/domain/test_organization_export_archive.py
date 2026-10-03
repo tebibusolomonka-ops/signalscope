@@ -1,3 +1,4 @@
+import hashlib
 import io
 import json
 import zipfile
@@ -99,8 +100,41 @@ async def test_archive_has_safe_deterministic_utf8_structure() -> None:
         organization = json.loads(archive.read("organization.json"))
         exported_text = "".join(archive.read(name).decode("utf-8") for name in archive.namelist())
     assert manifest["record_counts"] == {"organization": 1}
-    assert manifest["files"] == ["organization.json"]
-    assert manifest["archive_sha256"] is None
+    organization_data = (
+        json.dumps(organization, ensure_ascii=False, separators=(",", ":"), sort_keys=True) + "\n"
+    ).encode("utf-8")
+    assert manifest["format_version"] == "2"
+    assert manifest["files"] == [
+        {
+            "path": "organization.json",
+            "size_bytes": len(organization_data),
+            "sha256": hashlib.sha256(organization_data).hexdigest(),
+        }
+    ]
     assert organization["name"] == "Médias du Monde"
     assert "password" not in exported_text
-    assert all(".." not in name and not name.startswith("/") for name in manifest["files"])
+    assert all(
+        ".." not in file["path"] and not file["path"].startswith("/") for file in manifest["files"]
+    )
+
+
+@pytest.mark.anyio
+async def test_archive_checksum_changes_when_member_content_changes() -> None:
+    first_inventory = inventory()
+    changed_inventory = inventory()
+    changed_inventory.organization[0].name = "Changed name"
+
+    first = await OrganizationExportArchiveService(
+        InventoryService(first_inventory),
+        clock=lambda: NOW,  # type: ignore[arg-type]
+    ).build(ORGANIZATION_ID)
+    changed = await OrganizationExportArchiveService(
+        InventoryService(changed_inventory),
+        clock=lambda: NOW,  # type: ignore[arg-type]
+    ).build(ORGANIZATION_ID)
+
+    assert first.sha256 == hashlib.sha256(first.data).hexdigest()
+    assert changed.sha256 == hashlib.sha256(changed.data).hexdigest()
+    assert first.sha256 != changed.sha256
+    with zipfile.ZipFile(io.BytesIO(first.data)) as archive:
+        assert archive.namelist() == sorted(archive.namelist())
