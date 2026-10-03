@@ -1273,6 +1273,7 @@ async def benchmark_embedding_command(
             fingerprint,
             timestamp=utc_now(),
             limit=limit,
+            environment=model_environment_report().to_dict(),
         )
         _write_atomically(output, json.dumps(report.to_dict(), indent=2, sort_keys=True) + "\n")
     except SignalScopeError as error:
@@ -1314,7 +1315,12 @@ async def benchmark_reranker_command(
         )
     try:
         report = await benchmark_reranker(
-            provider, dataset, fingerprint, timestamp=utc_now(), limit=limit
+            provider,
+            dataset,
+            fingerprint,
+            timestamp=utc_now(),
+            limit=limit,
+            environment=model_environment_report().to_dict(),
         )
         _write_atomically(output, json.dumps(report.to_dict(), indent=2, sort_keys=True) + "\n")
     except SignalScopeError as error:
@@ -1362,6 +1368,7 @@ async def benchmark_structured_command(
             claim_provider,
             relation_provider,
             timestamp=utc_now(),
+            environment=model_environment_report().to_dict(),
         )
         _write_atomically(output, json.dumps(report.to_dict(), indent=2, sort_keys=True) + "\n")
     except SignalScopeError as error:
@@ -1397,8 +1404,14 @@ async def benchmark_answer_command(
             return 1
         generator = create_answer_generator_registry(settings).only()
     try:
-        report = await benchmark_answers(generator, dataset, fingerprint, timestamp=utc_now())
-        _write_atomically(output, json.dumps(report, indent=2, sort_keys=True) + "\n")
+        report = await benchmark_answers(
+            generator,
+            dataset,
+            fingerprint,
+            timestamp=utc_now(),
+            environment=model_environment_report().to_dict(),
+        )
+        _write_atomically(output, json.dumps(report.to_dict(), indent=2, sort_keys=True) + "\n")
     except SignalScopeError as error:
         print(f"Error: {error}", file=err)
         return 1

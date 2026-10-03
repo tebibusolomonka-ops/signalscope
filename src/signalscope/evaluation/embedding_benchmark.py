@@ -2,13 +2,14 @@ import hashlib
 import math
 import time
 from collections.abc import Callable, Sequence
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 from datetime import datetime
 from typing import Any, Protocol
 
 from signalscope.embeddings.provider import EmbeddingInputRole, EmbeddingProvider, embed
 from signalscope.evaluation.corpus import chunk_dataset
 from signalscope.evaluation.dataset import RetrievalDataset
+from signalscope.evaluation.evaluation_report import EvaluationReport, evaluation_report
 from signalscope.evaluation.metrics import evaluate_query, summarize
 from signalscope.evaluation.retrieval import DEFAULT_KS
 
@@ -19,21 +20,6 @@ class BenchmarkEmbeddingProvider(EmbeddingProvider, Protocol):
     async def load(self) -> None: ...
 
 
-@dataclass(frozen=True, slots=True)
-class EmbeddingBenchmarkReport:
-    model_id: str
-    timestamp: str
-    dataset: str
-    dataset_fingerprint: str
-    configuration: dict[str, Any]
-    counts: dict[str, int]
-    metrics: dict[str, Any]
-    timings: dict[str, float]
-
-    def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
-
-
 async def benchmark_embedding(
     provider: BenchmarkEmbeddingProvider,
     dataset: RetrievalDataset,
@@ -41,8 +27,9 @@ async def benchmark_embedding(
     *,
     timestamp: datetime,
     limit: int | None = None,
+    environment: dict[str, Any] | None = None,
     timer: Timer = time.perf_counter,
-) -> EmbeddingBenchmarkReport:
+) -> EvaluationReport:
     """Run a labelled retrieval benchmark with an explicitly supplied provider."""
     queries = dataset.queries if limit is None else dataset.queries[:limit]
     chunks = chunk_dataset(dataset)
@@ -70,20 +57,23 @@ async def benchmark_embedding(
     metrics = asdict(summarize(results, DEFAULT_KS))
     total_seconds = load_seconds + passage_seconds + query_seconds
     encoded = len(passage_texts) + len(queries)
-    return EmbeddingBenchmarkReport(
-        model_id=provider.model_name,
-        timestamp=timestamp.isoformat(),
-        dataset=dataset.name,
+    counts = {
+        "documents": len(dataset.documents),
+        "chunks_encoded": len(passage_texts),
+        "queries_encoded": len(queries),
+    }
+    return evaluation_report(
+        task="embedding_retrieval",
+        model=provider.model_name,
+        provider=provider.provider_name,
+        dataset_name=dataset.name,
         dataset_fingerprint=dataset_fingerprint,
+        created_at=timestamp.isoformat(),
+        environment=environment,
         configuration={
-            "provider": provider.provider_name,
             "dimensions": provider.dimensions,
             "query_limit": limit,
-        },
-        counts={
-            "documents": len(dataset.documents),
-            "chunks_encoded": len(passage_texts),
-            "queries_encoded": len(queries),
+            "counts": counts,
         },
         metrics=metrics,
         timings={

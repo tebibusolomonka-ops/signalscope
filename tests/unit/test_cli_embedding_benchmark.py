@@ -60,9 +60,9 @@ async def test_embedding_benchmark_writes_report_with_fake_provider(tmp_path: Pa
 
     assert code == 0
     report = json.loads(output.read_text(encoding="utf-8"))
-    assert report["model_id"] == "fake-e5"
+    assert report["model"] == "fake-e5"
     assert report["metrics"]["recall"]["1"] == 1.0
-    assert len(report["dataset_fingerprint"]) == 64
+    assert len(report["dataset"]["fingerprint"]) == 64
 
 
 @pytest.mark.anyio

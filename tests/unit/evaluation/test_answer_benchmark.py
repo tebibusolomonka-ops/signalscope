@@ -40,7 +40,7 @@ async def test_answer_benchmark_report(tmp_path) -> None:
         "a" * 64,
         timestamp=datetime(2026, 10, 3, tzinfo=UTC),
     )
-    assert report["metrics"] == {
+    assert report.metrics == {
         "json_parse_successes": 1,
         "citation_validation_successes": 1,
         "invalid_citation_count": 0,

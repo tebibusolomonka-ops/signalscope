@@ -1,10 +1,11 @@
 import time
 from collections.abc import Callable
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 from datetime import datetime
 from typing import Any, Protocol
 
 from signalscope.evaluation.dataset import RetrievalDataset
+from signalscope.evaluation.evaluation_report import EvaluationReport, evaluation_report
 from signalscope.evaluation.metrics import evaluate_query, summarize
 from signalscope.evaluation.retrieval import DEFAULT_KS
 from signalscope.reranking.provider import RerankerProvider, rerank_scores
@@ -14,20 +15,6 @@ class BenchmarkReranker(RerankerProvider, Protocol):
     async def load(self) -> None: ...
 
 
-@dataclass(frozen=True, slots=True)
-class RerankerBenchmarkReport:
-    model_id: str
-    timestamp: str
-    dataset: str
-    dataset_fingerprint: str
-    configuration: dict[str, Any]
-    metrics: dict[str, Any]
-    timings: dict[str, float]
-
-    def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
-
-
 async def benchmark_reranker(
     provider: BenchmarkReranker,
     dataset: RetrievalDataset,
@@ -35,8 +22,9 @@ async def benchmark_reranker(
     *,
     timestamp: datetime,
     limit: int | None = None,
+    environment: dict[str, Any] | None = None,
     timer: Callable[[], float] = time.perf_counter,
-) -> RerankerBenchmarkReport:
+) -> EvaluationReport:
     queries = dataset.queries if limit is None else dataset.queries[:limit]
     started = timer()
     await provider.load()
@@ -67,12 +55,15 @@ async def benchmark_reranker(
         reranked_results.append(
             evaluate_query(query.key, reranked, query.relevant_documents, DEFAULT_KS)
         )
-    return RerankerBenchmarkReport(
-        model_id=provider.model_name,
-        timestamp=timestamp.isoformat(),
-        dataset=dataset.name,
+    return evaluation_report(
+        task="reranking",
+        model=provider.model_name,
+        provider=provider.provider_name,
+        dataset_name=dataset.name,
         dataset_fingerprint=fingerprint,
-        configuration={"provider": provider.provider_name, "query_limit": limit},
+        created_at=timestamp.isoformat(),
+        environment=environment,
+        configuration={"query_limit": limit},
         metrics={
             "baseline": asdict(summarize(baseline_results, DEFAULT_KS)),
             "reranked": asdict(summarize(reranked_results, DEFAULT_KS)),

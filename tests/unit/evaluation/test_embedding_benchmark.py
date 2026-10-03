@@ -53,9 +53,13 @@ async def test_fake_embedding_benchmark_report_shape() -> None:
         timer=lambda: next(times),
     )
 
-    assert report.model_id == "fake-e5"
-    assert report.dataset_fingerprint == fingerprint_bytes(b"dataset")
-    assert report.counts == {"documents": 2, "chunks_encoded": 2, "queries_encoded": 2}
+    assert report.model == "fake-e5"
+    assert report.dataset["fingerprint"] == fingerprint_bytes(b"dataset")
+    assert report.configuration["counts"] == {
+        "documents": 2,
+        "chunks_encoded": 2,
+        "queries_encoded": 2,
+    }
     assert report.configuration["dimensions"] == 2
     assert report.metrics["recall"][1] == 1.0
     assert report.timings == {
@@ -77,5 +81,5 @@ async def test_query_limit_is_applied() -> None:
         limit=1,
     )
 
-    assert report.counts["queries_encoded"] == 1
+    assert report.configuration["counts"]["queries_encoded"] == 1
     assert report.metrics["query_count"] == 1

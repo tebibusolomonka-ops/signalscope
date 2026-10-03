@@ -63,6 +63,6 @@ async def test_structured_report_separates_relation_metrics() -> None:
         Relations(),  # type: ignore[arg-type]
         timestamp=datetime(2026, 10, 3, tzinfo=UTC),
     )
-    assert report.production["events"]["f1"] == 1.0
-    assert report.production["claims"]["f1"] == 1.0
-    assert report.experimental_relation["relations"]["f1"] == 1.0
+    assert report.metrics["production"]["events"]["f1"] == 1.0
+    assert report.metrics["production"]["claims"]["f1"] == 1.0
+    assert report.metrics["experimental_relation"]["relations"]["f1"] == 1.0

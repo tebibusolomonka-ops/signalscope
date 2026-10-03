@@ -9,6 +9,7 @@ from typing import Any
 
 from signalscope.core.errors import SignalScopeError
 from signalscope.evaluation.dataset import EvaluationDataError
+from signalscope.evaluation.evaluation_report import EvaluationReport, evaluation_report
 from signalscope.research.citations import validate_citations
 from signalscope.research.context import context_text
 from signalscope.research.evidence import ResearchEvidence
@@ -35,8 +36,9 @@ async def benchmark_answers(
     fingerprint: str,
     *,
     timestamp: datetime,
+    environment: dict[str, Any] | None = None,
     timer: Callable[[], float] = time.perf_counter,
-) -> dict[str, Any]:
+) -> EvaluationReport:
     parsed = validated = invalid = missing = 0
     latencies = []
     for case in dataset.cases:
@@ -53,25 +55,29 @@ async def benchmark_answers(
         except SignalScopeError:
             pass
         latencies.append(timer() - started)
-    return {
-        "model_id": generator.model_name,
-        "provider": generator.provider_name,
-        "timestamp": timestamp.isoformat(),
-        "dataset": dataset.name,
-        "dataset_fingerprint": fingerprint,
-        "prompt_config_version": dataset.prompt_config_version,
-        "records_processed": len(dataset.cases),
-        "metrics": {
+    return evaluation_report(
+        task="answer_citation",
+        model=generator.model_name,
+        provider=generator.provider_name,
+        dataset_name=dataset.name,
+        dataset_fingerprint=fingerprint,
+        created_at=timestamp.isoformat(),
+        environment=environment,
+        configuration={
+            "prompt_config_version": dataset.prompt_config_version,
+            "records_processed": len(dataset.cases),
+        },
+        metrics={
             "json_parse_successes": parsed,
             "citation_validation_successes": validated,
             "invalid_citation_count": invalid,
             "missing_citation_count": missing,
         },
-        "timings": {
+        timings={
             "generation_seconds": sum(latencies),
             "mean_generation_seconds": sum(latencies) / len(latencies),
         },
-    }
+    )
 
 
 def load_answer_dataset(path: Path) -> AnswerDataset:
