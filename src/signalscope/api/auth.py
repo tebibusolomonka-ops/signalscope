@@ -35,8 +35,14 @@ AuthEnabled = Annotated[None, Depends(require_auth_enabled)]
 
 def authentication_service(request: Request, session: DatabaseSession) -> AuthenticationService:
     hasher: PasswordHasher = request.app.state.password_hasher
+    settings = request.app.state.settings
     return AuthenticationService(
-        session, hasher, session_days=request.app.state.settings.auth_session_days
+        session,
+        hasher,
+        session_days=settings.auth_session_days,
+        login_window_seconds=settings.auth_login_window_seconds,
+        login_max_failures=settings.auth_login_max_failures,
+        login_block_seconds=settings.auth_login_block_seconds,
     )
 
 

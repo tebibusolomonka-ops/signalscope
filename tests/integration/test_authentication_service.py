@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 from datetime import UTC, datetime, timedelta
 
@@ -14,8 +15,10 @@ from signalscope.domain.users.authentication import (
     InvalidCredentialsError,
 )
 from signalscope.domain.users.credential import UserPasswordCredential
+from signalscope.domain.users.login_throttle import login_identifier
 from signalscope.domain.users.model import User
 from signalscope.domain.users.session import UserSession
+from signalscope.domain.users.throttle import AuthenticationThrottle
 
 pytestmark = pytest.mark.anyio
 
@@ -33,8 +36,23 @@ def clock() -> Clock:
     return Clock()
 
 
-def service(session: AsyncSession, clock: Clock | None = None) -> AuthenticationService:
-    return AuthenticationService(session, fast_hasher(), clock or Clock(), session_days=7)
+def service(
+    session: AsyncSession,
+    clock: Clock | None = None,
+    *,
+    max_failures: int = 10,
+    window_seconds: int = 900,
+    block_seconds: int = 900,
+) -> AuthenticationService:
+    return AuthenticationService(
+        session,
+        fast_hasher(),
+        clock or Clock(),
+        session_days=7,
+        login_window_seconds=window_seconds,
+        login_max_failures=max_failures,
+        login_block_seconds=block_seconds,
+    )
 
 
 async def create_user(
@@ -195,6 +213,73 @@ async def test_inactive_user(session_factory: async_sessionmaker[AsyncSession]) 
             )
         ).one()
         assert event.details == {"reason": "inactive_user"}
+
+
+async def test_login_throttle_threshold_expiry_and_success_reset(
+    session_factory: async_sessionmaker[AsyncSession], clock: Clock
+) -> None:
+    await create_user(session_factory)
+    identifier = login_identifier("ana@example.org")
+    for _ in range(2):
+        async with session_factory() as session:
+            with pytest.raises(InvalidCredentialsError, match=INVALID_CREDENTIALS):
+                await service(session, clock, max_failures=2).login(
+                    "ana@example.org", OTHER_PASSWORD
+                )
+    async with session_factory() as session:
+        throttle = await session.get(AuthenticationThrottle, identifier)
+        assert throttle is not None
+        assert throttle.failure_count == 2
+        assert throttle.blocked_until == clock.now + timedelta(seconds=900)
+    async with session_factory() as session:
+        with pytest.raises(InvalidCredentialsError, match=INVALID_CREDENTIALS):
+            await service(session, clock, max_failures=2).login("ana@example.org", TEST_PASSWORD)
+    clock.now += timedelta(seconds=901)
+    async with session_factory() as session:
+        await service(session, clock, max_failures=2).login("ana@example.org", TEST_PASSWORD)
+    async with session_factory() as session:
+        assert await session.get(AuthenticationThrottle, identifier) is None
+
+
+async def test_login_throttle_window_reset_and_unknown_account(
+    session_factory: async_sessionmaker[AsyncSession], clock: Clock
+) -> None:
+    identifier = login_identifier("missing@example.org")
+    async with session_factory() as session:
+        with pytest.raises(InvalidCredentialsError):
+            await service(session, clock, window_seconds=60).login(
+                "missing@example.org", TEST_PASSWORD
+            )
+    clock.now += timedelta(seconds=61)
+    async with session_factory() as session:
+        with pytest.raises(InvalidCredentialsError):
+            await service(session, clock, window_seconds=60).login(
+                "missing@example.org", TEST_PASSWORD
+            )
+    async with session_factory() as session:
+        throttle = await session.get(AuthenticationThrottle, identifier)
+        assert throttle is not None
+        assert throttle.failure_count == 1
+        assert throttle.window_started_at == clock.now
+
+
+async def test_concurrent_login_failures_are_not_lost(
+    session_factory: async_sessionmaker[AsyncSession], clock: Clock
+) -> None:
+    await create_user(session_factory)
+
+    async def fail() -> None:
+        async with session_factory() as session:
+            with pytest.raises(InvalidCredentialsError):
+                await service(session, clock, max_failures=5).login(
+                    "ana@example.org", OTHER_PASSWORD
+                )
+
+    await asyncio.gather(fail(), fail())
+    async with session_factory() as session:
+        throttle = await session.get(AuthenticationThrottle, login_identifier("ana@example.org"))
+        assert throttle is not None
+        assert throttle.failure_count == 2
 
 
 async def test_expired_revoked_and_unknown_tokens(

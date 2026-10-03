@@ -20,6 +20,7 @@ from signalscope.domain.audit.service import AuditAction, SecurityAuditService
 from signalscope.domain.sources.scheduling import Clock, utc_now
 from signalscope.domain.users.credential import UserPasswordCredential
 from signalscope.domain.users.email import InvalidEmailError, normalize_email
+from signalscope.domain.users.login_throttle import LoginThrottleService, login_identifier
 from signalscope.domain.users.model import DISPLAY_NAME_MAX_LENGTH, User
 from signalscope.domain.users.passwords import PasswordHasher
 from signalscope.domain.users.session import UserSession
@@ -75,11 +76,21 @@ class AuthenticationService:
         hasher: PasswordHasher | None = None,
         clock: Clock = utc_now,
         session_days: int = DEFAULT_SESSION_DAYS,
+        login_window_seconds: int = 900,
+        login_max_failures: int = 10,
+        login_block_seconds: int = 900,
     ) -> None:
         self.session = session
         self.hasher = hasher or PasswordHasher()
         self.clock = clock
         self.session_days = session_days
+        self.throttle = LoginThrottleService(
+            session,
+            clock,
+            window_seconds=login_window_seconds,
+            max_failures=login_max_failures,
+            block_seconds=login_block_seconds,
+        )
         self.audit = SecurityAuditService(session)
 
     async def create_user(
@@ -135,10 +146,16 @@ class AuthenticationService:
 
         A stored hash with old settings is replaced after a correct password.
         """
+        identifier = login_identifier(email)
+        if await self.throttle.is_blocked(identifier):
+            self.hasher.check_without_account(password)
+            await self._record_login_failure("invalid_credentials")
+            raise InvalidCredentialsError()
         try:
             normalized = normalize_email(email)
         except InvalidEmailError:
             self.hasher.check_without_account(password)
+            await self.throttle.record_failure(identifier)
             await self._record_login_failure("invalid_credentials")
             raise InvalidCredentialsError() from None
         row = (
@@ -150,20 +167,24 @@ class AuthenticationService:
         ).one_or_none()
         if row is None:
             self.hasher.check_without_account(password)
+            await self.throttle.record_failure(identifier)
             await self._record_login_failure("invalid_credentials")
             raise InvalidCredentialsError()
         user: User = row[0]
         credential: UserPasswordCredential = row[1]
         check = self.hasher.verify_password(password, credential.password_hash)
         if not check.valid:
+            await self.throttle.record_failure(identifier)
             await self._record_login_failure("invalid_credentials", user.id)
             raise InvalidCredentialsError()
         if not user.is_active:
+            await self.throttle.record_failure(identifier)
             await self._record_login_failure("inactive_user", user.id)
             raise InvalidCredentialsError()
         if check.new_hash is not None:
             credential.password_hash = check.new_hash
             await self.session.commit()
+        await self.throttle.clear(identifier)
         return user
 
     async def _record_login_failure(self, reason: str, user_id: uuid.UUID | None = None) -> None:
