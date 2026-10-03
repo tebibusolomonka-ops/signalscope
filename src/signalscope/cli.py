@@ -63,6 +63,9 @@ from signalscope.domain.investigations.export import (
 )
 from signalscope.domain.organizations.export_archive import OrganizationExportArchiveService
 from signalscope.domain.organizations.export_inventory import OrganizationExportInventoryService
+from signalscope.domain.organizations.export_verification import (
+    OrganizationExportVerificationService,
+)
 from signalscope.domain.organizations.invitation_cleanup import InvitationCleanupService
 from signalscope.domain.processing.file_import import FileImportService
 from signalscope.domain.processing.job_repository import DocumentProcessingJobRepository
@@ -305,6 +308,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 overwrite=args.overwrite,
             )
         )
+    if args.command == "verify-organization-export":
+        return verify_organization_export(args.path)
     if args.command == "link-events":
         return asyncio.run(link_events(settings, limit=args.limit))
     if args.command == "queue-claims":
@@ -494,6 +499,11 @@ def build_parser() -> argparse.ArgumentParser:
     organization_export.add_argument(
         "--overwrite", action="store_true", help="replace the output file if it exists"
     )
+
+    organization_export_verify = commands.add_parser(
+        "verify-organization-export", help="verify a portable organization ZIP archive"
+    )
+    organization_export_verify.add_argument("path", type=Path, help="local ZIP archive to verify")
 
     linking = commands.add_parser(
         "link-events", help="put events that are in no cluster yet into event clusters"
@@ -1068,6 +1078,27 @@ async def export_organization(
         return 1
     print(f"Wrote {output}", file=out)
     return 0
+
+
+def verify_organization_export(
+    path: Path, out: TextIO | None = None, err: TextIO | None = None
+) -> int:
+    """Verify a local organization archive without printing its records."""
+    out = sys.stdout if out is None else out
+    err = sys.stderr if err is None else err
+    try:
+        data = path.read_bytes()
+    except OSError as error:
+        print(f"Error: Cannot read {path}: {error.strerror}", file=err)
+        return 1
+    result = OrganizationExportVerificationService().verify(data)
+    print(f"Valid: {'yes' if result.valid else 'no'}", file=out)
+    print(f"Format version: {result.format_version or 'unknown'}", file=out)
+    print(f"Checked files: {result.checked_files}", file=out)
+    print(f"Checked records: {result.checked_records}", file=out)
+    for problem in result.problems:
+        print(f"Problem: {problem}", file=out)
+    return 0 if result.valid else 1
 
 
 def _write_atomically(path: Path, text: str) -> None:

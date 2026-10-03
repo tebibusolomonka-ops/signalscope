@@ -1,5 +1,8 @@
+import hashlib
 import io
+import json
 import uuid
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -10,6 +13,7 @@ from signalscope.cli import (
     build_parser,
     export_investigation,
     export_organization,
+    verify_organization_export,
 )
 from signalscope.core.exports import ExportFormat
 from signalscope.core.settings import Settings
@@ -64,6 +68,9 @@ def test_organization_export_arguments() -> None:
         ]
     )
 
+    verify = build_parser().parse_args(["verify-organization-export", "tenant.zip"])
+    assert verify.path == Path("tenant.zip")
+
     assert (args.organization_id, args.output, args.overwrite) == (
         organization_id,
         Path("tenant.zip"),
@@ -97,6 +104,43 @@ async def test_organization_export_needs_a_database(tmp_path: Path) -> None:
         await export_organization(uuid.uuid4(), tmp_path / "tenant.zip", Settings(), out, err) == 1
     )
     assert "SIGNALSCOPE_DATABASE_URL" in err.getvalue()
+
+
+def test_verify_organization_export(tmp_path: Path) -> None:
+    content = b'{"id":"1"}\n'
+    manifest = {
+        "format_version": "2",
+        "record_counts": {"documents": 1},
+        "files": [
+            {
+                "path": "documents.jsonl",
+                "size_bytes": len(content),
+                "sha256": hashlib.sha256(content).hexdigest(),
+            }
+        ],
+    }
+    path = tmp_path / "tenant.zip"
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr("manifest.json", json.dumps(manifest))
+        archive.writestr("documents.jsonl", content)
+    out, err = io.StringIO(), io.StringIO()
+
+    assert verify_organization_export(path, out, err) == 0
+    assert out.getvalue() == (
+        "Valid: yes\nFormat version: 2\nChecked files: 1\nChecked records: 1\n"
+    )
+    assert err.getvalue() == ""
+
+
+def test_verify_organization_export_reports_corrupt_file(tmp_path: Path) -> None:
+    path = tmp_path / "tenant.zip"
+    path.write_bytes(b"not a zip")
+    out, err = io.StringIO(), io.StringIO()
+
+    assert verify_organization_export(path, out, err) == 1
+    assert "Valid: no" in out.getvalue()
+    assert "Problem: Archive is not a readable ZIP file." in out.getvalue()
+    assert err.getvalue() == ""
 
 
 def test_atomic_write_replaces_whole_file(tmp_path: Path) -> None:

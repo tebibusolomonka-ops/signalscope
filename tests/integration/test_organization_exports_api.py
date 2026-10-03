@@ -1,5 +1,6 @@
 import dataclasses
 import io
+import uuid
 import zipfile
 from collections.abc import AsyncIterator
 from pathlib import Path
@@ -14,7 +15,10 @@ from signalscope.api.app import create_app
 from signalscope.api.lifespan import lifespan
 from signalscope.core.settings import Settings
 from signalscope.domain.audit.model import SecurityAuditEvent
-from signalscope.domain.organizations.export_record import OrganizationExportStatus
+from signalscope.domain.organizations.export_record import (
+    OrganizationExport,
+    OrganizationExportStatus,
+)
 from tenancy_helpers import Tenants, add_document, add_source, make_tenants
 
 pytestmark = pytest.mark.anyio
@@ -67,7 +71,13 @@ async def test_create_list_detail_download_and_audit(
     downloaded = await export_client.get(
         f"{path}/{export_id}/download", headers=tenants.a.headers["owner"]
     )
+    verified = await export_client.post(
+        f"{path}/{export_id}/verify", headers=tenants.a.headers["admin"]
+    )
     assert listed.status_code == detail.status_code == downloaded.status_code == 200
+    assert verified.status_code == 200
+    assert verified.json()["valid"] is True
+    assert verified.json()["checked_files"] > 0
     assert [item["id"] for item in listed.json()] == [export_id]
     assert detail.json() == body
     assert downloaded.headers["content-type"] == "application/zip"
@@ -99,6 +109,15 @@ async def test_members_cannot_manage_exports(
     )
     assert response.status_code == 403
 
+    owner_created = await export_client.post(
+        f"/organizations/{tenants.a.id}/exports", headers=tenants.a.headers["owner"]
+    )
+    verify = await export_client.post(
+        f"/organizations/{tenants.a.id}/exports/{owner_created.json()['id']}/verify",
+        headers=tenants.a.headers[role],
+    )
+    assert verify.status_code == 403
+
 
 async def test_wrong_organization_does_not_reveal_export(
     export_client: httpx.AsyncClient,
@@ -115,6 +134,38 @@ async def test_wrong_organization_does_not_reveal_export(
         headers=tenants.b.headers["owner"],
     )
     assert response.status_code == 404
+
+    unknown = await export_client.post(
+        f"/organizations/{tenants.a.id}/exports/{uuid.uuid4()}/verify",
+        headers=tenants.a.headers["owner"],
+    )
+    assert unknown.status_code == 404
+
+
+async def test_verify_reports_corrupt_archive(
+    export_client: httpx.AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+    tmp_path: Path,
+) -> None:
+    tenants = await tenant_data(export_client, session_factory)
+    created = await export_client.post(
+        f"/organizations/{tenants.a.id}/exports", headers=tenants.a.headers["owner"]
+    )
+    export_id = created.json()["id"]
+    async with session_factory() as session:
+        stored = await session.get(OrganizationExport, export_id)
+        assert stored is not None and stored.artifact_key is not None
+        artifact_key = stored.artifact_key
+    (tmp_path / "blobs").joinpath(*artifact_key.split("/")).write_bytes(b"not a zip")
+
+    response = await export_client.post(
+        f"/organizations/{tenants.a.id}/exports/{export_id}/verify",
+        headers=tenants.a.headers["owner"],
+    )
+
+    assert response.status_code == 200
+    assert response.json()["valid"] is False
+    assert response.json()["problems"] == ["Archive is not a readable ZIP file."]
 
 
 async def test_system_admin_can_manage_exports(

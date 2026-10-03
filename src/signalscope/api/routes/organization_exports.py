@@ -4,7 +4,10 @@ from fastapi import APIRouter, Response, status
 
 from signalscope.api.auth import CurrentSession
 from signalscope.api.dependencies import Blobs, DatabaseSession
-from signalscope.domain.organizations.export_schemas import OrganizationExportRead
+from signalscope.domain.organizations.export_schemas import (
+    OrganizationExportRead,
+    OrganizationExportVerificationRead,
+)
 from signalscope.domain.organizations.export_service import OrganizationExportService
 
 router = APIRouter(prefix="/organizations/{organization_id}/exports", tags=["Organizations"])
@@ -58,3 +61,17 @@ async def download_organization_export(
             "Content-Disposition": f'attachment; filename="organization-{organization_id}.zip"'
         },
     )
+
+
+@router.post("/{export_id}/verify")
+async def verify_organization_export(
+    organization_id: uuid.UUID,
+    export_id: uuid.UUID,
+    current: CurrentSession,
+    session: DatabaseSession,
+    blobs: Blobs,
+) -> OrganizationExportVerificationRead:
+    result = await OrganizationExportService(session, current.user, blobs).verify(
+        organization_id, export_id
+    )
+    return OrganizationExportVerificationRead.build(result)

@@ -4,6 +4,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 
 from signalscope.domain.organizations.export_record import OrganizationExportStatus
+from signalscope.domain.organizations.export_verification import OrganizationExportVerification
 
 
 class OrganizationExportRead(BaseModel):
@@ -21,3 +22,23 @@ class OrganizationExportRead(BaseModel):
     size_bytes: int | None
     sha256: str | None
     safe_error: str | None
+
+
+class OrganizationExportVerificationRead(BaseModel):
+    valid: bool
+    format_version: str | None
+    checked_files: int
+    checked_records: int
+    problems: tuple[str, ...]
+
+    @classmethod
+    def build(
+        cls, verification: OrganizationExportVerification
+    ) -> "OrganizationExportVerificationRead":
+        return cls(
+            valid=verification.valid,
+            format_version=verification.format_version,
+            checked_files=verification.checked_files,
+            checked_records=verification.checked_records,
+            problems=verification.problems,
+        )

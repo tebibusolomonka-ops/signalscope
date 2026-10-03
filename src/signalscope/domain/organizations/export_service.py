@@ -21,6 +21,10 @@ from signalscope.domain.organizations.export_record import (
     OrganizationExport,
     OrganizationExportStatus,
 )
+from signalscope.domain.organizations.export_verification import (
+    OrganizationExportVerification,
+    OrganizationExportVerificationService,
+)
 from signalscope.domain.organizations.membership import OrganizationMembership, OrganizationRole
 from signalscope.domain.organizations.model import Organization
 from signalscope.domain.sources.scheduling import Clock, utc_now
@@ -122,6 +126,12 @@ class OrganizationExportService:
         if self.blobs is None:
             raise ServiceUnavailableError("File storage is not configured.")
         return await self.blobs.get(export.artifact_key)
+
+    async def verify(
+        self, organization_id: uuid.UUID, export_id: uuid.UUID
+    ) -> OrganizationExportVerification:
+        data = await self.download(organization_id, export_id)
+        return OrganizationExportVerificationService().verify(data)
 
     async def _authorize(self, organization_id: uuid.UUID) -> Organization:
         organization = await self.session.get(Organization, organization_id)
