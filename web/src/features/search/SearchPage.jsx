@@ -5,6 +5,7 @@ import { useOrganization } from "../../app/useOrganization.js";
 import { PageHeading } from "../../components/PageHeading.jsx";
 import { EvidenceReference } from "../../components/EvidenceReference.jsx";
 import { ErrorMessage, Loading } from "../../components/Status.jsx";
+import { documentHref } from "../../lib/documentLink.js";
 import { useResource } from "../../lib/useResource.js";
 import { SaveToInvestigation } from "../investigations/SaveToInvestigation.jsx";
 import { SourcePicker } from "../sources/SourcePicker.jsx";
@@ -57,7 +58,12 @@ export function SearchPage() {
       <PageHeading title="Search">
         <span className="muted">{active.name}</span>
       </PageHeading>
-      <SearchForm key={params.toString()} search={search} sourceOptions={sourceOptions} onSubmit={submit} />
+      <SearchForm
+        key={params.toString()}
+        search={search}
+        sourceOptions={sourceOptions}
+        onSubmit={submit}
+      />
       {search.q && <Results search={search} names={names} />}
     </>
   );
@@ -161,7 +167,9 @@ function Result({ item, mode, sourceName }) {
   return (
     <li className="result">
       <h3>
-        <Link to={`/documents/${item.document_id}`}>{item.title || "Untitled document"}</Link>
+        <Link to={documentHref(item.document_id, item.chunk_id)}>
+          {item.title || "Untitled document"}
+        </Link>
       </h3>
       <p className="muted">
         <EvidenceReference

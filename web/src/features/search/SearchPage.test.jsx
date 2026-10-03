@@ -101,7 +101,7 @@ describe("search workspace", () => {
     const item = await within(results).findByRole("listitem");
     expect(within(item).getByRole("link", { name: "Storm closes the harbour" })).toHaveAttribute(
       "href",
-      "/documents/d-1",
+      "/documents/d-1?chunk=c-1",
     );
     expect(within(item).getByRole("link", { name: "Harbour Feed" })).toHaveAttribute(
       "href",
@@ -109,6 +109,21 @@ describe("search workspace", () => {
     );
     expect(item).toHaveTextContent("Page 2");
     expect(item).toHaveTextContent("The harbour closed at noon after the storm.");
+  });
+
+  it("opens the document alone when a result has no chunk", async () => {
+    renderApp({
+      path: "/search",
+      routes: routes({ "GET /search": { body: { items: [hit({ chunk_id: null })] } } }),
+    });
+    const user = userEvent.setup();
+
+    const results = await runSearch(user, "harbour", "lexical");
+    const item = await within(results).findByRole("listitem");
+    expect(within(item).getByRole("link", { name: "Storm closes the harbour" })).toHaveAttribute(
+      "href",
+      "/documents/d-1",
+    );
   });
 
   it("filters by a source of the active organization", async () => {
