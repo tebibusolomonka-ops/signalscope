@@ -11,15 +11,16 @@ function inHarbour(body, message) {
   return ({ query }) => (query.get("organization_id") === "org-a" ? { body } : notFound(message));
 }
 
-function chunksRoute(chunks) {
-  return ({ query }) => {
-    if (query.get("organization_id") !== "org-a") return notFound("Document was not found.");
-    const limit = Number(query.get("limit") ?? 50);
-    const offset = Number(query.get("offset") ?? 0);
-    return {
-      body: { items: chunks.slice(offset, offset + limit), total: chunks.length, limit, offset },
-    };
-  };
+// One direct-lookup route per chunk; org B and unknown IDs fall through to 404.
+function chunkRoutes(chunks) {
+  const routes = {};
+  for (const chunk of chunks) {
+    routes[`GET /documents/d-1/chunks/${chunk.chunk_id}`] = inHarbour(
+      chunk,
+      "Document was not found.",
+    );
+  }
+  return routes;
 }
 
 function routes(chunks, extra = {}) {
@@ -30,12 +31,16 @@ function routes(chunks, extra = {}) {
     "GET /documents/d-1": inHarbour(doc(), "Document was not found."),
     "GET /sources/s-1": inHarbour(source(), "Source was not found."),
     "GET /documents/d-1/revisions": { body: { items: [] } },
-    "GET /documents/d-1/chunks": chunksRoute(chunks),
+    ...chunkRoutes(chunks),
     ...extra,
   };
 }
 
 const CHUNKS = Array.from({ length: 5 }, (_, index) => documentChunk(index));
+
+function chunkLookups(calls) {
+  return calls.filter((call) => /^\/documents\/d-1\/chunks\/[^/]+$/.test(call.path));
+}
 
 describe("document evidence focus", () => {
   it("focuses and highlights the chunk from the URL", async () => {
@@ -48,15 +53,16 @@ describe("document evidence focus", () => {
     await waitFor(() => expect(evidence).toHaveFocus());
   });
 
-  it("finds a chunk on a later page", async () => {
-    const many = Array.from({ length: 60 }, (_, index) => documentChunk(index));
-    const { calls } = renderApp({ path: "/documents/d-1?chunk=c-55", routes: routes(many) });
+  it("finds a very late chunk with one direct request, no paging", async () => {
+    const many = Array.from({ length: 300 }, (_, index) => documentChunk(index));
+    const { calls } = renderApp({ path: "/documents/d-1?chunk=c-275", routes: routes(many) });
 
     const panel = await screen.findByRole("region", { name: "Focused evidence" });
-    expect(await within(panel).findByText("Chunk 55 about the harbour.")).toBeInTheDocument();
-    const chunkCalls = calls.filter((call) => call.path === "/documents/d-1/chunks");
-    expect(chunkCalls.length).toBeGreaterThan(1);
-    expect(chunkCalls.every((call) => call.query.get("organization_id") === "org-a")).toBe(true);
+    expect(await within(panel).findByText("Chunk 275 about the harbour.")).toBeInTheDocument();
+    const lookups = chunkLookups(calls);
+    expect(lookups).toHaveLength(1);
+    expect(lookups[0].path).toBe("/documents/d-1/chunks/c-275");
+    expect(calls.some((call) => call.path === "/documents/d-1/chunks")).toBe(false);
   });
 
   it("shows a non-fatal message for an unknown chunk and keeps the page", async () => {

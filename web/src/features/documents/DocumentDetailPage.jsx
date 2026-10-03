@@ -11,10 +11,6 @@ import { formatTime } from "../../lib/format.js";
 import { useResource } from "../../lib/useResource.js";
 import { SaveToInvestigation } from "../investigations/SaveToInvestigation.jsx";
 
-// Pages of chunks to load while looking for a focused one, and a safety cap.
-const CHUNK_PAGE_SIZE = 50;
-const MAX_CHUNK_PAGES = 40;
-
 /** One document: its metadata, stored text and earlier revisions. */
 export function DocumentDetailPage() {
   const { documentId } = useParams();
@@ -118,30 +114,18 @@ function FocusedChunk({ documentId, chunkId }) {
   useEffect(() => {
     let active = true;
     (async () => {
-      let offset = 0;
-      for (let pageNumber = 0; pageNumber < MAX_CHUNK_PAGES; pageNumber += 1) {
-        let page;
-        try {
-          page = await tenantApi.get(`/documents/${documentId}/chunks`, {
-            query: { limit: CHUNK_PAGE_SIZE, offset },
-          });
-        } catch (error) {
-          if (active) setState({ loading: false, chunk: null, error, missing: false });
-          return;
-        }
+      try {
+        const chunk = await tenantApi.get(`/documents/${documentId}/chunks/${chunkId}`);
+        if (active) setState({ loading: false, chunk, error: null, missing: false });
+      } catch (error) {
         if (!active) return;
-        const found = page.items.find((item) => item.chunk_id === chunkId);
-        if (found) {
-          setState({ loading: false, chunk: found, error: null, missing: false });
-          return;
-        }
-        offset += page.items.length;
-        if (page.items.length === 0 || offset >= page.total) {
+        // A missing chunk is a 404, which must not break the whole page.
+        if (error.status === 404) {
           setState({ loading: false, chunk: null, error: null, missing: true });
-          return;
+        } else {
+          setState({ loading: false, chunk: null, error, missing: false });
         }
       }
-      if (active) setState({ loading: false, chunk: null, error: null, missing: true });
     })();
     return () => {
       active = false;
