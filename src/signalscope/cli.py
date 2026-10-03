@@ -85,6 +85,7 @@ from signalscope.domain.tenancy.assignment import LegacySourceAssignmentService
 from signalscope.domain.users.authentication import AuthenticationService
 from signalscope.domain.users.passwords import PasswordHasher
 from signalscope.domain.users.session_cleanup import SessionCleanupService
+from signalscope.domain.users.throttle_administration import LoginThrottleAdministrationService
 from signalscope.embeddings.local import (
     LocalEmbeddingsNotInstalledError,
     MultilingualE5SmallProvider,
@@ -350,6 +351,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
     if args.command == "cleanup-auth-sessions":
         return asyncio.run(cleanup_auth_sessions(args.limit, settings))
+    if args.command == "clear-login-throttle":
+        return asyncio.run(clear_login_throttle(args.identifier, settings))
     if args.command == "cleanup-organization-invitations":
         return asyncio.run(cleanup_organization_invitations(args.limit, settings))
     if args.command == "cleanup-organization-exports":
@@ -509,6 +512,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_SESSION_CLEANUP_LIMIT,
         help=f"most sessions to delete (default: {DEFAULT_SESSION_CLEANUP_LIMIT})",
     )
+
+    throttle_clear = commands.add_parser(
+        "clear-login-throttle", help="clear failed-login state for a hashed identifier"
+    )
+    throttle_clear.add_argument("identifier", help="64-character SHA-256 identifier")
 
     audit_cleanup = commands.add_parser(
         "cleanup-security-audit",
@@ -1026,6 +1034,28 @@ async def cleanup_auth_sessions(
         )
     print(f"Checked: {result.checked}", file=out)
     print(f"Deleted: {result.deleted}", file=out)
+    return 0
+
+
+async def clear_login_throttle(
+    identifier: str,
+    settings: Settings,
+    out: TextIO | None = None,
+    err: TextIO | None = None,
+) -> int:
+    """Clear one hashed login identifier without printing account information."""
+    out = sys.stdout if out is None else out
+    err = sys.stderr if err is None else err
+    if settings.database_url is None:
+        print(NO_DATABASE_ERROR, file=err)
+        return 1
+    async with _database(settings) as session_factory, session_factory() as session:
+        try:
+            await LoginThrottleAdministrationService(session).clear(identifier)
+        except SignalScopeError as error:
+            print(f"Error: {error}", file=err)
+            return 1
+    print("Login throttle cleared.", file=out)
     return 0
 
 

@@ -29,6 +29,7 @@ class AuditAction(StrEnum):
     USER_REACTIVATED = "user.reactivated"
     LOGIN = "auth.login"
     LOGIN_FAILED = "authentication_login_failed"
+    LOGIN_THROTTLE_CLEARED = "auth.login_throttle_cleared"
     LOGOUT = "auth.logout"
     LOGOUT_ALL = "auth.logout_all"
     PASSWORD_CHANGED = "auth.password_changed"
