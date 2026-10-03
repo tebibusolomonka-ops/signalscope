@@ -85,6 +85,10 @@ class MultilingualMmarcoReranker:
         pairs = [(query, passage) for passage in passages]
         return await asyncio.to_thread(self._predict, scorer, pairs)
 
+    async def load(self) -> None:
+        """Load the model for an explicit developer benchmark."""
+        await self._load()
+
     def _predict(self, scorer: PairScorer, pairs: list[tuple[str, str]]) -> list[float]:
         scores = scorer.predict(
             pairs, batch_size=self.batch_size, show_progress_bar=False, convert_to_numpy=True

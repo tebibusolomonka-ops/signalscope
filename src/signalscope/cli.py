@@ -127,6 +127,10 @@ from signalscope.evaluation.json_report import report_data, write_json_report
 from signalscope.evaluation.loader import load_dataset
 from signalscope.evaluation.model_environment import model_environment_report
 from signalscope.evaluation.report import format_reports
+from signalscope.evaluation.reranker_benchmark import (
+    BenchmarkReranker,
+    benchmark_reranker,
+)
 from signalscope.evaluation.retrieval import (
     DEFAULT_KS,
     check_ks,
@@ -155,7 +159,7 @@ from signalscope.relations.gliner2 import (
     Gliner2RelationProvider,
 )
 from signalscope.relations.provider import RelationExtractionProvider
-from signalscope.reranking.local import LocalRerankingNotInstalledError
+from signalscope.reranking.local import LocalRerankingNotInstalledError, MultilingualMmarcoReranker
 from signalscope.reranking.models import MMARCO_MINILM
 from signalscope.reranking.provider import RerankerProvider
 from signalscope.reranking.runtime import create_reranker_registry
@@ -275,6 +279,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "benchmark-embedding":
         return asyncio.run(
             benchmark_embedding_command(args.dataset, args.output, settings, limit=args.limit)
+        )
+    if args.command == "benchmark-reranker":
+        return asyncio.run(
+            benchmark_reranker_command(args.dataset, args.output, settings, limit=args.limit)
         )
     if args.command == "queue-embeddings":
         return asyncio.run(
@@ -632,6 +640,12 @@ def build_parser() -> argparse.ArgumentParser:
     embedding_benchmark.add_argument(
         "--limit", type=positive_int, default=None, help="most labelled queries to run"
     )
+    reranker_benchmark = commands.add_parser(
+        "benchmark-reranker", help="run the real local reranker on a retrieval dataset"
+    )
+    reranker_benchmark.add_argument("dataset", type=Path, help="retrieval dataset JSON file")
+    reranker_benchmark.add_argument("--output", type=Path, required=True)
+    reranker_benchmark.add_argument("--limit", type=positive_int, default=None)
 
     worker = commands.add_parser("run-worker", help="run queued ingestion jobs")
     _add_worker_options(worker)
@@ -1242,6 +1256,48 @@ async def benchmark_embedding_command(
             fingerprint,
             timestamp=utc_now(),
             limit=limit,
+        )
+        _write_atomically(output, json.dumps(report.to_dict(), indent=2, sort_keys=True) + "\n")
+    except SignalScopeError as error:
+        print(f"Error: {error}", file=err)
+        return 1
+    except OSError as error:
+        print(f"Error: Cannot write {output}: {error.strerror}", file=err)
+        return 1
+    print(f"Wrote {output}", file=out)
+    return 0
+
+
+async def benchmark_reranker_command(
+    dataset_path: Path,
+    output: Path,
+    settings: Settings,
+    out: TextIO | None = None,
+    err: TextIO | None = None,
+    *,
+    limit: int | None = None,
+    provider: BenchmarkReranker | None = None,
+) -> int:
+    out = sys.stdout if out is None else out
+    err = sys.stderr if err is None else err
+    try:
+        dataset = load_dataset(dataset_path)
+        fingerprint = fingerprint_bytes(dataset_path.read_bytes())
+    except (EvaluationDataError, OSError) as error:
+        print(f"Error: {error}", file=err)
+        return 1
+    if provider is None:
+        if importlib.util.find_spec("sentence_transformers") is None:
+            print(f"Error: {LocalRerankingNotInstalledError()}", file=err)
+            return 1
+        provider = MultilingualMmarcoReranker(
+            device=settings.local_reranking_device,
+            batch_size=settings.local_reranking_batch_size,
+            cache_dir=settings.local_embedding_cache_dir,
+        )
+    try:
+        report = await benchmark_reranker(
+            provider, dataset, fingerprint, timestamp=utc_now(), limit=limit
         )
         _write_atomically(output, json.dumps(report.to_dict(), indent=2, sort_keys=True) + "\n")
     except SignalScopeError as error:
