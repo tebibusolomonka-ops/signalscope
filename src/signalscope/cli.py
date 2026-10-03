@@ -139,6 +139,7 @@ from signalscope.evaluation.retrieval import (
     evaluate_reranked,
     evaluate_semantic,
 )
+from signalscope.evaluation.structured_benchmark import benchmark_structured
 from signalscope.events.gliner2 import EVENT_RECORD, EVENT_SCHEMA, Gliner2EventProvider
 from signalscope.events.provider import EventExtractionProvider
 from signalscope.events.registry import EventExtractorRegistry
@@ -284,6 +285,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(
             benchmark_reranker_command(args.dataset, args.output, settings, limit=args.limit)
         )
+    if args.command == "benchmark-structured-extraction":
+        return asyncio.run(benchmark_structured_command(args.dataset, args.output, settings))
     if args.command == "queue-embeddings":
         return asyncio.run(
             queue_embeddings(settings, document_id=args.document_id, limit=args.limit)
@@ -646,6 +649,12 @@ def build_parser() -> argparse.ArgumentParser:
     reranker_benchmark.add_argument("dataset", type=Path, help="retrieval dataset JSON file")
     reranker_benchmark.add_argument("--output", type=Path, required=True)
     reranker_benchmark.add_argument("--limit", type=positive_int, default=None)
+    structured_benchmark = commands.add_parser(
+        "benchmark-structured-extraction",
+        help="benchmark the real event, claim and experimental relation extractors",
+    )
+    structured_benchmark.add_argument("dataset", type=Path)
+    structured_benchmark.add_argument("--output", type=Path, required=True)
 
     worker = commands.add_parser("run-worker", help="run queued ingestion jobs")
     _add_worker_options(worker)
@@ -1298,6 +1307,53 @@ async def benchmark_reranker_command(
     try:
         report = await benchmark_reranker(
             provider, dataset, fingerprint, timestamp=utc_now(), limit=limit
+        )
+        _write_atomically(output, json.dumps(report.to_dict(), indent=2, sort_keys=True) + "\n")
+    except SignalScopeError as error:
+        print(f"Error: {error}", file=err)
+        return 1
+    except OSError as error:
+        print(f"Error: Cannot write {output}: {error.strerror}", file=err)
+        return 1
+    print(f"Wrote {output}", file=out)
+    return 0
+
+
+async def benchmark_structured_command(
+    dataset_path: Path,
+    output: Path,
+    settings: Settings,
+    out: TextIO | None = None,
+    err: TextIO | None = None,
+    *,
+    event_provider: EventExtractionProvider | None = None,
+    claim_provider: ClaimExtractionProvider | None = None,
+    relation_provider: RelationExtractionProvider | None = None,
+) -> int:
+    out = sys.stdout if out is None else out
+    err = sys.stderr if err is None else err
+    try:
+        dataset = load_extraction_dataset(dataset_path)
+        fingerprint = fingerprint_bytes(dataset_path.read_bytes())
+    except (EvaluationDataError, OSError) as error:
+        print(f"Error: {error}", file=err)
+        return 1
+    if event_provider is None or claim_provider is None or relation_provider is None:
+        if not _local_structured_ready(settings, err):
+            return 1
+        backend = create_structured_backend(settings)
+        assert backend is not None
+        event_provider = event_provider or Gliner2EventProvider(backend)
+        claim_provider = claim_provider or Gliner2ClaimProvider(backend)
+        relation_provider = relation_provider or Gliner2RelationProvider(backend)
+    try:
+        report = await benchmark_structured(
+            dataset,
+            fingerprint,
+            event_provider,
+            claim_provider,
+            relation_provider,
+            timestamp=utc_now(),
         )
         _write_atomically(output, json.dumps(report.to_dict(), indent=2, sort_keys=True) + "\n")
     except SignalScopeError as error:
