@@ -199,5 +199,5 @@ class OrganizationExportInventoryService:
             ),
         )
 
-    async def _rows(self, statement: Select[tuple[Any]]) -> tuple[Any, ...]:
+    async def _rows(self, statement: Select[Any]) -> tuple[Any, ...]:
         return tuple(await self.session.scalars(statement))
