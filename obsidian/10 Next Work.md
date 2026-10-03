@@ -33,7 +33,8 @@ with its first question.
 
 Batch 380 to 419 is in progress. Operation attempt history and portable
 organization export records, inventory, ZIP generation, administration and
-web workspace are complete through planned commit 389.
+web workspace, verification and retention cleanup are complete through
+planned commit 394.
 
 ## Next batch
 

@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { Link, useParams } from "react-router";
 
 import { useAuth } from "../../app/useAuth.js";
+import { useOrganization } from "../../app/useOrganization.js";
 import { PageHeading } from "../../components/PageHeading.jsx";
 import { ErrorMessage, Loading } from "../../components/Status.jsx";
 import { downloadBlob, exportFileName } from "../../lib/download.js";
@@ -10,12 +11,20 @@ import { useResource } from "../../lib/useResource.js";
 
 export function OrganizationExportsPage() {
   const { organizationId } = useParams();
-  const { api } = useAuth();
+  const { api, user } = useAuth();
+  const { active, organizations } = useOrganization();
   const path = `/organizations/${organizationId}/exports`;
   const load = useCallback(() => api.get(path), [api, path]);
   const { data, error, loading, reload } = useResource(load);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState(null);
+  const [verifyingId, setVerifyingId] = useState(null);
+  const [verification, setVerification] = useState(null);
+  const verificationContext = `${organizationId}:${active?.id ?? ""}`;
+  const organization = organizations.find((item) => item.id === organizationId);
+  const canManage = Boolean(
+    user?.is_system_admin || organization?.role === "owner" || organization?.role === "admin",
+  );
 
   async function createExport() {
     setBusy(true);
@@ -40,6 +49,20 @@ export function OrganizationExportsPage() {
     }
   }
 
+  async function verify(item) {
+    setVerifyingId(item.id);
+    setActionError(null);
+    setVerification(null);
+    try {
+      const result = await api.post(`${path}/${item.id}/verify`);
+      setVerification({ context: verificationContext, exportId: item.id, ...result });
+    } catch (failure) {
+      setActionError(failure);
+    } finally {
+      setVerifyingId(null);
+    }
+  }
+
   return (
     <>
       <PageHeading title="Organization exports">
@@ -51,6 +74,10 @@ export function OrganizationExportsPage() {
       <p className="muted">
         Portable ZIP archives contain this organization&apos;s tenant-scoped records. Stored binary
         files are referenced but not copied into the archive.
+      </p>
+      <p className="muted">
+        An explicit expiry is shown below. Completed and failed exports may also be expired by the
+        server&apos;s configured cleanup policy.
       </p>
       {loading && <Loading />}
       <ErrorMessage error={error ?? actionError} />
@@ -78,9 +105,21 @@ export function OrganizationExportsPage() {
                   <td>{item.format_version}</td>
                   <td>
                     {item.status === "completed" ? (
-                      <button type="button" onClick={() => download(item)}>
-                        Download
-                      </button>
+                      <div className="actions">
+                        <button type="button" onClick={() => download(item)}>
+                          Download
+                        </button>
+                        {canManage && (
+                          <button
+                            type="button"
+                            className="secondary"
+                            onClick={() => verify(item)}
+                            disabled={verifyingId !== null}
+                          >
+                            {verifyingId === item.id ? "Verifying..." : "Verify"}
+                          </button>
+                        )}
+                      </div>
                     ) : (
                       "-"
                     )}
@@ -90,6 +129,20 @@ export function OrganizationExportsPage() {
             </tbody>
           </table>
         </div>
+      )}
+      {verification?.context === verificationContext && (
+        <section aria-label="Export verification">
+          <h2>{verification.valid ? "Valid" : "Verification problems"}</h2>
+          <p>Checked files: {verification.checked_files}</p>
+          <p>Checked records: {verification.checked_records}</p>
+          {!verification.valid && (
+            <ul>
+              {verification.problems.map((problem) => (
+                <li key={problem}>{problem}</li>
+              ))}
+            </ul>
+          )}
+        </section>
       )}
     </>
   );

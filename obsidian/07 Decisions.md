@@ -277,4 +277,10 @@ Decisions that should hold unless there is a clear reason to change them.
   or read from standard input, never passed as an option.
 - **This vault is project memory**, updated at each five-commit checkpoint.
   The code wins when they disagree.
+- **Portable export verification is factual.** The verifier checks ZIP paths,
+  manifest structure, member sizes and SHA-256 hashes, JSON readability and
+  record counts in memory. A passing checksum is called valid, not secure.
+- **Portable export cleanup is explicit.** Completed and failed artifacts use
+  bounded retention cleanup. The command previews by default and requires
+  `--apply`; pending and running exports are never selected.
 - **Simple English, no AI attribution** in code, docs and commits (AGENTS.md).

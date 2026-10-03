@@ -1,7 +1,7 @@
 # Current State
 
 Batch 380 to 419 is in progress. Durable operation history and portable
-organization exports are complete through planned commit 389. Alembic head:
+organization exports are complete through planned commit 394. Alembic head:
 `c91f4d2a8e73` (Add organization export status check).
 
 ## Done
@@ -66,10 +66,12 @@ organization exports are complete through planned commit 389. Alembic head:
   for all six queues are durable tenant history, exposed by the filtered,
   paged `GET /operations/history` route and the operations workspace.
 - Portable organization exports: durable export records, a deterministic
-  versioned ZIP with tenant-scoped JSON and JSONL files, safe global Entity
+  versioned ZIP with tenant-scoped JSON and JSONL files, per-member checksums,
+  in-memory verification, bounded retention cleanup, safe global Entity
   and Claim scoping through tenant evidence, BlobStore artifacts, owner/admin
   API administration and downloads, `signalscope export-organization`, and
-  the `/organizations/:organizationId/exports` workspace. Passwords, session
+  the `/organizations/:organizationId/exports` workspace with factual
+  verification results. Passwords, session
   hashes, invitation hashes, model caches and binary asset contents are not
   exported.
 - Audit retention: a per-organization policy (indefinite by default), a

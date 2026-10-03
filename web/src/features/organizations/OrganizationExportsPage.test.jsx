@@ -44,6 +44,9 @@ describe("organization exports", () => {
           body: new Blob(["zip-data"], { type: "application/zip" }),
           type: "blob",
         },
+        "POST /organizations/org-1/exports/export-1/verify": {
+          body: { valid: true, checked_files: 3, checked_records: 8, problems: [] },
+        },
       },
     });
 
@@ -61,6 +64,11 @@ describe("organization exports", () => {
     expect(downloads.files[0].name).toBe("signalscope-organization-org-1.zip");
     expect(calls.some((call) => call.method === "POST")).toBe(true);
     expect(calls.at(-1).path).toBe("/organizations/org-1/exports/export-1/download");
+
+    await user.click(screen.getByRole("button", { name: "Verify" }));
+    expect(await screen.findByRole("heading", { name: "Valid" })).toBeInTheDocument();
+    expect(screen.getByText("Checked files: 3")).toBeInTheDocument();
+    expect(screen.getByText("Checked records: 8")).toBeInTheDocument();
   });
 
   it("shows permission failures", async () => {
@@ -79,5 +87,101 @@ describe("organization exports", () => {
     });
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Only owners and admins may export.");
+  });
+
+  it("shows verification problems", async () => {
+    renderApp({
+      path: "/organizations/org-1/exports",
+      routes: {
+        ...signedIn(USER),
+        "GET /organizations": {
+          body: [{ organization: { id: "org-1", name: "Harbour Watch" }, role: "admin" }],
+        },
+        "GET /organizations/org-1/exports": { body: [EXPORT] },
+        "POST /organizations/org-1/exports/export-1/verify": {
+          body: {
+            valid: false,
+            checked_files: 2,
+            checked_records: 4,
+            problems: ["Archive member checksum does not match: documents.jsonl"],
+          },
+        },
+      },
+    });
+
+    await userEvent.setup().click(await screen.findByRole("button", { name: "Verify" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Verification problems" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/checksum does not match/)).toBeInTheDocument();
+  });
+
+  it("shows verification loading state", async () => {
+    let finish;
+    renderApp({
+      path: "/organizations/org-1/exports",
+      routes: {
+        ...signedIn(USER),
+        "GET /organizations": {
+          body: [{ organization: { id: "org-1", name: "Harbour Watch" }, role: "owner" }],
+        },
+        "GET /organizations/org-1/exports": { body: [EXPORT] },
+        "POST /organizations/org-1/exports/export-1/verify": () =>
+          new Promise((resolve) => {
+            finish = resolve;
+          }),
+      },
+    });
+
+    await userEvent.setup().click(await screen.findByRole("button", { name: "Verify" }));
+
+    expect(screen.getByRole("button", { name: "Verifying..." })).toBeDisabled();
+    finish({ body: { valid: true, checked_files: 1, checked_records: 1, problems: [] } });
+    expect(await screen.findByRole("heading", { name: "Valid" })).toBeInTheDocument();
+  });
+
+  it("hides verification from roles without export permission", async () => {
+    renderApp({
+      path: "/organizations/org-1/exports",
+      routes: {
+        ...signedIn(USER),
+        "GET /organizations": {
+          body: [{ organization: { id: "org-1", name: "Harbour Watch" }, role: "member" }],
+        },
+        "GET /organizations/org-1/exports": { body: [EXPORT] },
+      },
+    });
+
+    expect(await screen.findByText("1.5 KB")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Verify" })).not.toBeInTheDocument();
+  });
+
+  it("clears verification when the active organization changes", async () => {
+    renderApp({
+      path: "/organizations/org-1/exports",
+      routes: {
+        ...signedIn(USER),
+        "GET /organizations": {
+          body: [
+            { organization: { id: "org-1", name: "Harbour Watch" }, role: "owner" },
+            { organization: { id: "org-2", name: "City Desk" }, role: "owner" },
+          ],
+        },
+        "GET /organizations/org-1/exports": { body: [EXPORT] },
+        "POST /organizations/org-1/exports/export-1/verify": {
+          body: { valid: true, checked_files: 1, checked_records: 1, problems: [] },
+        },
+      },
+    });
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Verify" }));
+    expect(await screen.findByRole("heading", { name: "Valid" })).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText("Active organization"), "org-2");
+
+    await waitFor(() =>
+      expect(screen.queryByRole("heading", { name: "Valid" })).not.toBeInTheDocument(),
+    );
   });
 });
