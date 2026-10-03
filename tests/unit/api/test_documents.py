@@ -52,6 +52,7 @@ def test_document_routes_are_in_openapi(app: FastAPI) -> None:
     assert set(paths["/documents/{document_id}"]) == {"get", "delete"}
     assert set(paths["/documents/{document_id}/chunks"]) == {"get"}
     assert set(paths["/documents/{document_id}/chunks/{chunk_id}"]) == {"get"}
+    assert set(paths["/documents/{document_id}/chunks/{chunk_id}/context"]) == {"get"}
     assert paths["/documents"]["post"]["tags"] == ["Documents"]
     schemas = app.openapi()["components"]["schemas"]
     assert set(schemas["DocumentChunkRead"]["properties"]) == {

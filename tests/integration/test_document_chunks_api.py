@@ -133,3 +133,52 @@ async def test_direct_chunk_lookup_legacy_and_auth_off(
     assert as_user.status_code == 404
     assert as_system.status_code == 200
     assert without_auth.status_code == 200
+
+
+async def test_chunk_context(
+    auth_client: httpx.AsyncClient, session_factory: async_sessionmaker[AsyncSession]
+) -> None:
+    tenants: Tenants = await make_tenants(auth_client, session_factory)
+    a, b = tenants.a, tenants.b
+    document, chunk_ids = await chunky_document(session_factory, a.id)
+    headers = a.headers["viewer"]
+
+    def ctx(chunk_id):
+        return auth_client.get(
+            f"/documents/{document}/chunks/{chunk_id}/context?{a.query}", headers=headers
+        )
+
+    middle = (await ctx(chunk_ids[2])).json()
+    first = (await ctx(chunk_ids[0])).json()
+    last = (await ctx(chunk_ids[4])).json()
+
+    assert middle["previous"]["position"] == 1
+    assert middle["current"]["position"] == 2
+    assert middle["next"]["position"] == 3
+    assert first["previous"] is None and first["current"]["position"] == 0
+    assert last["next"] is None and last["current"]["position"] == 4
+
+    other = await auth_client.get(
+        f"/documents/{document}/chunks/{chunk_ids[2]}/context?{b.query}", headers=b.headers["owner"]
+    )
+    assert other.status_code == 404
+
+
+async def test_chunk_context_single_chunk_document(
+    auth_client: httpx.AsyncClient, session_factory: async_sessionmaker[AsyncSession]
+) -> None:
+    tenants: Tenants = await make_tenants(auth_client, session_factory)
+    a = tenants.a
+    source = await add_source(session_factory, a.id, "Harbour feed")
+    document, [only_chunk] = await add_document(session_factory, source, "One", ["Only chunk."])
+
+    body = (
+        await auth_client.get(
+            f"/documents/{document}/chunks/{only_chunk}/context?{a.query}",
+            headers=a.headers["viewer"],
+        )
+    ).json()
+
+    assert body["previous"] is None
+    assert body["next"] is None
+    assert body["current"]["chunk_id"] == str(only_chunk)

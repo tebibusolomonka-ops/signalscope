@@ -53,6 +53,37 @@ class DocumentChunkRepository:
         )
         return chunk
 
+    async def context(
+        self, document_id: uuid.UUID, chunk_id: uuid.UUID
+    ) -> tuple[DocumentChunk | None, DocumentChunk, DocumentChunk | None] | None:
+        """The chunk with the one before and after it in the document, by position.
+
+        Returns None when the chunk is not in the document. The neighbours are
+        None at the document's start and end.
+        """
+        current = await self.get_in_document(document_id, chunk_id)
+        if current is None:
+            return None
+        previous = await self.session.scalar(
+            select(DocumentChunk)
+            .where(
+                DocumentChunk.document_id == document_id,
+                DocumentChunk.position < current.position,
+            )
+            .order_by(DocumentChunk.position.desc())
+            .limit(1)
+        )
+        following = await self.session.scalar(
+            select(DocumentChunk)
+            .where(
+                DocumentChunk.document_id == document_id,
+                DocumentChunk.position > current.position,
+            )
+            .order_by(DocumentChunk.position)
+            .limit(1)
+        )
+        return previous, current, following
+
     async def count_for_document(self, document_id: uuid.UUID) -> int:
         result = await self.session.execute(
             select(func.count())

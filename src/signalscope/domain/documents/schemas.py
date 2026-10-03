@@ -147,3 +147,10 @@ class DocumentChunkRead(BaseModel):
             chunk_metadata=chunk.chunk_metadata,
         )
 
+
+class DocumentChunkContextRead(BaseModel):
+    """A chunk with the one before and after it, for stepping through a document."""
+
+    previous: DocumentChunkRead | None
+    current: DocumentChunkRead
+    next: DocumentChunkRead | None

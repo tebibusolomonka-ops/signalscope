@@ -14,6 +14,7 @@ from signalscope.domain.documents.files import MAX_FILE_BYTES
 from signalscope.domain.documents.repository import DocumentFilters
 from signalscope.domain.documents.revision_service import DocumentRevisionService
 from signalscope.domain.documents.schemas import (
+    DocumentChunkContextRead,
     DocumentChunkRead,
     DocumentCreate,
     DocumentFileRead,
@@ -199,6 +200,23 @@ async def get_document_chunk(
     if chunk is None:
         raise NotFoundError("Document chunk was not found.")
     return DocumentChunkRead.from_chunk(chunk)
+
+
+@router.get("/{document_id}/chunks/{chunk_id}/context")
+async def get_document_chunk_context(
+    document_id: uuid.UUID, chunk_id: uuid.UUID, session: DatabaseSession, policy: Policy
+) -> DocumentChunkContextRead:
+    """The chunk with the one before and after it in the document, by position."""
+    await policy.authorize_document(document_id)
+    found = await DocumentChunkRepository(session).context(document_id, chunk_id)
+    if found is None:
+        raise NotFoundError("Document chunk was not found.")
+    previous, current, following = found
+    return DocumentChunkContextRead(
+        previous=None if previous is None else DocumentChunkRead.from_chunk(previous),
+        current=DocumentChunkRead.from_chunk(current),
+        next=None if following is None else DocumentChunkRead.from_chunk(following),
+    )
 
 
 @router.get("/{document_id}/revisions")
