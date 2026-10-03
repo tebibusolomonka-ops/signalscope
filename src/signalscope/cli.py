@@ -128,6 +128,11 @@ from signalscope.evaluation.gates import (
 from signalscope.evaluation.json_report import report_data, write_json_report
 from signalscope.evaluation.loader import load_dataset
 from signalscope.evaluation.model_environment import model_environment_report
+from signalscope.evaluation.quality_profiles import (
+    check_evaluation_report,
+    format_quality_gate_result,
+    load_quality_gate_profile,
+)
 from signalscope.evaluation.report import format_reports
 from signalscope.evaluation.reranker_benchmark import (
     BenchmarkReranker,
@@ -281,6 +286,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return model_environment(json_output=args.json)
     if args.command == "compare-evaluation-reports":
         return compare_evaluation_reports_command(args.reports, json_output=args.json)
+    if args.command == "check-evaluation-report":
+        return check_evaluation_report_command(args.report, args.profile, json_output=args.json)
     if args.command == "benchmark-embedding":
         return asyncio.run(
             benchmark_embedding_command(args.dataset, args.output, settings, limit=args.limit)
@@ -644,6 +651,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     comparison.add_argument("reports", type=Path, nargs="+")
     comparison.add_argument("--json", action="store_true", help="write JSON output")
+    evaluation_gate = commands.add_parser(
+        "check-evaluation-report", help="check a report against a user-defined quality profile"
+    )
+    evaluation_gate.add_argument("report", type=Path)
+    evaluation_gate.add_argument("profile", type=Path)
+    evaluation_gate.add_argument("--json", action="store_true", help="write JSON output")
 
     embedding_benchmark = commands.add_parser(
         "benchmark-embedding", help="run the real local embedding model on a retrieval dataset"
@@ -1266,6 +1279,39 @@ def compare_evaluation_reports_command(
     else:
         print(format_comparison(comparison), end="", file=out)
     return 0
+
+
+def check_evaluation_report_command(
+    report_path: Path,
+    profile_path: Path,
+    *,
+    json_output: bool = False,
+    out: TextIO | None = None,
+    err: TextIO | None = None,
+) -> int:
+    out = sys.stdout if out is None else out
+    err = sys.stderr if err is None else err
+    try:
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+        if not isinstance(report, dict):
+            raise TypeError
+        profile = load_quality_gate_profile(profile_path)
+        result = check_evaluation_report(report, profile)
+    except (
+        OSError,
+        UnicodeError,
+        json.JSONDecodeError,
+        TypeError,
+        EvaluationDataError,
+        ValueError,
+    ) as error:
+        print(f"Error: {error}", file=err)
+        return 1
+    if json_output:
+        print(json.dumps(result.to_dict(), indent=2, sort_keys=True), file=out)
+    else:
+        print(format_quality_gate_result(result), end="", file=out)
+    return 0 if result.passed else 2
 
 
 async def benchmark_embedding_command(
