@@ -130,7 +130,13 @@ curl http://localhost:8000/auth/me -H "Authorization: Bearer <token>"
 ```
 
 Sessions are opaque, server-side and revocable; only a hash of the token is
-stored, and no JWT is used. A failed login always gives the same answer.
+stored, and no JWT is used. A failed login always gives the same answer,
+including for unknown and inactive accounts and temporarily blocked logins.
+Failed attempts are counted in PostgreSQL by a one-way email identifier. By
+default, 10 failures within 15 minutes block further attempts for 15 minutes.
+Set `SIGNALSCOPE_AUTH_LOGIN_WINDOW_SECONDS`,
+`SIGNALSCOPE_AUTH_LOGIN_MAX_FAILURES` and
+`SIGNALSCOPE_AUTH_LOGIN_BLOCK_SECONDS` to change those limits.
 
 With authentication on, every content route needs a token too, and content
 belongs to organizations through its source. Lists, searches, the timeline,
@@ -155,7 +161,12 @@ workflow is:
    `GET /admin/users/{id}/sessions`,
    `DELETE /admin/users/{id}/sessions/{session_id}` and
    `POST /admin/users/{id}/revoke-sessions`.
-4. Owners and admins read `GET /organizations/{id}/access-summary` for counts
+4. System admins inspect failed-login state with
+   `GET /admin/auth/throttles?limit=50&offset=0` and clear one with
+   `DELETE /admin/auth/throttles/{identifier}`. A local administrator can use
+   `signalscope clear-login-throttle <identifier>`. Neither interface exposes
+   the email behind the one-way identifier.
+5. Owners and admins read `GET /organizations/{id}/access-summary` for counts
    of members by role, active and inactive members, invitations by status,
    investigations and collaborators, and the audit log (below).
 
@@ -243,10 +254,10 @@ already has an organization cannot be moved.
 
 ### Security audit
 
-Account creation, logins, logouts, and changes to organizations, members and
-investigation collaborators are written to the `security_audit_events` table,
-in the same transaction as the change. Events hold IDs and roles only, never
-passwords, tokens or hashes. Failed logins are not recorded.
+Account creation, successful and failed logins, logouts, throttle clearing,
+and changes to organizations, members and investigation collaborators are
+written to the `security_audit_events` table. Events hold safe IDs, roles and
+failure reasons only, never emails, passwords, tokens or hashes.
 
 Read them with `GET /security/audit`, newest first. Filters: `action`,
 `resource_type`, `resource_id`, `actor_user_id`, `created_from` (inclusive),

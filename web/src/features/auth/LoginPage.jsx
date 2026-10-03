@@ -24,6 +24,7 @@ export function LoginPage() {
       setPassword("");
       navigate(target, { replace: true });
     } catch (failure) {
+      setPassword("");
       setError(failure.message);
       setBusy(false);
     }

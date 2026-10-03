@@ -60,7 +60,8 @@ Open problems after batch 360 to 379. Remove an item when it is fixed.
 
 ## Authentication
 
-- Login has no rate limit or lockout yet.
+- Login throttling is a shared, fixed-window PostgreSQL limit. It is not an
+  adaptive abuse-detection system.
 - There is no password reset yet, only a change while signed in.
 - There is no way to delete an organization or a user through the API.
 - Invitations are shared by hand: there is no email sending.
@@ -71,9 +72,8 @@ Open problems after batch 360 to 379. Remove an item when it is fixed.
   between organizations.
 - The saved investigation items from before this batch were not checked
   against organizations; they keep their old snapshots.
-- Audit events have no retention rule yet, and failed logins are not
-  recorded. Events without an organization (logins, user changes) are only
-  visible to system admins.
+- Events without an organization (logins, user changes and throttle clearing)
+  are only visible to system admins.
 - `GET /auth/sessions` shows at most the 100 newest sessions; run
   `cleanup-auth-sessions` regularly.
 

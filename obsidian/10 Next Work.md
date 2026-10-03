@@ -36,17 +36,18 @@ organization export records, inventory, ZIP generation, administration and
 web workspace, verification and retention cleanup are complete through
 planned commit 394.
 Relation evaluation tooling is complete through planned commit 409.
+Failed-login auditing, database-backed throttling, administrator recovery and
+end-to-end security coverage are complete through planned commit 414.
 
 ## Next batch
 
-1. Add safe failed-login auditing and database-backed login throttling.
-2. Run the real structured-extraction and answer-model smoke checks
+1. Run the real structured-extraction and answer-model smoke checks
    (`check-structured-model`, `check-answer-model`) on a suitable machine.
-3. Build a small reference dataset, run `evaluate-extraction` with the real
+2. Build a small reference dataset, run `evaluate-extraction` with the real
    GLiNER2 model, and record the numbers here and in [[08 Known Issues]].
-4. Decide from those numbers whether relation quality justifies storing
+3. Decide from those numbers whether relation quality justifies storing
    knowledge-graph edges. No numbers, no edges.
-5. Review the web session model (HttpOnly cookies, CSRF, CSP) before any
+4. Review the web session model (HttpOnly cookies, CSRF, CSP) before any
    public deployment.
 
 ## Open follow-ups

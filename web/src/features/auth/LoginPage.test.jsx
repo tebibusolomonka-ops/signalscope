@@ -59,6 +59,23 @@ describe("sign in", () => {
     expect(sessionStorage.getItem("signalscope.session")).toBeNull();
   });
 
+  it("shows the same generic error while a login is throttled", async () => {
+    renderApp({
+      path: "/login",
+      routes: {
+        "POST /auth/login": {
+          status: 401,
+          body: { error: { code: "unauthenticated", message: "Email or password is not correct." } },
+        },
+      },
+    });
+
+    await signIn(PASSWORD);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Email or password is not correct.");
+    expect(document.body.innerHTML).not.toContain(PASSWORD);
+  });
+
   it("restores a stored session with GET /auth/me", async () => {
     const { calls } = renderApp({ routes: { ...signedIn(), ...organizations() } });
 
