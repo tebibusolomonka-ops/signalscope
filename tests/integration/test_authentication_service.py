@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from password_helpers import OTHER_PASSWORD, TEST_PASSWORD, fast_hasher
 from signalscope.core.errors import ConflictError, InvalidInputError, UnauthenticatedError
+from signalscope.domain.audit.model import SecurityAuditEvent
 from signalscope.domain.users.authentication import (
     INVALID_CREDENTIALS,
     AuthenticationService,
@@ -142,6 +143,37 @@ async def test_failed_logins_look_the_same(
     assert str(error.value) == INVALID_CREDENTIALS
 
 
+@pytest.mark.parametrize(
+    ("email", "password", "reason"),
+    [
+        ("ana@example.org", OTHER_PASSWORD, "invalid_credentials"),
+        ("missing@example.org", TEST_PASSWORD, "invalid_credentials"),
+    ],
+)
+async def test_failed_login_audit_is_safe(
+    session_factory: async_sessionmaker[AsyncSession],
+    email: str,
+    password: str,
+    reason: str,
+) -> None:
+    await create_user(session_factory)
+    async with session_factory() as session:
+        with pytest.raises(InvalidCredentialsError, match=INVALID_CREDENTIALS):
+            await service(session).login(email, password)
+    async with session_factory() as session:
+        event = (
+            await session.scalars(
+                select(SecurityAuditEvent).where(
+                    SecurityAuditEvent.action == "authentication_login_failed"
+                )
+            )
+        ).one()
+    assert event.details == {"reason": reason}
+    encoded = str(event.details).lower()
+    assert password.lower() not in encoded
+    assert all(word not in encoded for word in ("password_hash", "token", "authorization"))
+
+
 async def test_inactive_user(session_factory: async_sessionmaker[AsyncSession]) -> None:
     user = await create_user(session_factory)
     async with session_factory() as session:
@@ -154,6 +186,15 @@ async def test_inactive_user(session_factory: async_sessionmaker[AsyncSession]) 
             await service(session).login("ana@example.org", TEST_PASSWORD)
         with pytest.raises(UnauthenticatedError):
             await service(session).resolve_session(new.token)
+    async with session_factory() as session:
+        event = (
+            await session.scalars(
+                select(SecurityAuditEvent).where(
+                    SecurityAuditEvent.action == "authentication_login_failed"
+                )
+            )
+        ).one()
+        assert event.details == {"reason": "inactive_user"}
 
 
 async def test_expired_revoked_and_unknown_tokens(

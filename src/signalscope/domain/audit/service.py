@@ -17,6 +17,7 @@ DETAIL_KEYS = frozenset(
         "queue",
         "retention_days",
         "deleted_count",
+        "reason",
     }
 )
 DetailValue = str | int | bool | uuid.UUID | None
@@ -27,6 +28,7 @@ class AuditAction(StrEnum):
     USER_DEACTIVATED = "user.deactivated"
     USER_REACTIVATED = "user.reactivated"
     LOGIN = "auth.login"
+    LOGIN_FAILED = "authentication_login_failed"
     LOGOUT = "auth.logout"
     LOGOUT_ALL = "auth.logout_all"
     PASSWORD_CHANGED = "auth.password_changed"
@@ -54,7 +56,7 @@ class SecurityAuditService:
 
     It never commits. The caller commits the event together with the change it
     describes, so there is never an event without its change or the other way
-    round. Failed logins are not recorded.
+    round. Callers explicitly commit standalone security observations.
     """
 
     def __init__(self, session: AsyncSession) -> None:

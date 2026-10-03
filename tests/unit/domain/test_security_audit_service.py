@@ -51,3 +51,18 @@ def test_only_known_detail_keys(key: str) -> None:
 
 def test_action_names_are_short() -> None:
     assert all(len(action.value) <= 64 for action in AuditAction)
+
+
+def test_failed_login_reason_is_allowed_without_identifier() -> None:
+    audit, session = service()
+
+    event = audit.record(
+        AuditAction.LOGIN_FAILED,
+        actor_user_id=None,
+        resource_type="authentication",
+        details={"reason": "invalid_credentials"},
+    )
+
+    assert session.added == [event]
+    assert event.action == "authentication_login_failed"
+    assert event.details == {"reason": "invalid_credentials"}

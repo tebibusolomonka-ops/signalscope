@@ -138,6 +138,8 @@ class AuthenticationService:
         try:
             normalized = normalize_email(email)
         except InvalidEmailError:
+            self.hasher.check_without_account(password)
+            await self._record_login_failure("invalid_credentials")
             raise InvalidCredentialsError() from None
         row = (
             await self.session.execute(
@@ -148,16 +150,35 @@ class AuthenticationService:
         ).one_or_none()
         if row is None:
             self.hasher.check_without_account(password)
+            await self._record_login_failure("invalid_credentials")
             raise InvalidCredentialsError()
         user: User = row[0]
         credential: UserPasswordCredential = row[1]
         check = self.hasher.verify_password(password, credential.password_hash)
-        if not check.valid or not user.is_active:
+        if not check.valid:
+            await self._record_login_failure("invalid_credentials", user.id)
+            raise InvalidCredentialsError()
+        if not user.is_active:
+            await self._record_login_failure("inactive_user", user.id)
             raise InvalidCredentialsError()
         if check.new_hash is not None:
             credential.password_hash = check.new_hash
             await self.session.commit()
         return user
+
+    async def _record_login_failure(self, reason: str, user_id: uuid.UUID | None = None) -> None:
+        self.audit.record(
+            AuditAction.LOGIN_FAILED,
+            actor_user_id=None,
+            resource_type="authentication",
+            resource_id=user_id,
+            details={"reason": reason},
+        )
+        try:
+            await self.session.commit()
+        except Exception:
+            await self.session.rollback()
+            raise
 
     async def create_session(self, user: User) -> NewSession:
         token = secrets.token_urlsafe(TOKEN_BYTES)
