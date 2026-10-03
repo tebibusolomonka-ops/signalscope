@@ -288,4 +288,7 @@ Decisions that should hold unless there is a clear reason to change them.
 - **Evaluation evidence stays factual.** Comparisons do not declare winners,
   thresholds come from user profiles, and deterministic bundles package only
   completed artifacts without invoking models.
+- **Relation readiness is not a persistence switch.** Thresholds are supplied by
+  the project, summaries state measurements and limitations, and no command
+  enables or recommends relation storage.
 - **Simple English, no AI attribution** in code, docs and commits (AGENTS.md).

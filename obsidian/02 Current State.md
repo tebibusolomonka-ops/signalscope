@@ -2,7 +2,7 @@
 
 Batch 380 to 419 is in progress. Durable operation history and portable
 organization exports and model evaluation evidence tooling are complete through
-planned commit 404. Alembic head:
+planned commit 409. Alembic head:
 `c91f4d2a8e73` (Add organization export status check).
 
 ## Done
@@ -80,6 +80,9 @@ planned commit 404. Alembic head:
   measurements. Normal tests and CI use fakes and never load or download models.
 - Versioned dataset manifests and report envelopes support factual comparison,
   user-defined quality gates, and deterministic evidence bundles with checksums.
+- Relation benchmark tooling measures exact normalized triples globally and by
+  type, analyzes available confidence values, applies user-defined readiness
+  gates, and produces a factual summary. Relation persistence is not implemented.
 - Audit retention: a per-organization policy (indefinite by default), a
   preview for owners and admins, cleanup for system admins through the API
   or `signalscope cleanup-security-audit --apply`.

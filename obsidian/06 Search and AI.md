@@ -41,6 +41,9 @@ fakes.
 - **Evaluation evidence**: benchmark reports use a common versioned envelope.
   They can be compared factually, checked against user-defined profiles, and
   bundled with environment and gate evidence without running models.
+- **Relation evaluation**: versioned datasets, exact micro and per-type metrics,
+  optional confidence buckets, project-defined readiness gates and summaries
+  provide evidence for human review. They make no persistence decision.
 - **Semantic event links stay advisory**: `GET /events/{id}/link-suggestions`
   ranks candidates; only the exact linker changes clusters.
 

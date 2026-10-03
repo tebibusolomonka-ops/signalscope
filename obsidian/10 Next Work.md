@@ -35,12 +35,11 @@ Batch 380 to 419 is in progress. Operation attempt history and portable
 organization export records, inventory, ZIP generation, administration and
 web workspace, verification and retention cleanup are complete through
 planned commit 394.
-Evaluation evidence tooling is complete through planned commit 404.
+Relation evaluation tooling is complete through planned commit 409.
 
 ## Next batch
 
-1. Add the versioned relation benchmark dataset, metrics, confidence analysis,
-   readiness gates and factual summary. Relation persistence remains deferred.
+1. Add safe failed-login auditing and database-backed login throttling.
 2. Run the real structured-extraction and answer-model smoke checks
    (`check-structured-model`, `check-answer-model`) on a suitable machine.
 3. Build a small reference dataset, run `evaluate-extraction` with the real

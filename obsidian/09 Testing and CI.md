@@ -22,6 +22,8 @@ stops at the first failure, and checks that Alembic has one head.
   replaced with fakes or made to fail on import.
 - Evaluation manifest, report, comparison, gate and bundle tests use local
   fixtures and fake providers. Bundle tests verify stable order and checksums.
+- Relation evaluation tests cover exact matching, per-type metrics, confidence
+  buckets, user-defined gates and factual summaries without model downloads.
 - `tests/integration/test_dashboard_end_to_end.py` checks that the dashboard,
   source comparison, timeline, research export and investigation export agree
   on one dataset.

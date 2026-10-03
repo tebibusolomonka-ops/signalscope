@@ -27,8 +27,8 @@ Open problems after batch 360 to 379. Remove an item when it is fixed.
   on a real install yet.
 - Evaluation report and bundle tests use fake providers. No measured real-model
   quality or latency results are stored in the repository.
-- Relation edges are still not stored: no real relation benchmark exists to
-  justify them.
+- Relation benchmark tooling exists, but no real dataset result has been
+  reviewed. Relation edges are not stored and persistence remains unimplemented.
 - GLiNER2 extracts spans, so a claim's `text` usually repeats its quote.
 
 ## Research

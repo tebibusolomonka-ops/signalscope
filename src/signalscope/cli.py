@@ -12,7 +12,7 @@ import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import TextIO
+from typing import Any, TextIO
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -138,6 +138,10 @@ from signalscope.evaluation.relation_readiness import (
     check_relation_readiness,
     format_relation_readiness,
     load_relation_readiness_profile,
+)
+from signalscope.evaluation.relation_summary import (
+    format_relation_summary,
+    relation_evaluation_summary,
 )
 from signalscope.evaluation.report import format_reports
 from signalscope.evaluation.reranker_benchmark import (
@@ -296,6 +300,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         return check_evaluation_report_command(args.report, args.profile, json_output=args.json)
     if args.command == "check-relation-readiness":
         return check_relation_readiness_command(args.report, args.profile, json_output=args.json)
+    if args.command == "relation-evaluation-summary":
+        return relation_evaluation_summary_command(
+            args.report,
+            confidence_path=args.confidence,
+            readiness_path=args.readiness,
+            json_output=args.json,
+        )
     if args.command == "bundle-evaluation-reports":
         return bundle_evaluation_reports_command(
             args.reports,
@@ -678,6 +689,13 @@ def build_parser() -> argparse.ArgumentParser:
     relation_gate.add_argument("report", type=Path)
     relation_gate.add_argument("profile", type=Path)
     relation_gate.add_argument("--json", action="store_true", help="write JSON output")
+    relation_summary = commands.add_parser(
+        "relation-evaluation-summary", help="summarize relation evaluation evidence"
+    )
+    relation_summary.add_argument("report", type=Path)
+    relation_summary.add_argument("--confidence", type=Path)
+    relation_summary.add_argument("--readiness", type=Path)
+    relation_summary.add_argument("--json", action="store_true", help="write JSON output")
     evaluation_bundle = commands.add_parser(
         "bundle-evaluation-reports", help="bundle completed evaluation evidence"
     )
@@ -1377,6 +1395,39 @@ def check_relation_readiness_command(
     else:
         print(format_relation_readiness(results), end="", file=out)
     return 0 if all(result.met for result in results) else 2
+
+
+def relation_evaluation_summary_command(
+    report_path: Path,
+    *,
+    confidence_path: Path | None = None,
+    readiness_path: Path | None = None,
+    json_output: bool = False,
+    out: TextIO | None = None,
+    err: TextIO | None = None,
+) -> int:
+    out = sys.stdout if out is None else out
+    err = sys.stderr if err is None else err
+    try:
+        report = _read_json_object(report_path)
+        confidence = None if confidence_path is None else _read_json_object(confidence_path)
+        readiness = None if readiness_path is None else _read_json_object(readiness_path)
+        summary = relation_evaluation_summary(report, confidence=confidence, readiness=readiness)
+    except (EvaluationDataError, OSError, UnicodeError, json.JSONDecodeError, TypeError) as error:
+        print(f"Error: {error}", file=err)
+        return 1
+    if json_output:
+        print(json.dumps(summary, indent=2, sort_keys=True), file=out)
+    else:
+        print(format_relation_summary(summary), end="", file=out)
+    return 0
+
+
+def _read_json_object(path: Path) -> dict[str, Any]:
+    value = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(value, dict):
+        raise TypeError(f"{path} does not contain a JSON object.")
+    return value
 
 
 def bundle_evaluation_reports_command(

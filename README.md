@@ -12,6 +12,14 @@ Evaluation is explicit and evidence-based:
 
 Bundling does not run or download models.
 
+### Relation evaluation
+
+Prepare a versioned relation benchmark dataset, run the relation benchmark,
+inspect exact-match type metrics and confidence observations when available,
+apply project-defined readiness gates, and review the factual relation summary.
+Humans decide whether later persistence work is justified. Relation persistence
+remains deferred and is not implemented.
+
 SignalScope is a media intelligence and research platform. The plan is to collect
 content from sources such as articles, websites, RSS feeds, documents, audio and
 video, and turn it into structured information that can be searched and analyzed.

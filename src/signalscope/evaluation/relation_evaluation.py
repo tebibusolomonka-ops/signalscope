@@ -30,6 +30,8 @@ class RelationTypeMetrics:
 @dataclass(frozen=True, slots=True)
 class RelationEvaluationReport:
     task: str
+    model: str
+    provider: str
     dataset: dict[str, str]
     records_evaluated: int
     reference_triple_count: int
@@ -53,6 +55,8 @@ def evaluate_relation_types(
     predictions: list[RelationPrediction],
     *,
     error_example_limit: int = 20,
+    model: str = "unspecified",
+    provider: str = "unspecified",
 ) -> RelationEvaluationReport:
     references = [
         _item(example.key, triple) for example in dataset.examples for triple in example.relations
@@ -83,6 +87,8 @@ def evaluate_relation_types(
     recall = _ratio(len(true_positives), len(references))
     return RelationEvaluationReport(
         task="relation_evaluation",
+        model=model,
+        provider=provider,
         dataset={
             "name": dataset.name,
             "version": dataset.version,
