@@ -35,17 +35,19 @@ Batch 380 to 419 is in progress. Operation attempt history and portable
 organization export records, inventory, ZIP generation, administration and
 web workspace, verification and retention cleanup are complete through
 planned commit 394.
-Explicit real-model benchmark commands are complete through planned commit 399.
+Evaluation evidence tooling is complete through planned commit 404.
 
 ## Next batch
 
-1. Run the real structured-extraction and answer-model smoke checks
+1. Add the versioned relation benchmark dataset, metrics, confidence analysis,
+   readiness gates and factual summary. Relation persistence remains deferred.
+2. Run the real structured-extraction and answer-model smoke checks
    (`check-structured-model`, `check-answer-model`) on a suitable machine.
-2. Build a small reference dataset, run `evaluate-extraction` with the real
+3. Build a small reference dataset, run `evaluate-extraction` with the real
    GLiNER2 model, and record the numbers here and in [[08 Known Issues]].
-3. Decide from those numbers whether relation quality justifies storing
+4. Decide from those numbers whether relation quality justifies storing
    knowledge-graph edges. No numbers, no edges.
-4. Review the web session model (HttpOnly cookies, CSRF, CSP) before any
+5. Review the web session model (HttpOnly cookies, CSRF, CSP) before any
    public deployment.
 
 ## Open follow-ups

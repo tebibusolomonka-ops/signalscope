@@ -1,5 +1,17 @@
 # SignalScope
 
+## Model evaluation workflow
+
+Evaluation is explicit and evidence-based:
+
+1. Run `signalscope model-environment` to inspect the local runtime without loading models.
+2. Run only the selected benchmark commands for the models and tasks being assessed.
+3. Use `signalscope compare-evaluation-reports` when factual report differences are useful.
+4. Use `signalscope check-evaluation-report` with a user-defined quality profile.
+5. Use `signalscope bundle-evaluation-reports` to package completed reports and supporting evidence.
+
+Bundling does not run or download models.
+
 SignalScope is a media intelligence and research platform. The plan is to collect
 content from sources such as articles, websites, RSS feeds, documents, audio and
 video, and turn it into structured information that can be searched and analyzed.

@@ -38,6 +38,9 @@ fakes.
   optional user-defined `--quality-gates`. `check-structured-model` is the
   manual smoke check for the real GLiNER2 install. Neither has been run with
   the real model yet, so there are no real numbers.
+- **Evaluation evidence**: benchmark reports use a common versioned envelope.
+  They can be compared factually, checked against user-defined profiles, and
+  bundled with environment and gate evidence without running models.
 - **Semantic event links stay advisory**: `GET /events/{id}/link-suggestions`
   ranks candidates; only the exact linker changes clusters.
 

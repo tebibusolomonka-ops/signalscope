@@ -25,6 +25,8 @@ Open problems after batch 360 to 379. Remove an item when it is fixed.
   commands (`check-embedding-model`, `check-structured-model`,
   `check-answer-model`) are the way to try a real model, and none has been run
   on a real install yet.
+- Evaluation report and bundle tests use fake providers. No measured real-model
+  quality or latency results are stored in the repository.
 - Relation edges are still not stored: no real relation benchmark exists to
   justify them.
 - GLiNER2 extracts spans, so a claim's `text` usually repeats its quote.

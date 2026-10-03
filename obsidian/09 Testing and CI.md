@@ -20,6 +20,8 @@ stops at the first failure, and checks that Alembic has one head.
   `fake_embeddings.py`, `fake_qwen.py`, `event_reports.py`).
 - No test downloads a model or uses the public network. Optional libraries are
   replaced with fakes or made to fail on import.
+- Evaluation manifest, report, comparison, gate and bundle tests use local
+  fixtures and fake providers. Bundle tests verify stable order and checksums.
 - `tests/integration/test_dashboard_end_to_end.py` checks that the dashboard,
   source comparison, timeline, research export and investigation export agree
   on one dataset.

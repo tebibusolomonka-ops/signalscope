@@ -285,4 +285,7 @@ Decisions that should hold unless there is a clear reason to change them.
   `--apply`; pending and running exports are never selected.
 - **Real model benchmarks are explicit developer commands.** Application
   startup, normal tests, checks and CI never load or download model weights.
+- **Evaluation evidence stays factual.** Comparisons do not declare winners,
+  thresholds come from user profiles, and deterministic bundles package only
+  completed artifacts without invoking models.
 - **Simple English, no AI attribution** in code, docs and commits (AGENTS.md).

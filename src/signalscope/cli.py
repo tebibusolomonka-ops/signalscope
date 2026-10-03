@@ -97,6 +97,7 @@ from signalscope.entities.local import LocalEntitiesNotInstalledError
 from signalscope.entities.registry import EntityExtractorRegistry
 from signalscope.entities.runtime import create_entity_extractor_registry, local_entity_model
 from signalscope.evaluation.answer_benchmark import benchmark_answers, load_answer_dataset
+from signalscope.evaluation.bundle import bundle_evaluation_reports
 from signalscope.evaluation.comparison import compare_evaluation_reports, format_comparison
 from signalscope.evaluation.dataset import EvaluationDataError
 from signalscope.evaluation.embedding_benchmark import (
@@ -288,6 +289,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         return compare_evaluation_reports_command(args.reports, json_output=args.json)
     if args.command == "check-evaluation-report":
         return check_evaluation_report_command(args.report, args.profile, json_output=args.json)
+    if args.command == "bundle-evaluation-reports":
+        return bundle_evaluation_reports_command(
+            args.reports,
+            args.output,
+            environment=args.environment,
+            gate_results=args.quality_gate_result,
+        )
     if args.command == "benchmark-embedding":
         return asyncio.run(
             benchmark_embedding_command(args.dataset, args.output, settings, limit=args.limit)
@@ -657,6 +665,13 @@ def build_parser() -> argparse.ArgumentParser:
     evaluation_gate.add_argument("report", type=Path)
     evaluation_gate.add_argument("profile", type=Path)
     evaluation_gate.add_argument("--json", action="store_true", help="write JSON output")
+    evaluation_bundle = commands.add_parser(
+        "bundle-evaluation-reports", help="bundle completed evaluation evidence"
+    )
+    evaluation_bundle.add_argument("reports", type=Path, nargs="+")
+    evaluation_bundle.add_argument("--output", type=Path, required=True)
+    evaluation_bundle.add_argument("--environment", type=Path)
+    evaluation_bundle.add_argument("--quality-gate-result", type=Path, action="append", default=[])
 
     embedding_benchmark = commands.add_parser(
         "benchmark-embedding", help="run the real local embedding model on a retrieval dataset"
@@ -1312,6 +1327,32 @@ def check_evaluation_report_command(
     else:
         print(format_quality_gate_result(result), end="", file=out)
     return 0 if result.passed else 2
+
+
+def bundle_evaluation_reports_command(
+    reports: list[Path],
+    output: Path,
+    *,
+    environment: Path | None = None,
+    gate_results: list[Path] | None = None,
+    out: TextIO | None = None,
+    err: TextIO | None = None,
+) -> int:
+    out = sys.stdout if out is None else out
+    err = sys.stderr if err is None else err
+    try:
+        bundle_evaluation_reports(
+            output,
+            reports,
+            created_at=utc_now(),
+            environment=environment,
+            gate_results=gate_results,
+        )
+    except (EvaluationDataError, OSError, ValueError) as error:
+        print(f"Error: {error}", file=err)
+        return 1
+    print(f"Wrote {output}", file=out)
+    return 0
 
 
 async def benchmark_embedding_command(
