@@ -96,6 +96,7 @@ from signalscope.embeddings.runtime import create_embedding_registry, local_embe
 from signalscope.entities.local import LocalEntitiesNotInstalledError
 from signalscope.entities.registry import EntityExtractorRegistry
 from signalscope.entities.runtime import create_entity_extractor_registry, local_entity_model
+from signalscope.evaluation.answer_benchmark import benchmark_answers, load_answer_dataset
 from signalscope.evaluation.dataset import EvaluationDataError
 from signalscope.evaluation.embedding_benchmark import (
     BenchmarkEmbeddingProvider,
@@ -291,6 +292,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(
             queue_embeddings(settings, document_id=args.document_id, limit=args.limit)
         )
+    if args.command == "benchmark-answer-model":
+        return asyncio.run(benchmark_answer_command(args.dataset, args.output, settings))
     if args.command == "queue-entities":
         return asyncio.run(queue_entities(settings, document_id=args.document_id, limit=args.limit))
     if args.command == "queue-events":
@@ -655,6 +658,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     structured_benchmark.add_argument("dataset", type=Path)
     structured_benchmark.add_argument("--output", type=Path, required=True)
+    answer_benchmark = commands.add_parser(
+        "benchmark-answer-model", help="benchmark the real answer model on fixed evidence"
+    )
+    answer_benchmark.add_argument("dataset", type=Path)
+    answer_benchmark.add_argument("--output", type=Path, required=True)
 
     worker = commands.add_parser("run-worker", help="run queued ingestion jobs")
     _add_worker_options(worker)
@@ -1356,6 +1364,41 @@ async def benchmark_structured_command(
             timestamp=utc_now(),
         )
         _write_atomically(output, json.dumps(report.to_dict(), indent=2, sort_keys=True) + "\n")
+    except SignalScopeError as error:
+        print(f"Error: {error}", file=err)
+        return 1
+    except OSError as error:
+        print(f"Error: Cannot write {output}: {error.strerror}", file=err)
+        return 1
+    print(f"Wrote {output}", file=out)
+    return 0
+
+
+async def benchmark_answer_command(
+    dataset_path: Path,
+    output: Path,
+    settings: Settings,
+    out: TextIO | None = None,
+    err: TextIO | None = None,
+    *,
+    generator: ResearchAnswerGenerator | None = None,
+) -> int:
+    out = sys.stdout if out is None else out
+    err = sys.stderr if err is None else err
+    try:
+        dataset = load_answer_dataset(dataset_path)
+        fingerprint = fingerprint_bytes(dataset_path.read_bytes())
+    except (EvaluationDataError, OSError) as error:
+        print(f"Error: {error}", file=err)
+        return 1
+    if generator is None:
+        if any(importlib.util.find_spec(name) is None for name in ("transformers", "torch")):
+            print(f"Error: {LocalAnswersNotInstalledError()}", file=err)
+            return 1
+        generator = create_answer_generator_registry(settings).only()
+    try:
+        report = await benchmark_answers(generator, dataset, fingerprint, timestamp=utc_now())
+        _write_atomically(output, json.dumps(report, indent=2, sort_keys=True) + "\n")
     except SignalScopeError as error:
         print(f"Error: {error}", file=err)
         return 1

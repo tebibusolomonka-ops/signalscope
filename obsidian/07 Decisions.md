@@ -283,4 +283,6 @@ Decisions that should hold unless there is a clear reason to change them.
 - **Portable export cleanup is explicit.** Completed and failed artifacts use
   bounded retention cleanup. The command previews by default and requires
   `--apply`; pending and running exports are never selected.
+- **Real model benchmarks are explicit developer commands.** Application
+  startup, normal tests, checks and CI never load or download model weights.
 - **Simple English, no AI attribution** in code, docs and commits (AGENTS.md).

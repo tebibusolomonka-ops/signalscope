@@ -35,6 +35,7 @@ Batch 380 to 419 is in progress. Operation attempt history and portable
 organization export records, inventory, ZIP generation, administration and
 web workspace, verification and retention cleanup are complete through
 planned commit 394.
+Explicit real-model benchmark commands are complete through planned commit 399.
 
 ## Next batch
 

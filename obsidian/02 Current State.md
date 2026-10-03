@@ -1,7 +1,8 @@
 # Current State
 
 Batch 380 to 419 is in progress. Durable operation history and portable
-organization exports are complete through planned commit 394. Alembic head:
+organization exports and explicit model benchmark commands are complete through
+planned commit 399. Alembic head:
 `c91f4d2a8e73` (Add organization export status check).
 
 ## Done
@@ -74,6 +75,9 @@ organization exports are complete through planned commit 394. Alembic head:
   verification results. Passwords, session
   hashes, invitation hashes, model caches and binary asset contents are not
   exported.
+- Explicit developer benchmarks report the local model environment and run
+  embedding, reranker, structured extraction and fixed-evidence answer model
+  measurements. Normal tests and CI use fakes and never load or download models.
 - Audit retention: a per-organization policy (indefinite by default), a
   preview for owners and admins, cleanup for system admins through the API
   or `signalscope cleanup-security-audit --apply`.
