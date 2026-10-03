@@ -42,6 +42,17 @@ class DocumentChunkRepository:
         )
         return list(result.all())
 
+    async def get_in_document(
+        self, document_id: uuid.UUID, chunk_id: uuid.UUID
+    ) -> DocumentChunk | None:
+        """One chunk, only when it belongs to the document."""
+        chunk: DocumentChunk | None = await self.session.scalar(
+            select(DocumentChunk).where(
+                DocumentChunk.id == chunk_id, DocumentChunk.document_id == document_id
+            )
+        )
+        return chunk
+
     async def count_for_document(self, document_id: uuid.UUID) -> int:
         result = await self.session.execute(
             select(func.count())

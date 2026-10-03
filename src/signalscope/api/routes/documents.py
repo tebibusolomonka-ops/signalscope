@@ -7,7 +7,7 @@ from pydantic import AwareDatetime
 from signalscope.api.dependencies import Blobs, DatabaseSession
 from signalscope.api.pagination import Page, Pagination
 from signalscope.api.tenancy import OrganizationFilter, Policy, ReadScope
-from signalscope.core.errors import InvalidInputError, ServiceUnavailableError
+from signalscope.core.errors import InvalidInputError, NotFoundError, ServiceUnavailableError
 from signalscope.domain.documents.asset import FILENAME_MAX_LENGTH
 from signalscope.domain.documents.chunk_repository import DocumentChunkRepository
 from signalscope.domain.documents.files import MAX_FILE_BYTES
@@ -183,6 +183,22 @@ async def list_document_chunks(
         limit=page.limit,
         offset=page.offset,
     )
+
+
+@router.get("/{document_id}/chunks/{chunk_id}")
+async def get_document_chunk(
+    document_id: uuid.UUID, chunk_id: uuid.UUID, session: DatabaseSession, policy: Policy
+) -> DocumentChunkRead:
+    """One chunk of a document, looked up directly, for focusing evidence.
+
+    The chunk must belong to the document, which is scoped through its source;
+    a chunk of another document is not found.
+    """
+    await policy.authorize_document(document_id)
+    chunk = await DocumentChunkRepository(session).get_in_document(document_id, chunk_id)
+    if chunk is None:
+        raise NotFoundError("Document chunk was not found.")
+    return DocumentChunkRead.from_chunk(chunk)
 
 
 @router.get("/{document_id}/revisions")

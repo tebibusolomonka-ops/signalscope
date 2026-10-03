@@ -146,3 +146,4 @@ class DocumentChunkRead(BaseModel):
             text=chunk.text,
             chunk_metadata=chunk.chunk_metadata,
         )
+
