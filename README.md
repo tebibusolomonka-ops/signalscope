@@ -330,6 +330,7 @@ Content pages, for the active organization:
 | `/sources`, `/sources/<id>` | Sources: add (owners and admins), configuration, provenance, ingest now, schedule, recent runs, delete |
 | `/sources/compare` | 2 to 10 sources side by side, observed counts only |
 | `/documents`, `/documents/<id>` | Filtered document list; text, revisions and delete |
+| `/documents/<id>?chunk=<chunk-id>` | The document with that chunk focused and highlighted |
 | `/documents/import` | Upload a file into an upload source (members and up) |
 | `/search` | Lexical, semantic, hybrid or reranked search, in the API's order |
 | `/entities`, `/entities/<id>` | Entities with this organization's mentions |
@@ -342,6 +343,14 @@ Content pages, for the active organization:
 Records can be saved to an open investigation from their pages. Exports are
 the API's JSON and Markdown, downloaded in the browser with names made from
 the record ID; nothing is searched or answered again.
+
+Evidence links lead to the exact passage. A search result, and a research
+citation's evidence card, link to `/documents/<id>?chunk=<chunk-id>`, which
+opens the document with that chunk highlighted and focused. The chunk ID is
+not secret, so it may be in the URL; chunk text, excerpts and the bearer
+token never are. Research citations still focus the evidence card in place as
+well; opening it in the document is a separate action. `GET /documents/<id>/chunks`
+(paged) backs this navigation.
 
 Administration pages: organizations (members, invitations and the access
 summary), users (system admins: search, create, deactivate and see another

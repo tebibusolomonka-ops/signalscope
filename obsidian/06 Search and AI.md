@@ -1,5 +1,13 @@
 # Search and AI
 
+The web app links evidence to the exact passage: a search result and a
+research citation's evidence card link to `/documents/<id>?chunk=<chunk-id>`,
+which opens the document with that chunk highlighted. The chunk ID is not
+secret and may be in the URL; chunk text and the bearer token never are.
+Research citations also still focus the evidence card in place; opening it in
+the document is a separate action.
+
+
 Every model is optional, runs on the local machine, and is off by default.
 Each has its own install extra and `SIGNALSCOPE_LOCAL_*` switch (see
 `docs/configuration.md`). Models load lazily on first use. Normal tests use

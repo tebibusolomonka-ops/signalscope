@@ -65,7 +65,12 @@ shape errors show up without PostgreSQL. `test_evidence_enrichment.py`
 checks that entity, claim and event evidence carry the document title and
 source name, from the requesting organization only.
 `test_document_file_api.py` covers the upload route with file storage in a
-temporary folder. `ResearchFlow.test.jsx` walks one organization's workflow
+temporary folder. `test_document_chunks_api.py` covers the paged chunk
+navigation route and its tenant scope.
+`ResearchNavigationFlow.test.jsx` is a web end-to-end test: it signs in,
+searches, opens a result at its exact chunk, opens entity evidence, follows a
+research citation and opens that evidence in the document, then switches
+organization and checks that no marker of the first organization remains. `ResearchFlow.test.jsx` walks one organization's workflow
 from sign in through a source, a document, search, an entity saved to an
 investigation, a research follow-up with citations, and both exports.
 `OrganizationSwitch.test.jsx` checks search, entities, claims, events,

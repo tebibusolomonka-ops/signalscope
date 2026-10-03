@@ -99,6 +99,9 @@ admin-focused.
   and the active one, remembered in sessionStorage).
 - `src/lib/tenantApi.js`: a client that adds `organization_id` to content
   calls. Sign in, user, organization and security calls use the plain client.
+- `src/lib/documentLink.js` and `src/components/EvidenceReference.jsx`: build
+  links to a document, optionally focused on a chunk (`?chunk=<id>`). Search
+  results, research evidence and the extraction evidence tables share them.
 - `src/app/RequireOrganization.jsx`: content pages sit under this route.
   Without an active organization it explains that one must be chosen (also
   for system admins). It keys the pages by the organization, so switching

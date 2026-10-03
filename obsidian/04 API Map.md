@@ -129,6 +129,9 @@ content routes below with the active organization's `organization_id`.
 - `POST /documents`, `GET /documents`, `GET /documents/{id}`,
   `DELETE /documents/{id}`
 - `GET /documents/{id}/revisions`, `GET /documents/{id}/revisions/{version}`
+- `GET /documents/{id}/chunks`: the document's chunks in position order,
+  paged, each with its chunk ID, position, text and metadata. Scoped through
+  the document's source. The web app uses it to focus one chunk.
 - `GET /documents/files/limits`: the content types that have a parser and
   the size limit (50 MB).
 - `POST /documents/files?source_id=&filename=`: the raw file is the body and

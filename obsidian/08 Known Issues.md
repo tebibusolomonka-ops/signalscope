@@ -89,6 +89,8 @@ Open problems after batch 360 to 379. Remove an item when it is fixed.
 - Research turns are not refreshed while the answer model is busy; reload the
   page to see a new turn completed elsewhere.
 - Uploads are read into memory (at most 50 MB) before they are stored.
+- The document page finds a focused chunk by paging its chunks (50 at a
+  time, up to 2000); a chunk past that is reported as not found.
 
 ## Code
 

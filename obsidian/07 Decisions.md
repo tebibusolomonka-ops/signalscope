@@ -179,6 +179,11 @@ Decisions that should hold unless there is a clear reason to change them.
   cannot quietly erase its own audit history. Cleanup is bounded, oldest
   first, needs `confirm: true`, never touches events without an
   organization, and is itself audited.
+- **Evidence links carry only the chunk ID.** Deep links to a document use
+  `?chunk=<id>`; the ID is not secret, but chunk text, excerpts, tokens and
+  organization secrets stay out of the URL. The document page finds the chunk
+  by paging the chunk API in a bounded way, so no new per-chunk lookup was
+  needed. An unknown chunk is a small non-fatal note, not a failed page.
 - **Exports are downloaded, not rebuilt.** The web app asks the export routes
   for JSON or Markdown and saves the answer in the browser as it is; the
   Markdown is never rewritten in JavaScript, nothing is searched or answered
