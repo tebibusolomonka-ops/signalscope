@@ -1,18 +1,25 @@
-import { useCallback, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 
 import { useOrganization } from "../../app/useOrganization.js";
 import { ConfirmAction } from "../../components/ConfirmAction.jsx";
 import { ExternalUrl } from "../../components/ExternalUrl.jsx";
 import { PageHeading } from "../../components/PageHeading.jsx";
 import { ErrorMessage, Loading } from "../../components/Status.jsx";
+import { chunkLocation } from "../../lib/chunks.js";
 import { formatTime } from "../../lib/format.js";
 import { useResource } from "../../lib/useResource.js";
 import { SaveToInvestigation } from "../investigations/SaveToInvestigation.jsx";
 
+// Pages of chunks to load while looking for a focused one, and a safety cap.
+const CHUNK_PAGE_SIZE = 50;
+const MAX_CHUNK_PAGES = 40;
+
 /** One document: its metadata, stored text and earlier revisions. */
 export function DocumentDetailPage() {
   const { documentId } = useParams();
+  const [params] = useSearchParams();
+  const focusChunkId = params.get("chunk");
   const { tenantApi, can } = useOrganization();
   const navigate = useNavigate();
   const load = useCallback(async () => {
@@ -40,6 +47,13 @@ export function DocumentDetailPage() {
           <div className="page-actions">
             <SaveToInvestigation itemType="document" referenceId={document.id} />
           </div>
+          {focusChunkId && (
+            <FocusedChunk
+              key={`${document.id}:${focusChunkId}`}
+              documentId={document.id}
+              chunkId={focusChunkId}
+            />
+          )}
           <section className="panel" aria-labelledby="document-details">
             <h2 id="document-details">Details</h2>
             <dl className="facts">
@@ -93,6 +107,78 @@ export function DocumentDetailPage() {
         </>
       )}
     </>
+  );
+}
+
+function FocusedChunk({ documentId, chunkId }) {
+  const { tenantApi } = useOrganization();
+  const [state, setState] = useState({ loading: true, chunk: null, error: null, missing: false });
+  const chunkRef = useRef(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      let offset = 0;
+      for (let pageNumber = 0; pageNumber < MAX_CHUNK_PAGES; pageNumber += 1) {
+        let page;
+        try {
+          page = await tenantApi.get(`/documents/${documentId}/chunks`, {
+            query: { limit: CHUNK_PAGE_SIZE, offset },
+          });
+        } catch (error) {
+          if (active) setState({ loading: false, chunk: null, error, missing: false });
+          return;
+        }
+        if (!active) return;
+        const found = page.items.find((item) => item.chunk_id === chunkId);
+        if (found) {
+          setState({ loading: false, chunk: found, error: null, missing: false });
+          return;
+        }
+        offset += page.items.length;
+        if (page.items.length === 0 || offset >= page.total) {
+          setState({ loading: false, chunk: null, error: null, missing: true });
+          return;
+        }
+      }
+      if (active) setState({ loading: false, chunk: null, error: null, missing: true });
+    })();
+    return () => {
+      active = false;
+    };
+  }, [tenantApi, documentId, chunkId]);
+
+  useEffect(() => {
+    if (state.chunk && chunkRef.current) {
+      chunkRef.current.focus();
+      chunkRef.current.scrollIntoView?.({ block: "center" });
+    }
+  }, [state.chunk]);
+
+  return (
+    <section className="panel" aria-labelledby="focused-chunk">
+      <h2 id="focused-chunk">Focused evidence</h2>
+      {state.loading && <Loading label="Finding the evidence..." />}
+      <ErrorMessage error={state.error} />
+      {state.missing && (
+        <p className="muted" role="status">
+          That piece of the document was not found. It may have changed since it was saved.
+        </p>
+      )}
+      {state.chunk && (
+        <div
+          ref={chunkRef}
+          tabIndex={-1}
+          className="focused-evidence"
+          aria-label={`Evidence at position ${state.chunk.position + 1}`}
+        >
+          <p className="muted">
+            {chunkLocation(state.chunk.chunk_metadata) || "Highlighted passage"}
+          </p>
+          <blockquote>{state.chunk.text}</blockquote>
+        </div>
+      )}
+    </section>
   );
 }
 

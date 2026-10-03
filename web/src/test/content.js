@@ -287,3 +287,13 @@ export function eventDetail(overrides = {}) {
     ...overrides,
   };
 }
+
+export function documentChunk(position, overrides = {}) {
+  return {
+    chunk_id: `c-${position}`,
+    position,
+    text: `Chunk ${position} about the harbour.`,
+    chunk_metadata: { page_number: position + 1 },
+    ...overrides,
+  };
+}
