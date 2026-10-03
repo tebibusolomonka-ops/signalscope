@@ -58,6 +58,22 @@ describe("EvidenceReference", () => {
     expect(screen.queryByRole("link", { name: "Harbour Feed" })).not.toBeInTheDocument();
   });
 
+  it("focuses a chunk in the document link when chunkId is given", () => {
+    show({ ...FULL, chunkId: "c-9" });
+
+    expect(screen.getByRole("link", { name: "Storm report" })).toHaveAttribute(
+      "href",
+      "/documents/d-1?chunk=c-9",
+    );
+  });
+
+  it("shows the title as plain text when there is no document", () => {
+    show({ ...FULL, documentId: null });
+
+    expect(screen.queryByRole("link", { name: "Storm report" })).not.toBeInTheDocument();
+    expect(screen.getByText("Storm report")).toBeInTheDocument();
+  });
+
   it("omits the document link when a heading already shows it", () => {
     const { container } = show({ ...FULL, showDocument: false });
 

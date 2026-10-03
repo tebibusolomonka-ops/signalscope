@@ -2,6 +2,7 @@ import { Fragment } from "react";
 import { Link } from "react-router";
 
 import { chunkLocation } from "../lib/chunks.js";
+import { documentHref } from "../lib/documentLink.js";
 
 /**
  * One line that points at where a piece of evidence lives: the document, its
@@ -10,6 +11,8 @@ import { chunkLocation } from "../lib/chunks.js";
  * and always link the document and the source.
  *
  * showDocument is false where a heading already links the document (search).
+ * chunkId, when given, focuses that piece in the document. Without a
+ * documentId the title is plain text, so there is never a broken link.
  */
 export function EvidenceReference({
   documentId,
@@ -17,6 +20,7 @@ export function EvidenceReference({
   sourceId,
   sourceName,
   metadata,
+  chunkId = null,
   citationId = null,
   cited = false,
   showDocument = true,
@@ -25,9 +29,13 @@ export function EvidenceReference({
   const parts = [];
   if (showDocument) {
     parts.push(
-      <Link key="doc" to={`/documents/${documentId}`}>
-        {documentTitle || "Open document"}
-      </Link>,
+      documentId ? (
+        <Link key="doc" to={documentHref(documentId, chunkId)}>
+          {documentTitle || "Open document"}
+        </Link>
+      ) : (
+        <span key="doc">{documentTitle || "Document unavailable"}</span>
+      ),
     );
   }
   parts.push(

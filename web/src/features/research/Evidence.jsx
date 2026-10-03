@@ -46,6 +46,7 @@ export function EvidenceCard({ item, scope, sourceName, cited = false }) {
           citationId={item.evidence_id}
           documentId={item.document_id}
           documentTitle={item.title}
+          chunkId={item.chunk_id}
           sourceId={item.source_id}
           sourceName={sourceName}
           metadata={item.chunk_metadata}

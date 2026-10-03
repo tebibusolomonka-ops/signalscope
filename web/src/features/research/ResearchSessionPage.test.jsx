@@ -48,13 +48,30 @@ describe("multi turn research", () => {
     expect(cards[1]).not.toHaveTextContent("cited");
     expect(within(cards[0]).getByRole("link", { name: "Report E1" })).toHaveAttribute(
       "href",
-      "/documents/d-E1",
+      "/documents/d-E1?chunk=c-E1",
     );
     expect(await within(cards[0]).findByRole("link", { name: "Harbour Feed" })).toHaveAttribute(
       "href",
       "/sources/s-1",
     );
     expect(within(evidence).queryByText(/The harbour closed/)).not.toBeInTheDocument();
+  });
+
+  it("opens evidence in the document without a chunk when none is known", async () => {
+    renderApp({
+      path: "/research/rs-1",
+      routes: routes([
+        turn(1, { evidence: [researchEvidence("E1", { chunk_id: null })], citation_ids: ["E1"] }),
+      ]),
+    });
+
+    await conversation();
+    const evidence = screen.getByRole("region", { name: "Evidence" });
+    const card = await within(evidence).findByRole("listitem", { name: "Evidence E1" });
+    expect(within(card).getByRole("link", { name: "Report E1" })).toHaveAttribute(
+      "href",
+      "/documents/d-E1",
+    );
   });
 
   it("moves focus to the cited evidence", async () => {
