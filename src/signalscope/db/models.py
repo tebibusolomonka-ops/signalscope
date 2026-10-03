@@ -38,9 +38,11 @@ from signalscope.domain.sources.model import Source
 from signalscope.domain.users.credential import UserPasswordCredential
 from signalscope.domain.users.model import User
 from signalscope.domain.users.session import UserSession
+from signalscope.domain.users.throttle import AuthenticationThrottle
 
 __all__ = [
     "Base",
+    "AuthenticationThrottle",
     "BlobCleanupTask",
     "ChunkEmbedding",
     "Claim",

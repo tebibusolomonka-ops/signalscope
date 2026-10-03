@@ -14,6 +14,9 @@ DATABASE_URL_PREFIX = "postgresql+asyncpg://"
 MAX_ANSWER_TOKENS = 4096
 MAX_AUTH_SESSION_DAYS = 365
 MAX_AUTH_SESSION_RETENTION_DAYS = 3650
+MAX_AUTH_LOGIN_WINDOW_SECONDS = 86_400
+MAX_AUTH_LOGIN_FAILURES = 100
+MAX_AUTH_LOGIN_BLOCK_SECONDS = 604_800
 MAX_ORGANIZATION_INVITATION_DAYS = 90
 MAX_INVITATION_RETENTION_DAYS = 365
 MAX_ORGANIZATION_EXPORT_RETENTION_DAYS = 365
@@ -83,6 +86,9 @@ class Settings:
     # How long expired and revoked sessions are kept before cleanup-auth-sessions
     # deletes them.
     auth_session_retention_days: int = 30
+    auth_login_window_seconds: int = 900
+    auth_login_max_failures: int = 10
+    auth_login_block_seconds: int = 900
     # How long an organization invitation can be accepted.
     organization_invitation_days: int = 7
     # How long used, revoked and expired invitations are kept before
@@ -119,6 +125,18 @@ class Settings:
         if not 1 <= self.auth_session_retention_days <= MAX_AUTH_SESSION_RETENTION_DAYS:
             raise SettingsError(
                 f"auth_session_retention_days must be from 1 to {MAX_AUTH_SESSION_RETENTION_DAYS}"
+            )
+        if not 1 <= self.auth_login_window_seconds <= MAX_AUTH_LOGIN_WINDOW_SECONDS:
+            raise SettingsError(
+                f"auth_login_window_seconds must be from 1 to {MAX_AUTH_LOGIN_WINDOW_SECONDS}"
+            )
+        if not 1 <= self.auth_login_max_failures <= MAX_AUTH_LOGIN_FAILURES:
+            raise SettingsError(
+                f"auth_login_max_failures must be from 1 to {MAX_AUTH_LOGIN_FAILURES}"
+            )
+        if not 1 <= self.auth_login_block_seconds <= MAX_AUTH_LOGIN_BLOCK_SECONDS:
+            raise SettingsError(
+                f"auth_login_block_seconds must be from 1 to {MAX_AUTH_LOGIN_BLOCK_SECONDS}"
             )
         if not 1 <= self.organization_invitation_days <= MAX_ORGANIZATION_INVITATION_DAYS:
             raise SettingsError(
@@ -210,6 +228,15 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
             env,
             "SIGNALSCOPE_AUTH_SESSION_RETENTION_DAYS",
             defaults.auth_session_retention_days,
+        ),
+        auth_login_window_seconds=_read_int(
+            env, "SIGNALSCOPE_AUTH_LOGIN_WINDOW_SECONDS", defaults.auth_login_window_seconds
+        ),
+        auth_login_max_failures=_read_int(
+            env, "SIGNALSCOPE_AUTH_LOGIN_MAX_FAILURES", defaults.auth_login_max_failures
+        ),
+        auth_login_block_seconds=_read_int(
+            env, "SIGNALSCOPE_AUTH_LOGIN_BLOCK_SECONDS", defaults.auth_login_block_seconds
         ),
         organization_invitation_days=_read_int(
             env,
