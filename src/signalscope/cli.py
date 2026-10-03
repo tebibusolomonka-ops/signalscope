@@ -134,6 +134,11 @@ from signalscope.evaluation.quality_profiles import (
     format_quality_gate_result,
     load_quality_gate_profile,
 )
+from signalscope.evaluation.relation_readiness import (
+    check_relation_readiness,
+    format_relation_readiness,
+    load_relation_readiness_profile,
+)
 from signalscope.evaluation.report import format_reports
 from signalscope.evaluation.reranker_benchmark import (
     BenchmarkReranker,
@@ -289,6 +294,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return compare_evaluation_reports_command(args.reports, json_output=args.json)
     if args.command == "check-evaluation-report":
         return check_evaluation_report_command(args.report, args.profile, json_output=args.json)
+    if args.command == "check-relation-readiness":
+        return check_relation_readiness_command(args.report, args.profile, json_output=args.json)
     if args.command == "bundle-evaluation-reports":
         return bundle_evaluation_reports_command(
             args.reports,
@@ -665,6 +672,12 @@ def build_parser() -> argparse.ArgumentParser:
     evaluation_gate.add_argument("report", type=Path)
     evaluation_gate.add_argument("profile", type=Path)
     evaluation_gate.add_argument("--json", action="store_true", help="write JSON output")
+    relation_gate = commands.add_parser(
+        "check-relation-readiness", help="check relation metrics against project requirements"
+    )
+    relation_gate.add_argument("report", type=Path)
+    relation_gate.add_argument("profile", type=Path)
+    relation_gate.add_argument("--json", action="store_true", help="write JSON output")
     evaluation_bundle = commands.add_parser(
         "bundle-evaluation-reports", help="bundle completed evaluation evidence"
     )
@@ -1327,6 +1340,43 @@ def check_evaluation_report_command(
     else:
         print(format_quality_gate_result(result), end="", file=out)
     return 0 if result.passed else 2
+
+
+def check_relation_readiness_command(
+    report_path: Path,
+    profile_path: Path,
+    *,
+    json_output: bool = False,
+    out: TextIO | None = None,
+    err: TextIO | None = None,
+) -> int:
+    out = sys.stdout if out is None else out
+    err = sys.stderr if err is None else err
+    try:
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+        if not isinstance(report, dict):
+            raise TypeError
+        profile = load_relation_readiness_profile(profile_path)
+        results = check_relation_readiness(report, profile)
+    except (
+        OSError,
+        UnicodeError,
+        json.JSONDecodeError,
+        TypeError,
+        EvaluationDataError,
+        ValueError,
+    ) as error:
+        print(f"Error: {error}", file=err)
+        return 1
+    if json_output:
+        value = {
+            "passed": all(result.met for result in results),
+            "requirements": [result.to_dict() for result in results],
+        }
+        print(json.dumps(value, indent=2, sort_keys=True), file=out)
+    else:
+        print(format_relation_readiness(results), end="", file=out)
+    return 0 if all(result.met for result in results) else 2
 
 
 def bundle_evaluation_reports_command(
