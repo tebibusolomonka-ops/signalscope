@@ -54,6 +54,19 @@ def test_empty_app_name_is_rejected(app_name: str) -> None:
 
 def test_load_settings_uses_defaults_when_nothing_is_set() -> None:
     assert load_settings({}) == Settings()
+    assert Settings().organization_export_retention_days == 30
+
+
+def test_load_settings_reads_organization_export_retention() -> None:
+    settings = load_settings({"SIGNALSCOPE_ORGANIZATION_EXPORT_RETENTION_DAYS": "45"})
+
+    assert settings.organization_export_retention_days == 45
+
+
+@pytest.mark.parametrize("days", [0, 366])
+def test_organization_export_retention_is_bounded(days: int) -> None:
+    with pytest.raises(SettingsError, match="organization_export_retention_days"):
+        Settings(organization_export_retention_days=days)
 
 
 def test_load_settings_reads_all_values() -> None:

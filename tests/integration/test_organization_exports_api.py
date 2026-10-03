@@ -3,6 +3,7 @@ import io
 import uuid
 import zipfile
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import httpx
@@ -15,6 +16,7 @@ from signalscope.api.app import create_app
 from signalscope.api.lifespan import lifespan
 from signalscope.core.settings import Settings
 from signalscope.domain.audit.model import SecurityAuditEvent
+from signalscope.domain.organizations.export_cleanup import OrganizationExportCleanupService
 from signalscope.domain.organizations.export_record import (
     OrganizationExport,
     OrganizationExportStatus,
@@ -22,6 +24,25 @@ from signalscope.domain.organizations.export_record import (
 from tenancy_helpers import Tenants, add_document, add_source, make_tenants
 
 pytestmark = pytest.mark.anyio
+
+
+class CleanupBlobs:
+    def __init__(self, keys: set[str]) -> None:
+        self.keys = keys
+        self.deleted: list[str] = []
+
+    async def delete(self, key: str) -> None:
+        self.keys.discard(key)
+        self.deleted.append(key)
+
+    async def put(self, key: str, data: bytes) -> None:
+        self.keys.add(key)
+
+    async def get(self, key: str) -> bytes:
+        return b""
+
+    async def exists(self, key: str) -> bool:
+        return key in self.keys
 
 
 @pytest.fixture
@@ -177,3 +198,55 @@ async def test_system_admin_can_manage_exports(
         f"/organizations/{tenants.a.id}/exports", headers=tenants.system
     )
     assert response.status_code == 201
+
+
+async def test_export_cleanup_keeps_recent_and_active_exports_and_obeys_limit(
+    export_client: httpx.AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    tenants = await make_tenants(export_client, session_factory)
+    now = datetime(2026, 10, 3, tzinfo=UTC)
+    old = now - timedelta(days=31)
+    recent = now - timedelta(days=1)
+    exports = [
+        OrganizationExport(
+            organization_id=tenants.a.id,
+            requested_by_user_id=tenants.a.owner_id,
+            status=status,
+            format_version="2",
+            created_at=created_at,
+            finished_at=created_at,
+            expires_at=expires_at,
+            artifact_key=f"organization-exports/{name}.zip",
+        )
+        for name, status, created_at, expires_at in (
+            ("old-one", OrganizationExportStatus.COMPLETED, old, None),
+            ("old-two", OrganizationExportStatus.FAILED, old, None),
+            ("explicit", OrganizationExportStatus.COMPLETED, recent, now - timedelta(seconds=1)),
+            ("recent", OrganizationExportStatus.COMPLETED, recent, None),
+            ("active", OrganizationExportStatus.RUNNING, old, now - timedelta(days=1)),
+        )
+    ]
+    keys = {item.artifact_key for item in exports if item.artifact_key is not None}
+    blobs = CleanupBlobs(keys)
+    async with session_factory() as session:
+        session.add_all(exports)
+        await session.commit()
+        service = OrganizationExportCleanupService(session, blobs, lambda: now)
+        preview = await service.preview(30, 1)
+        result = await service.run(30, 2)
+    assert (preview.eligible, preview.expired) == (1, 0)
+    assert (result.eligible, result.expired) == (2, 2)
+    async with session_factory() as session:
+        stored = list(
+            await session.scalars(
+                select(OrganizationExport).where(
+                    OrganizationExport.id.in_([item.id for item in exports])
+                )
+            )
+        )
+    statuses = {str(item.id): item.status for item in stored}
+    assert statuses[str(exports[3].id)] is OrganizationExportStatus.COMPLETED
+    assert statuses[str(exports[4].id)] is OrganizationExportStatus.RUNNING
+    assert sum(status is OrganizationExportStatus.EXPIRED for status in statuses.values()) == 2
+    assert len(blobs.deleted) == 2

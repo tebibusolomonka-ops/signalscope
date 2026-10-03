@@ -46,6 +46,7 @@ class AuditAction(StrEnum):
     AUDIT_RETENTION_CHANGED = "security.audit_retention_changed"
     AUDIT_RETENTION_CLEANUP = "security.audit_retention_cleanup"
     ORGANIZATION_EXPORT_CREATED = "organization.export_created"
+    ORGANIZATION_EXPORT_CLEANUP = "organization.export_cleanup"
 
 
 class SecurityAuditService:

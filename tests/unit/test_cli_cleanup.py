@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from signalscope.cli import build_parser, cleanup_blobs, main
+from signalscope.cli import build_parser, cleanup_blobs, cleanup_organization_exports, main
 from signalscope.core.settings import Settings
 
 # The .invalid domain never resolves, and these tests fail before connecting.
@@ -13,6 +13,10 @@ FAKE_DATABASE_URL = "postgresql+asyncpg://signalscope@db.invalid/signalscope"
 def test_arguments() -> None:
     assert build_parser().parse_args(["cleanup-blobs"]).limit == 100
     assert build_parser().parse_args(["cleanup-blobs", "--limit", "5"]).limit == 5
+    preview = build_parser().parse_args(["cleanup-organization-exports"])
+    apply = build_parser().parse_args(["cleanup-organization-exports", "--limit", "5", "--apply"])
+    assert (preview.limit, preview.apply) == (100, False)
+    assert (apply.limit, apply.apply) == (5, True)
 
 
 def test_bad_limit(capsys: pytest.CaptureFixture[str]) -> None:
@@ -43,3 +47,17 @@ async def test_missing_blob_dir() -> None:
 
     assert (code, out.getvalue()) == (1, "")
     assert err.getvalue() == "Error: Blob directory is not configured. Set SIGNALSCOPE_BLOB_DIR.\n"
+
+
+@pytest.mark.anyio
+async def test_export_cleanup_needs_database_and_blob_directory(tmp_path: Path) -> None:
+    out, err = io.StringIO(), io.StringIO()
+    assert await cleanup_organization_exports(10, Settings(blob_dir=tmp_path), out, err) == 1
+    assert "Database URL" in err.getvalue()
+
+    out, err = io.StringIO(), io.StringIO()
+    assert (
+        await cleanup_organization_exports(10, Settings(database_url=FAKE_DATABASE_URL), out, err)
+        == 1
+    )
+    assert "Blob directory" in err.getvalue()

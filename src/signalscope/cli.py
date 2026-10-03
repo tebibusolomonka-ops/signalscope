@@ -62,6 +62,7 @@ from signalscope.domain.investigations.export import (
     investigation_markdown,
 )
 from signalscope.domain.organizations.export_archive import OrganizationExportArchiveService
+from signalscope.domain.organizations.export_cleanup import OrganizationExportCleanupService
 from signalscope.domain.organizations.export_inventory import OrganizationExportInventoryService
 from signalscope.domain.organizations.export_verification import (
     OrganizationExportVerificationService,
@@ -285,6 +286,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(cleanup_auth_sessions(args.limit, settings))
     if args.command == "cleanup-organization-invitations":
         return asyncio.run(cleanup_organization_invitations(args.limit, settings))
+    if args.command == "cleanup-organization-exports":
+        return asyncio.run(cleanup_organization_exports(args.limit, settings, apply=args.apply))
     if args.command == "cleanup-security-audit":
         return asyncio.run(
             cleanup_security_audit(args.organization_id, args.limit, settings, apply=args.apply)
@@ -467,6 +470,20 @@ def build_parser() -> argparse.ArgumentParser:
         type=positive_int,
         default=DEFAULT_SESSION_CLEANUP_LIMIT,
         help=f"most invitations to delete (default: {DEFAULT_SESSION_CLEANUP_LIMIT})",
+    )
+
+    organization_export_cleanup = commands.add_parser(
+        "cleanup-organization-exports",
+        help="show, or with --apply expire, old organization export artifacts",
+    )
+    organization_export_cleanup.add_argument(
+        "--limit",
+        type=positive_int,
+        default=DEFAULT_CLEANUP_LIMIT,
+        help=f"most exports to inspect (default: {DEFAULT_CLEANUP_LIMIT})",
+    )
+    organization_export_cleanup.add_argument(
+        "--apply", action="store_true", help="expire the exports; without it nothing is changed"
     )
 
     export_command = commands.add_parser(
@@ -948,6 +965,42 @@ async def cleanup_organization_invitations(
         )
     print(f"Checked: {result.checked}", file=out)
     print(f"Deleted: {result.deleted}", file=out)
+    return 0
+
+
+async def cleanup_organization_exports(
+    limit: int,
+    settings: Settings,
+    out: TextIO | None = None,
+    err: TextIO | None = None,
+    *,
+    apply: bool = False,
+    clock: Clock = utc_now,
+) -> int:
+    """Preview or expire old organization exports without printing tenant data."""
+    out = sys.stdout if out is None else out
+    err = sys.stderr if err is None else err
+    if settings.database_url is None:
+        print(NO_DATABASE_ERROR, file=err)
+        return 1
+    if settings.blob_dir is None:
+        print(NO_BLOB_DIR_ERROR, file=err)
+        return 1
+    async with _database(settings) as session_factory, session_factory() as session:
+        service = OrganizationExportCleanupService(
+            session, LocalBlobStore(settings.blob_dir), clock
+        )
+        result = (
+            await service.run(settings.organization_export_retention_days, limit)
+            if apply
+            else await service.preview(settings.organization_export_retention_days, limit)
+        )
+    print(f"Retention days: {settings.organization_export_retention_days}", file=out)
+    print(f"Eligible: {result.eligible}", file=out)
+    if apply:
+        print(f"Expired: {result.expired}", file=out)
+    else:
+        print("Expired: 0 (preview only; add --apply to expire)", file=out)
     return 0
 
 
