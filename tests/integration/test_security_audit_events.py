@@ -48,6 +48,7 @@ async def test_account_and_session_events(
         "user.created",
         "auth.login",
         "auth.login",
+        "authentication_login_failed",
         "auth.logout",
         "auth.login",
         "auth.logout_all",

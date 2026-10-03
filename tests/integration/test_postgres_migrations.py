@@ -53,6 +53,7 @@ async def test_upgrade_from_empty_database(
 
     assert await table_names(database_engine) == {
         "alembic_version",
+        "authentication_throttles",
         "sources",
         "documents",
         "ingestion_runs",
