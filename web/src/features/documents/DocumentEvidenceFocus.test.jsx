@@ -11,15 +11,20 @@ function inHarbour(body, message) {
   return ({ query }) => (query.get("organization_id") === "org-a" ? { body } : notFound(message));
 }
 
-// One direct-lookup route per chunk; org B and unknown IDs fall through to 404.
+// One context route per chunk; org B and unknown IDs fall through to 404.
 function chunkRoutes(chunks) {
   const routes = {};
-  for (const chunk of chunks) {
-    routes[`GET /documents/d-1/chunks/${chunk.chunk_id}`] = inHarbour(
-      chunk,
+  chunks.forEach((chunk, index) => {
+    const context = {
+      previous: index > 0 ? chunks[index - 1] : null,
+      current: chunk,
+      next: index < chunks.length - 1 ? chunks[index + 1] : null,
+    };
+    routes[`GET /documents/d-1/chunks/${chunk.chunk_id}/context`] = inHarbour(
+      context,
       "Document was not found.",
     );
-  }
+  });
   return routes;
 }
 
@@ -38,8 +43,8 @@ function routes(chunks, extra = {}) {
 
 const CHUNKS = Array.from({ length: 5 }, (_, index) => documentChunk(index));
 
-function chunkLookups(calls) {
-  return calls.filter((call) => /^\/documents\/d-1\/chunks\/[^/]+$/.test(call.path));
+function contextLookups(calls) {
+  return calls.filter((call) => /\/documents\/d-1\/chunks\/[^/]+\/context$/.test(call.path));
 }
 
 describe("document evidence focus", () => {
@@ -59,10 +64,41 @@ describe("document evidence focus", () => {
 
     const panel = await screen.findByRole("region", { name: "Focused evidence" });
     expect(await within(panel).findByText("Chunk 275 about the harbour.")).toBeInTheDocument();
-    const lookups = chunkLookups(calls);
-    expect(lookups).toHaveLength(1);
-    expect(lookups[0].path).toBe("/documents/d-1/chunks/c-275");
+    expect(contextLookups(calls)).toHaveLength(1);
     expect(calls.some((call) => call.path === "/documents/d-1/chunks")).toBe(false);
+  });
+
+  it("steps to the previous and next passages and updates the URL", async () => {
+    renderApp({ path: "/documents/d-1?chunk=c-2", routes: routes(CHUNKS) });
+    const user = userEvent.setup();
+
+    const panel = await screen.findByRole("region", { name: "Focused evidence" });
+    await within(panel).findByText("Chunk 2 about the harbour.");
+    await user.click(within(panel).getByRole("button", { name: "Next passage" }));
+
+    // The panel remounts for the new chunk, so query the live DOM freshly.
+    expect(await screen.findByText("Chunk 3 about the harbour.")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText("Evidence at position 4")).toHaveFocus());
+    await user.click(screen.getByRole("button", { name: "Previous passage" }));
+    expect(await screen.findByText("Chunk 2 about the harbour.")).toBeInTheDocument();
+  });
+
+  it("disables previous on the first passage and next on the last", async () => {
+    renderApp({ path: "/documents/d-1?chunk=c-0", routes: routes(CHUNKS) });
+
+    const panel = await screen.findByRole("region", { name: "Focused evidence" });
+    await within(panel).findByText("Chunk 0 about the harbour.");
+    expect(within(panel).getByRole("button", { name: "Previous passage" })).toBeDisabled();
+    expect(within(panel).getByRole("button", { name: "Next passage" })).toBeEnabled();
+  });
+
+  it("disables next on the last passage", async () => {
+    renderApp({ path: "/documents/d-1?chunk=c-4", routes: routes(CHUNKS) });
+
+    const panel = await screen.findByRole("region", { name: "Focused evidence" });
+    await within(panel).findByText("Chunk 4 about the harbour.");
+    expect(within(panel).getByRole("button", { name: "Next passage" })).toBeDisabled();
+    expect(within(panel).getByRole("button", { name: "Previous passage" })).toBeEnabled();
   });
 
   it("shows a non-fatal message for an unknown chunk and keeps the page", async () => {

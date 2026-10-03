@@ -14,7 +14,7 @@ import { SaveToInvestigation } from "../investigations/SaveToInvestigation.jsx";
 /** One document: its metadata, stored text and earlier revisions. */
 export function DocumentDetailPage() {
   const { documentId } = useParams();
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const focusChunkId = params.get("chunk");
   const { tenantApi, can } = useOrganization();
   const navigate = useNavigate();
@@ -48,6 +48,7 @@ export function DocumentDetailPage() {
               key={`${document.id}:${focusChunkId}`}
               documentId={document.id}
               chunkId={focusChunkId}
+              onFocusChunk={(id) => setParams({ chunk: id })}
             />
           )}
           <section className="panel" aria-labelledby="document-details">
@@ -106,24 +107,24 @@ export function DocumentDetailPage() {
   );
 }
 
-function FocusedChunk({ documentId, chunkId }) {
+function FocusedChunk({ documentId, chunkId, onFocusChunk }) {
   const { tenantApi } = useOrganization();
-  const [state, setState] = useState({ loading: true, chunk: null, error: null, missing: false });
+  const [state, setState] = useState({ loading: true, context: null, error: null, missing: false });
   const chunkRef = useRef(null);
 
   useEffect(() => {
     let active = true;
     (async () => {
       try {
-        const chunk = await tenantApi.get(`/documents/${documentId}/chunks/${chunkId}`);
-        if (active) setState({ loading: false, chunk, error: null, missing: false });
+        const context = await tenantApi.get(`/documents/${documentId}/chunks/${chunkId}/context`);
+        if (active) setState({ loading: false, context, error: null, missing: false });
       } catch (error) {
         if (!active) return;
         // A missing chunk is a 404, which must not break the whole page.
         if (error.status === 404) {
-          setState({ loading: false, chunk: null, error: null, missing: true });
+          setState({ loading: false, context: null, error: null, missing: true });
         } else {
-          setState({ loading: false, chunk: null, error, missing: false });
+          setState({ loading: false, context: null, error, missing: false });
         }
       }
     })();
@@ -133,11 +134,15 @@ function FocusedChunk({ documentId, chunkId }) {
   }, [tenantApi, documentId, chunkId]);
 
   useEffect(() => {
-    if (state.chunk && chunkRef.current) {
+    if (state.context && chunkRef.current) {
       chunkRef.current.focus();
       chunkRef.current.scrollIntoView?.({ block: "center" });
     }
-  }, [state.chunk]);
+  }, [state.context]);
+
+  const current = state.context?.current;
+  const previous = state.context?.previous;
+  const next = state.context?.next;
 
   return (
     <section className="panel" aria-labelledby="focused-chunk">
@@ -149,18 +154,38 @@ function FocusedChunk({ documentId, chunkId }) {
           That piece of the document was not found. It may have changed since it was saved.
         </p>
       )}
-      {state.chunk && (
-        <div
-          ref={chunkRef}
-          tabIndex={-1}
-          className="focused-evidence"
-          aria-label={`Evidence at position ${state.chunk.position + 1}`}
-        >
-          <p className="muted">
-            {chunkLocation(state.chunk.chunk_metadata) || "Highlighted passage"}
-          </p>
-          <blockquote>{state.chunk.text}</blockquote>
-        </div>
+      {current && (
+        <>
+          <div
+            ref={chunkRef}
+            tabIndex={-1}
+            className="focused-evidence"
+            aria-label={`Evidence at position ${current.position + 1}`}
+          >
+            <p className="muted">
+              {chunkLocation(current.chunk_metadata) || "Highlighted passage"}
+            </p>
+            <blockquote>{current.text}</blockquote>
+          </div>
+          <div className="form-row">
+            <button
+              type="button"
+              className="secondary"
+              disabled={!previous}
+              onClick={() => previous && onFocusChunk(previous.chunk_id)}
+            >
+              Previous passage
+            </button>
+            <button
+              type="button"
+              className="secondary"
+              disabled={!next}
+              onClick={() => next && onFocusChunk(next.chunk_id)}
+            >
+              Next passage
+            </button>
+          </div>
+        </>
       )}
     </section>
   );
