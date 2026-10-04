@@ -32,6 +32,7 @@ export function OperationsPage() {
       {can.manage ? (
         <>
           <Queues key={overviewKey} />
+          <Trends />
           <FailedJobs onRetried={refreshOverview} />
           <OperationHistory />
         </>
@@ -128,6 +129,124 @@ function OperationHistory() {
         </table>
       )}
       {data && <Pager offset={offset} limit={PAGE_SIZE} count={data.items.length} total={data.total} onChange={setOffset} emptyText="No operation history." />}
+    </section>
+  );
+}
+
+function Trends() {
+  const { tenantApi } = useOrganization();
+  const [queue, setQueue] = useState("");
+  const [bucket, setBucket] = useState("day");
+  const [createdFrom, setCreatedFrom] = useState("");
+  const [createdTo, setCreatedTo] = useState("");
+  const load = useCallback(
+    () =>
+      tenantApi.get("/operations/trends", {
+        query: {
+          queue,
+          bucket,
+          created_from: createdFrom || null,
+          created_to: createdTo || null,
+        },
+      }),
+    [tenantApi, queue, bucket, createdFrom, createdTo],
+  );
+  const { data, error, loading } = useResource(load);
+
+  return (
+    <section className="panel" aria-labelledby="trends-heading">
+      <h2 id="trends-heading">Operation trends</h2>
+      <p className="muted">
+        Factual attempt counts and queue latency for this organization. These are counts, not a
+        health score.
+      </p>
+      <div className="form-row">
+        <label>
+          Queue
+          <select
+            value={queue}
+            onChange={(event) => setQueue(event.target.value)}
+            aria-label="Trend queue"
+          >
+            <option value="">All queues</option>
+            {Object.entries(QUEUE_LABELS)
+              .filter(([value]) => !value.endsWith("_extraction"))
+              .map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+          </select>
+        </label>
+        <label>
+          Bucket
+          <select value={bucket} onChange={(event) => setBucket(event.target.value)}>
+            <option value="day">Day</option>
+            <option value="hour">Hour</option>
+          </select>
+        </label>
+        <label>
+          From
+          <input type="datetime-local" value={createdFrom} onChange={(e) => setCreatedFrom(e.target.value)} />
+        </label>
+        <label>
+          To
+          <input type="datetime-local" value={createdTo} onChange={(e) => setCreatedTo(e.target.value)} />
+        </label>
+      </div>
+      {loading && <Loading />}
+      <ErrorMessage error={error} />
+      {data && data.points.length === 0 && <p className="muted">No attempts in this range.</p>}
+      {data && data.points.length > 0 && (
+        <table aria-label="Attempt trends">
+          <thead>
+            <tr>
+              <th scope="col">Bucket</th>
+              <th scope="col">Total</th>
+              <th scope="col">Succeeded</th>
+              <th scope="col">Failed</th>
+              <th scope="col">Recovered</th>
+              <th scope="col">Retried</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.points.map((point) => (
+              <tr key={point.bucket_start}>
+                <th scope="row">{formatTime(point.bucket_start)}</th>
+                <td>{point.total}</td>
+                <td>{point.succeeded}</td>
+                <td>{point.failed}</td>
+                <td>{point.recovered}</td>
+                <td>{point.retried}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {data && data.latency.length > 0 && (
+        <table aria-label="Queue latency">
+          <thead>
+            <tr>
+              <th scope="col">Queue</th>
+              <th scope="col">Completed</th>
+              <th scope="col">p50 (s)</th>
+              <th scope="col">p95 (s)</th>
+              <th scope="col">Max (s)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.latency.map((summary) => (
+              <tr key={summary.queue}>
+                <th scope="row">{QUEUE_LABELS[summary.queue] ?? summary.queue}</th>
+                <td>{summary.completed}</td>
+                <td>{summary.p50_seconds}</td>
+                <td>{summary.p95_seconds}</td>
+                <td>{summary.max_seconds}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </section>
   );
 }

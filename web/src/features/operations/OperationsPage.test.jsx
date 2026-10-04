@@ -23,6 +23,9 @@ function routes(extra = {}, role = "owner", user) {
       }),
     },
     "GET /operations/history": { body: { items: [], total: 0, limit: 20, offset: 0 } },
+    "GET /operations/trends": {
+      body: { organization_id: "org-a", bucket: "day", points: [], latency: [] },
+    },
     ...extra,
   };
 }
@@ -166,5 +169,67 @@ describe("operations workspace", () => {
     expect(screen.getByRole("rowheader", { name: "Ingestion" }).closest("tr")).toHaveTextContent(
       "99",
     );
+  });
+
+  it("shows attempt trends and queue latency", async () => {
+    const trends = {
+      organization_id: "org-a",
+      bucket: "day",
+      points: [
+        {
+          bucket_start: "2026-01-01T00:00:00Z",
+          total: 5,
+          succeeded: 3,
+          failed: 1,
+          recovered: 1,
+          running: 0,
+          retried: 2,
+        },
+      ],
+      latency: [
+        {
+          queue: "ingestion",
+          completed: 4,
+          min_seconds: 1,
+          max_seconds: 9,
+          average_seconds: 5,
+          p50_seconds: 5,
+          p95_seconds: 9,
+        },
+      ],
+    };
+    renderApp({ path: "/operations", routes: routes({ "GET /operations/trends": { body: trends } }) });
+
+    const section = await screen.findByRole("region", { name: "Operation trends" });
+    expect(await within(section).findByRole("table", { name: "Attempt trends" })).toHaveTextContent(
+      "5",
+    );
+    const latency = within(section).getByRole("table", { name: "Queue latency" });
+    expect(latency).toHaveTextContent("Ingestion");
+    expect(latency).toHaveTextContent("9");
+  });
+
+  it("filters trends by queue and bucket", async () => {
+    const { calls } = renderApp({ path: "/operations", routes: routes() });
+    const user = userEvent.setup();
+
+    await screen.findByRole("region", { name: "Operation trends" });
+    await user.selectOptions(screen.getByLabelText("Trend queue"), "embedding");
+
+    await waitFor(() =>
+      expect(
+        calls.some(
+          (call) =>
+            call.path === "/operations/trends" && call.query.get("queue") === "embedding",
+        ),
+      ).toBe(true),
+    );
+  });
+
+  it("shows an empty trends message", async () => {
+    renderApp({ path: "/operations", routes: routes() });
+
+    const section = await screen.findByRole("region", { name: "Operation trends" });
+    expect(await within(section).findByText("No attempts in this range.")).toBeInTheDocument();
   });
 });
