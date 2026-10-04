@@ -69,6 +69,13 @@ from signalscope.domain.investigations.export import (
     investigation_markdown,
 )
 from signalscope.domain.organizations.backup_service import OrganizationBackupService
+from signalscope.domain.organizations.drill_record import (
+    DisasterRecoveryDrillMode,
+    DisasterRecoveryDrillStatus,
+)
+from signalscope.domain.organizations.drill_service import (
+    OrganizationDisasterRecoveryDrillService,
+)
 from signalscope.domain.organizations.export_archive import OrganizationExportArchiveService
 from signalscope.domain.organizations.export_cleanup import OrganizationExportCleanupService
 from signalscope.domain.organizations.export_inventory import OrganizationExportInventoryService
@@ -315,6 +322,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(create_support_bundle(args.output, settings, overwrite=args.overwrite))
     if args.command == "pilot-readiness":
         return asyncio.run(pilot_readiness(settings, json_output=args.json))
+    if args.command == "run-disaster-recovery-drill":
+        return asyncio.run(
+            run_disaster_recovery_drill(
+                args.organization_id,
+                settings,
+                mode=args.mode,
+                target_organization_id=args.target_organization,
+                include_assets=args.include_assets,
+                mappings=args.map,
+            )
+        )
     if args.command == "compare-evaluation-reports":
         return compare_evaluation_reports_command(args.reports, json_output=args.json)
     if args.command == "check-evaluation-report":
@@ -783,6 +801,37 @@ def build_parser() -> argparse.ArgumentParser:
 
     pilot = commands.add_parser("pilot-readiness", help="print a factual pilot readiness checklist")
     pilot.add_argument("--json", action="store_true", help="write JSON output")
+
+    drill = commands.add_parser(
+        "run-disaster-recovery-drill",
+        help="run a verification-only or restore-test disaster recovery drill",
+    )
+    drill.add_argument("organization_id", type=uuid.UUID, help="ID of the source organization")
+    drill.add_argument(
+        "--mode",
+        choices=["verification-only", "restore-test"],
+        default="verification-only",
+        help="drill mode; defaults to verification-only",
+    )
+    drill.add_argument(
+        "--target-organization",
+        type=uuid.UUID,
+        default=None,
+        help="empty target organization, required for restore-test",
+    )
+    drill.add_argument(
+        "--include-assets",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="include binary assets in the drill backup",
+    )
+    drill.add_argument(
+        "--map",
+        action="append",
+        default=[],
+        metavar="ARCHIVED_ID:TARGET_ID",
+        help="map an archived user to an existing user; may be given more than once",
+    )
 
     comparison = commands.add_parser(
         "compare-evaluation-reports", help="compare factual metrics from compatible reports"
@@ -1770,6 +1819,59 @@ async def pilot_readiness(
             file=out,
         )
     return 0 if report.ready else 1
+
+
+async def run_disaster_recovery_drill(
+    organization_id: uuid.UUID,
+    settings: Settings,
+    out: TextIO | None = None,
+    err: TextIO | None = None,
+    *,
+    mode: str = "verification-only",
+    target_organization_id: uuid.UUID | None = None,
+    include_assets: bool = True,
+    mappings: list[str] | None = None,
+) -> int:
+    """Run a disaster recovery drill. Returns nonzero when the drill fails."""
+    out = sys.stdout if out is None else out
+    err = sys.stderr if err is None else err
+    drill_mode = DisasterRecoveryDrillMode(mode.replace("-", "_"))
+    try:
+        parsed_mappings = _restore_mappings(mappings or [])
+    except ValueError as error:
+        print(f"Error: {error}", file=err)
+        return 1
+    if settings.database_url is None:
+        print(NO_DATABASE_ERROR, file=err)
+        return 1
+    if settings.blob_dir is None:
+        print(NO_BLOB_DIR_ERROR, file=err)
+        return 1
+    async with _database(settings) as session_factory, session_factory() as session:
+        organization = await session.get(Organization, organization_id)
+        if organization is None:
+            print("Error: Organization was not found.", file=err)
+            return 1
+        try:
+            drill = await OrganizationDisasterRecoveryDrillService(
+                session, LocalBlobStore(settings.blob_dir)
+            ).run(
+                organization_id,
+                organization.created_by_user_id,
+                mode=drill_mode,
+                target_organization_id=target_organization_id,
+                include_assets=include_assets,
+                user_mappings=parsed_mappings,
+            )
+        except SignalScopeError as error:
+            print(f"Error: {error}", file=err)
+            return 1
+    print(f"Drill: {drill.id}", file=out)
+    print(f"Mode: {drill.mode.value}", file=out)
+    print(f"Status: {drill.status.value}", file=out)
+    if drill.safe_error:
+        print(f"Error: {drill.safe_error}", file=err)
+    return 0 if drill.status is DisasterRecoveryDrillStatus.COMPLETED else 1
 
 
 def compare_evaluation_reports_command(

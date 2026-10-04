@@ -53,6 +53,7 @@ class AuditAction(StrEnum):
     ORGANIZATION_BACKUP_POLICY_CHANGED = "organization.backup_policy_changed"
     ORGANIZATION_BACKUP_RUN = "organization.backup_run"
     ORGANIZATION_RESTORE_RUN = "organization.restore_run"
+    ORGANIZATION_DR_DRILL_RUN = "organization.disaster_recovery_drill_run"
 
 
 class SecurityAuditService:
