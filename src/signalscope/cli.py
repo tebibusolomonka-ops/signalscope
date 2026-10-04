@@ -41,6 +41,7 @@ from signalscope.domain.entities.job import EntityExtractionJobStatus
 from signalscope.domain.entities.job_repository import EntityExtractionJobRepository
 from signalscope.domain.entities.queue import EntityExtractionQueueService
 from signalscope.domain.entities.worker import EntityExtractionWorker
+from signalscope.domain.evaluation.import_service import EvaluationReportImportService
 from signalscope.domain.events.job import EventExtractionJobStatus
 from signalscope.domain.events.job_repository import EventExtractionJobRepository
 from signalscope.domain.events.linking import EventLinkingResult, EventLinkingService
@@ -382,6 +383,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
     if args.command == "verify-organization-export":
         return verify_organization_export(args.path)
+    if args.command == "import-evaluation-report":
+        return asyncio.run(import_evaluation_report(args.path, settings))
     if args.command == "link-events":
         return asyncio.run(link_events(settings, limit=args.limit))
     if args.command == "queue-claims":
@@ -595,6 +598,11 @@ def build_parser() -> argparse.ArgumentParser:
         "verify-organization-export", help="verify a portable organization ZIP archive"
     )
     organization_export_verify.add_argument("path", type=Path, help="local ZIP archive to verify")
+
+    import_evaluation = commands.add_parser(
+        "import-evaluation-report", help="store a measured evaluation report JSON file"
+    )
+    import_evaluation.add_argument("path", type=Path, help="evaluation report JSON file")
 
     linking = commands.add_parser(
         "link-events", help="put events that are in no cluster yet into event clusters"
@@ -1056,6 +1064,42 @@ async def clear_login_throttle(
             print(f"Error: {error}", file=err)
             return 1
     print("Login throttle cleared.", file=out)
+    return 0
+
+
+async def import_evaluation_report(
+    path: Path,
+    settings: Settings,
+    out: TextIO | None = None,
+    err: TextIO | None = None,
+) -> int:
+    """Store a measured evaluation report. Prints the record ID. Returns the exit code.
+
+    A report that is already stored (same content) is not stored again. Paths
+    and secrets in the report's environment are not kept.
+    """
+    out = sys.stdout if out is None else out
+    err = sys.stderr if err is None else err
+    if settings.database_url is None:
+        print(NO_DATABASE_ERROR, file=err)
+        return 1
+    try:
+        report = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        print(f"Error: {path} is not valid JSON.", file=err)
+        return 1
+    if not isinstance(report, dict):
+        print(f"Error: {path} is not an evaluation report.", file=err)
+        return 1
+    async with _database(settings) as session_factory, session_factory() as session:
+        try:
+            imported = await EvaluationReportImportService(session).import_report(report)
+        except SignalScopeError as error:
+            print(f"Error: {error}", file=err)
+            return 1
+    print(f"Report: {imported.record.id}", file=out)
+    print(f"Task: {imported.record.task}", file=out)
+    print(f"Stored: {'new' if imported.created else 'already present'}", file=out)
     return 0
 
 
