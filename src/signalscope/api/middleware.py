@@ -43,6 +43,47 @@ class RequestIDMiddleware:
         await self.app(scope, receive, send_with_request_id)
 
 
+SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer",
+    "X-Frame-Options": "DENY",
+    "Permissions-Policy": (
+        "accelerometer=(), camera=(), geolocation=(), gyroscope=(), "
+        "magnetometer=(), microphone=(), payment=(), usb=()"
+    ),
+}
+
+
+class SecurityHeadersMiddleware:
+    """Add safe HTTP security headers to every response, including API errors.
+
+    Values a route already set are kept, so a route can override a default. The
+    headers are harmless for the same-origin React app and the JSON API. When a
+    content security policy is given, it is added as Content-Security-Policy.
+    """
+
+    def __init__(self, app: ASGIApp, content_security_policy: str | None = None) -> None:
+        self.app = app
+        self.headers = dict(SECURITY_HEADERS)
+        if content_security_policy:
+            self.headers["Content-Security-Policy"] = content_security_policy
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        async def send_with_security_headers(message: Message) -> None:
+            if message["type"] == "http.response.start":
+                headers = MutableHeaders(scope=message)
+                for name, value in self.headers.items():
+                    if name not in headers:
+                        headers[name] = value
+            await send(message)
+
+        await self.app(scope, receive, send_with_security_headers)
+
+
 class RequestLoggingMiddleware:
     """Log one line per HTTP request with method, path, status, duration and request ID.
 

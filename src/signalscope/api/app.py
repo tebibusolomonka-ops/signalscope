@@ -2,7 +2,11 @@ from fastapi import FastAPI
 
 from signalscope.api.errors import add_error_handlers
 from signalscope.api.lifespan import lifespan
-from signalscope.api.middleware import RequestIDMiddleware, RequestLoggingMiddleware
+from signalscope.api.middleware import (
+    RequestIDMiddleware,
+    RequestLoggingMiddleware,
+    SecurityHeadersMiddleware,
+)
 from signalscope.api.routes import (
     admin_auth,
     admin_evaluations,
@@ -33,6 +37,7 @@ from signalscope.api.routes import (
     sources,
     timeline,
 )
+from signalscope.api.security_policy import content_security_policy
 from signalscope.core.settings import Settings, load_settings
 from signalscope.domain.users.passwords import PasswordHasher
 from signalscope.embeddings.runtime import create_embedding_registry
@@ -62,6 +67,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # The last middleware added runs first, so the request ID is set before logging.
     app.add_middleware(RequestLoggingMiddleware)
     app.add_middleware(RequestIDMiddleware)
+    app.add_middleware(
+        SecurityHeadersMiddleware,
+        content_security_policy=content_security_policy(settings),
+    )
     app.include_router(health.router)
     app.include_router(auth.router)
     app.include_router(admin_auth.router)
