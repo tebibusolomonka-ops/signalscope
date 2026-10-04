@@ -2,16 +2,20 @@ import hashlib
 import io
 import json
 import zipfile
+from dataclasses import replace
 from datetime import UTC, datetime
 from uuid import UUID
 
 import pytest
 
+from signalscope.domain.documents.asset import DocumentAsset
 from signalscope.domain.organizations.export_archive import OrganizationExportArchiveService
 from signalscope.domain.organizations.export_inventory import OrganizationExportInventory
 from signalscope.domain.organizations.model import Organization
 
 ORGANIZATION_ID = UUID("11111111-1111-1111-1111-111111111111")
+DOCUMENT_ID = UUID("33333333-3333-3333-3333-333333333333")
+ASSET_ID = UUID("44444444-4444-4444-4444-444444444444")
 NOW = datetime(2026, 10, 2, 12, tzinfo=UTC)
 
 
@@ -138,3 +142,37 @@ async def test_archive_checksum_changes_when_member_content_changes() -> None:
     assert first.sha256 != changed.sha256
     with zipfile.ZipFile(io.BytesIO(first.data)) as archive:
         assert archive.namelist() == sorted(archive.namelist())
+
+
+@pytest.mark.anyio
+async def test_manifest_describes_binary_assets_without_storage_keys() -> None:
+    asset = DocumentAsset(
+        id=ASSET_ID,
+        document_id=DOCUMENT_ID,
+        storage_key="document-assets/private-key.pdf",
+        filename="report.pdf",
+        content_type="application/pdf",
+        size_bytes=128,
+        sha256="a" * 64,
+        created_at=NOW,
+        updated_at=NOW,
+    )
+    exported = replace(inventory(), document_assets=(asset,))
+
+    result = await OrganizationExportArchiveService(
+        InventoryService(exported),
+        clock=lambda: NOW,  # type: ignore[arg-type]
+    ).build(ORGANIZATION_ID)
+
+    assert result.manifest["assets"] == [
+        {
+            "asset_id": str(ASSET_ID),
+            "document_id": str(DOCUMENT_ID),
+            "path": f"assets/{ASSET_ID}",
+            "filename": "report.pdf",
+            "content_type": "application/pdf",
+            "size_bytes": 128,
+            "sha256": "a" * 64,
+        }
+    ]
+    assert "storage_key" not in result.manifest["assets"][0]

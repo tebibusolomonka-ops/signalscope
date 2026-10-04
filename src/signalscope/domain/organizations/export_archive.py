@@ -12,6 +12,7 @@ from sqlalchemy import inspect
 from sqlalchemy.orm import DeclarativeBase
 
 from signalscope.core.errors import ServiceUnavailableError
+from signalscope.domain.documents.asset import DocumentAsset
 from signalscope.domain.organizations.export_inventory import (
     OrganizationExportInventory,
     OrganizationExportInventoryService,
@@ -79,6 +80,7 @@ class OrganizationExportArchiveService:
             "record_counts": {
                 name: inventory.counts[name] for name in FILES if inventory.counts[name]
             },
+            "assets": [_asset_manifest_entry(asset) for asset in inventory.document_assets],
             "files": [
                 {
                     "path": path,
@@ -131,6 +133,18 @@ class OrganizationExportArchiveService:
 def _record(row: DeclarativeBase) -> dict[str, Any]:
     mapper = inspect(type(row))
     return {attribute.key: _value(getattr(row, attribute.key)) for attribute in mapper.column_attrs}
+
+
+def _asset_manifest_entry(asset: DocumentAsset) -> dict[str, Any]:
+    return {
+        "asset_id": str(asset.id),
+        "document_id": str(asset.document_id),
+        "path": f"assets/{asset.id}",
+        "filename": asset.filename,
+        "content_type": asset.content_type,
+        "size_bytes": asset.size_bytes,
+        "sha256": asset.sha256,
+    }
 
 
 def _value(value: Any) -> Any:
