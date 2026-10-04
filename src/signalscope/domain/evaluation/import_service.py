@@ -38,11 +38,11 @@ class EvaluationReportImportService:
         self, report: dict[str, Any], imported_by_user_id: uuid.UUID | None = None
     ) -> ImportedReport:
         _validate(report)
-        report = _safe_report(report)
         canonical = (
             json.dumps(report, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
         ).encode()
         sha256 = hashlib.sha256(canonical).hexdigest()
+        report = _safe_report(report)
         existing = await self.session.scalar(
             select(EvaluationReportRecord).where(EvaluationReportRecord.report_sha256 == sha256)
         )
