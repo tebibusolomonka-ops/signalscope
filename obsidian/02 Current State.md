@@ -101,6 +101,14 @@ authentication throttles).
   Restores have durable lifecycle records and audit events, a system-admin
   apply API (`POST /organizations/:id/restore`) and a `signalscope
   restore-organization` command that is a dry run unless `--apply` is given.
+- Operational observability builds on operation attempt history. An operation
+  trend service gives factual time-bucket (hour/day) counts of attempts,
+  successes, failures, recovered and retried attempts, and a latency service
+  gives per-queue completed-count, min/max/average and p50/p95 durations
+  (percentile_disc, deterministic). Both are organization-scoped. A
+  `GET /operations/trends` API (owner/admin/system admin) and an Operations
+  workspace section present them as plain tables, with no subjective health score
+  or organization ranking.
 - Disaster recovery drills exercise backup and restore readiness and record the
   factual result (`organization_disaster_recovery_drills`). A verification-only
   drill backs up, verifies and plans a restore without changing data; a

@@ -303,6 +303,18 @@ signalscope cleanup-security-audit --organization-id <id> --limit 1000 --apply
 It prints the organization, the retention days, how many events are eligible
 and how many were deleted, never the events themselves.
 
+## Operations and observability
+
+Each worker attempt is recorded as durable operation history. Owners, admins and
+system admins can review one organization's operations at `/operations`: queue
+counts, failed jobs with retry, the attempt history, and factual trends. The
+trends come from `GET /operations/trends?organization_id=<id>` and combine
+attempt-outcome counts per time bucket (hour or day) with per-queue latency
+summaries (count, min, max, average, p50 and p95 of completed attempt
+durations). These are counts, not a health score, and never mix organizations:
+every query is filtered to the one organization, and a caller who is not an
+owner, admin or system admin there is refused.
+
 ## Organization backup and restore
 
 A system admin can export one organization to a portable ZIP archive. The
