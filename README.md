@@ -303,6 +303,61 @@ signalscope cleanup-security-audit --organization-id <id> --limit 1000 --apply
 It prints the organization, the retention days, how many events are eligible
 and how many were deleted, never the events themselves.
 
+## Organization backup and restore
+
+A system admin can export one organization to a portable ZIP archive. The
+archive holds the organization's own tenant content as JSON, with its binary
+document assets and a manifest of checksums. It never holds passwords, password
+hashes, sessions, bearer tokens, raw invitation tokens or login throttle state.
+
+```bash
+signalscope export-organization <id> --output tenant.zip
+signalscope verify-organization-export tenant.zip
+```
+
+Scheduled backups reuse the same archive. Each organization has a backup policy
+(`GET`/`PUT /organizations/<id>/backup-policy`), and a system admin can run one
+now with `POST /organizations/<id>/backups/run` or
+`signalscope run-organization-backup <id>`.
+
+Restore is deliberately constrained. It only writes into an empty target
+organization: one with no sources, investigations, research sessions or event
+clusters. It never overwrites a populated organization.
+
+Before any data changes, the server re-verifies the archive, reads its
+inventory, checks for conflicts, and validates how archived users map to
+existing users. Every archived user must map to an existing active user; users
+are never created by a restore. A default suggestion maps each archived user to
+the existing user with the same id and shows that user's email to confirm. A
+blocking conflict or an unresolved user mapping refuses the restore.
+
+Canonical entities and claims are shared, so the restore reuses the matching
+global records and only restores the target organization's own evidence. It
+never copies another tenant's evidence. Archive ids that cannot be reused are
+remapped, and relationships point at the restored records.
+
+Plan a restore first, which changes nothing:
+
+```bash
+signalscope restore-organization tenant.zip <target-organization-id>
+```
+
+Apply it only when the plan looks right. `--map` maps an archived user to an
+existing user, and may be given more than once:
+
+```bash
+signalscope restore-organization tenant.zip <target-organization-id> --apply \
+  --map <archived-user-id>:<existing-user-id>
+```
+
+Over the API a system admin plans with
+`POST /organizations/<id>/restore-plan` and applies with
+`POST /organizations/<id>/restore?confirm=true`, sending the archive as the
+request body and each mapping as a `user_mapping=<archived>:<existing>` query
+value. The server re-verifies the archive every time; it never trusts a caller
+that says the archive was already checked. Restores are recorded with their
+lifecycle (running, completed or failed) and as audit events.
+
 ## Admin web app
 
 `web/` holds a small React admin app, written in JavaScript and built with

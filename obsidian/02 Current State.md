@@ -85,7 +85,19 @@ authentication throttles).
   Configurable asset count and byte limits are shown in the workspace and
   enforced before asset reads. Passwords, session hashes, invitation hashes
   and model caches are not exported. System admins can upload an archive to a
-  read-only restore planning workspace; no restore writes exist yet.
+  read-only restore planning workspace.
+- Organization restore writes an archive into an empty target organization
+  (one with no sources, investigations, research sessions or event clusters);
+  it never overwrites populated tenants. Before any change it re-verifies the
+  archive, builds the inventory, checks conflicts and validates user mappings.
+  Every archived user must map to an existing active user; users are never
+  created. Canonical entities and claims are reused, only the target's evidence
+  is restored, ids that cannot be reused are remapped, and binary assets are
+  staged then stored with checksum checks. Passwords, hashes, sessions, bearer
+  tokens, raw invitation tokens and login throttle state are never restored.
+  Restores have durable lifecycle records and audit events, a system-admin
+  apply API (`POST /organizations/:id/restore`) and a `signalscope
+  restore-organization` command that is a dry run unless `--apply` is given.
 - Organization backups reuse the versioned export archive. One policy per
   organization controls daily or weekly scheduling, retained backup count and
   binary asset inclusion. A backup is completed only after archive verification;

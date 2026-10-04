@@ -310,7 +310,12 @@ the nested `/download` route or verified with the nested `POST /verify` route
 after authorization. `GET /organizations/{organization_id}/exports/assets`
 reports the current asset count and bytes with configured limits. System admins
 can upload a ZIP to `POST /organizations/{organization_id}/restore-plan` for a
-verified, read-only conflict plan. Owners, admins and system
+verified, read-only conflict and user-mapping plan, and apply a restore into an
+empty organization with `POST /organizations/{organization_id}/restore?confirm=true`,
+sending the archive as the body and each mapping as `user_mapping=<archived>:<existing>`.
+The archive is re-verified on apply. `signalscope restore-organization FILE.zip
+ORGANIZATION_ID` plans the same restore and applies it with `--apply` and
+optional `--map` pairs. Owners, admins and system
 admins may use them. `signalscope export-organization ORGANIZATION_ID
 --output FILE.zip` builds the same versioned archive locally.
 `signalscope verify-organization-export FILE.zip` verifies a local archive,
