@@ -35,7 +35,7 @@ describe("AppRoutes", () => {
       expect(within(content).getByRole("link", { name: label })).toBeInTheDocument();
     }
     const admin = within(nav).getByRole("list", { name: "Administration" });
-    for (const label of ["Organizations", "Users", "Security"]) {
+    for (const label of ["Organizations", "Users", "Security", "Evaluations"]) {
       expect(within(admin).getByRole("link", { name: label })).toBeInTheDocument();
     }
     expect(screen.getByRole("main")).toBeInTheDocument();

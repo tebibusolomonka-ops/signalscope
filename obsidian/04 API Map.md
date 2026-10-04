@@ -81,6 +81,23 @@ and viewers; system admins may manage any organization's invitations.
   admins: must name an organization they manage (422 without, 404 for other
   organizations). Members, viewers and others: 403.
 
+## Evaluation administration
+
+System admins only (503 when auth is off, 401 without a token, 403 for
+others). Reports are measured benchmark outputs kept for review; importing
+stores one and never runs a model.
+
+- `GET /admin/evaluations`: stored reports, newest first, paged. Filters:
+  `task`, `model`, `provider`, `dataset_fingerprint`, `created_from`,
+  `created_to`.
+- `GET /admin/evaluations/{id}`: one report with its metrics, timings,
+  warnings and safe environment summary.
+- `POST /admin/evaluations/import` with `{"report": ...}`: store a report
+  JSON; the same content is not stored twice; paths and secrets are stripped.
+- `POST /admin/evaluations/compare` with `{"report_ids": [...]}`: factual
+  metric differences between reports of the same task and dataset. No winner
+  or recommendation. Fewer than two, a task or dataset mismatch: 422.
+
 ## Retention
 
 Auth only. Organization owners, admins and system admins read; only system

@@ -38,10 +38,10 @@ planned commit 394.
 Relation evaluation tooling is complete through planned commit 409.
 Failed-login auditing, database-backed throttling, administrator recovery and
 end-to-end security coverage are complete through planned commit 414.
-Evidence navigation (a paged document chunk API, a focused chunk on the
-document page, search-to-document and research-citation-to-document links,
-and a tenant navigation end-to-end test) is complete through planned commit
-419. Knowledge-graph relation persistence remains deferred, and real-model
+Evidence navigation is complete through commit 419, with direct chunk
+lookup, context navigation and Previous/Next passages through commit 424.
+Measured evaluation reports can be imported, listed, compared and reviewed
+(commits 425 to 429). Knowledge-graph relation persistence remains deferred, and real-model
 evaluation remains separate work.
 
 ## Next batch

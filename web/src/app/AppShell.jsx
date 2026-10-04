@@ -21,6 +21,7 @@ const ADMIN_LINKS = [
   { to: "/organizations", label: "Organizations" },
   { to: "/users", label: "Users" },
   { to: "/security", label: "Security" },
+  { to: "/evaluations", label: "Evaluations" },
   { to: "/accept-invitation", label: "Accept invitation" },
 ];
 

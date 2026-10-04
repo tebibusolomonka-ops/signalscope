@@ -67,6 +67,8 @@ source name, from the requesting organization only.
 `test_document_file_api.py` covers the upload route with file storage in a
 temporary folder. `test_document_chunks_api.py` covers the paged chunk
 navigation route and its tenant scope.
+`test_evaluation_report_import.py` and `test_admin_evaluations_api.py` cover
+storing, listing, comparing and secret-stripping of evaluation reports.
 `EvidenceNavigationFlow.test.jsx` opens evidence at an exact late chunk from
 search and entity pages and steps passages, proving the direct lookup needs
 no page scan. `ResearchNavigationFlow.test.jsx` is a web end-to-end test: it signs in,

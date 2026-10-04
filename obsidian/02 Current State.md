@@ -4,7 +4,10 @@ Batch 420 to 459 is in progress on top of a 428-commit history (HEAD
 c4b5355 at its start). Durable operation history and portable organization
 exports, model evaluation evidence tooling and authentication hardening were
 complete through commit 414, and exact evidence navigation through commit
-419. Evidence navigation is
+419. Measured evaluation reports can now be imported, listed, compared and
+reviewed by system admins (`evaluation_report_records`, the `/admin/evaluations`
+API and a web workspace); importing stores a report and never runs a model.
+Alembic head: `d5b2f3c6a7e1` (Add evaluation report records). Evidence navigation is
 complete through planned commit 419: a paged document chunk API, a focused
 chunk on the document page, and search results and research citations that
 link to the exact passage. Alembic head: `e4a7c8d91f20` (Create

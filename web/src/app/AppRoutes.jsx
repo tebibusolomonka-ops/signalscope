@@ -21,6 +21,7 @@ import { OrganizationsPage } from "../features/organizations/OrganizationsPage.j
 import { QuickResearchPage } from "../features/research/QuickResearchPage.jsx";
 import { ResearchSessionPage } from "../features/research/ResearchSessionPage.jsx";
 import { ResearchPage } from "../features/research/ResearchPage.jsx";
+import { EvaluationsPage } from "../features/evaluations/EvaluationsPage.jsx";
 import { OperationsPage } from "../features/operations/OperationsPage.jsx";
 import { SearchPage } from "../features/search/SearchPage.jsx";
 import { SecurityPage } from "../features/security/SecurityPage.jsx";
@@ -83,6 +84,7 @@ export function AppRoutes() {
           <Route path="/users" element={<UsersPage />} />
           <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
           <Route path="/security" element={<SecurityPage />} />
+          <Route path="/evaluations" element={<EvaluationsPage />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Route>

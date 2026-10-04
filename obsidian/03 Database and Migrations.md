@@ -1,7 +1,7 @@
 # Database and Migrations
 
 PostgreSQL 17 with the pgvector extension. Current Alembic head:
-`c91f4d2a8e73` (Add organization export status check).
+`d5b2f3c6a7e1` (Add evaluation report records).
 
 ## Rules
 
