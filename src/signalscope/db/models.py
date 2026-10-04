@@ -30,6 +30,7 @@ from signalscope.domain.organizations.export_record import OrganizationExport
 from signalscope.domain.organizations.invitation import OrganizationInvitation
 from signalscope.domain.organizations.membership import OrganizationMembership
 from signalscope.domain.organizations.model import Organization
+from signalscope.domain.organizations.restore_record import OrganizationRestore
 from signalscope.domain.processing.model import DocumentProcessingJob
 from signalscope.domain.research.session import ResearchSession
 from signalscope.domain.research.turn import ResearchTurn
@@ -76,6 +77,7 @@ __all__ = [
     "OrganizationExport",
     "OrganizationInvitation",
     "OrganizationMembership",
+    "OrganizationRestore",
     "OperationAttempt",
     "OrganizationRetentionPolicy",
     "ResearchSession",
