@@ -75,6 +75,8 @@ from signalscope.domain.organizations.export_verification import (
 from signalscope.domain.organizations.invitation_cleanup import InvitationCleanupService
 from signalscope.domain.organizations.model import Organization
 from signalscope.domain.organizations.restore_plan import build_restore_plan
+from signalscope.domain.organizations.restore_record import OrganizationRestoreStatus
+from signalscope.domain.organizations.restore_service import OrganizationRestoreService
 from signalscope.domain.processing.file_import import FileImportService
 from signalscope.domain.processing.job_repository import DocumentProcessingJobRepository
 from signalscope.domain.processing.model import DocumentProcessingJob, ProcessingJobStatus
@@ -396,6 +398,17 @@ def main(argv: Sequence[str] | None = None) -> int:
                 args.path, args.organization_id, settings, json_output=args.json
             )
         )
+    if args.command == "restore-organization":
+        return asyncio.run(
+            restore_organization(
+                args.path,
+                args.organization_id,
+                settings,
+                apply=args.apply,
+                mappings=args.map,
+                json_output=args.json,
+            )
+        )
     if args.command == "import-evaluation-report":
         return asyncio.run(import_evaluation_report(args.path, settings))
     if args.command == "link-events":
@@ -625,6 +638,26 @@ def build_parser() -> argparse.ArgumentParser:
     organization_restore_plan.add_argument("path", type=Path, help="local organization ZIP archive")
     organization_restore_plan.add_argument("--organization-id", type=uuid.UUID, default=None)
     organization_restore_plan.add_argument("--json", action="store_true", help="write JSON output")
+
+    organization_restore = commands.add_parser(
+        "restore-organization",
+        help="restore an organization archive into an empty organization",
+    )
+    organization_restore.add_argument("path", type=Path, help="local organization ZIP archive")
+    organization_restore.add_argument(
+        "organization_id", type=uuid.UUID, help="ID of the empty target organization"
+    )
+    organization_restore.add_argument(
+        "--apply", action="store_true", help="restore data; without this it is a dry run"
+    )
+    organization_restore.add_argument(
+        "--map",
+        action="append",
+        default=[],
+        metavar="ARCHIVED_ID:TARGET_ID",
+        help="map an archived user to an existing user; may be given more than once",
+    )
+    organization_restore.add_argument("--json", action="store_true", help="write JSON output")
 
     import_evaluation = commands.add_parser(
         "import-evaluation-report", help="store a measured evaluation report JSON file"
@@ -1463,6 +1496,97 @@ async def plan_organization_restore(
         print("Dry run: no data will be changed.", file=out)
         print(json.dumps(plan, indent=2, sort_keys=True), file=out)
     return 0
+
+
+async def restore_organization(
+    path: Path,
+    organization_id: uuid.UUID,
+    settings: Settings,
+    out: TextIO | None = None,
+    err: TextIO | None = None,
+    *,
+    apply: bool = False,
+    mappings: list[str] | None = None,
+    json_output: bool = False,
+) -> int:
+    """Restore an organization archive. Dry run unless --apply is given."""
+    out = sys.stdout if out is None else out
+    err = sys.stderr if err is None else err
+    try:
+        data = path.read_bytes()
+    except OSError as error:
+        print(f"Error: Cannot read {path}: {error.strerror}", file=err)
+        return 1
+    if settings.database_url is None:
+        print(NO_DATABASE_ERROR, file=err)
+        return 1
+    try:
+        parsed_mappings = _restore_mappings(mappings or [])
+    except ValueError as error:
+        print(f"Error: {error}", file=err)
+        return 1
+    if not apply:
+        async with _database(settings) as session_factory, session_factory() as session:
+            try:
+                plan = await build_restore_plan(session, data, organization_id)
+            except SignalScopeError as error:
+                print(f"Error: {error}", file=err)
+                return 1
+        if json_output:
+            print(json.dumps(plan, sort_keys=True), file=out)
+        else:
+            print("Dry run: no data will be changed. Use --apply to restore.", file=out)
+            print(json.dumps(plan, indent=2, sort_keys=True), file=out)
+        return 0
+    if settings.blob_dir is None:
+        print(NO_BLOB_DIR_ERROR, file=err)
+        return 1
+    async with _database(settings) as session_factory, session_factory() as session:
+        organization = await session.get(Organization, organization_id)
+        if organization is None:
+            print("Error: Organization was not found.", file=err)
+            return 1
+        audit = SecurityAuditService(session)
+        try:
+            restore = await OrganizationRestoreService(
+                session, LocalBlobStore(settings.blob_dir)
+            ).restore(data, organization_id, organization.created_by_user_id, parsed_mappings)
+        except SignalScopeError as error:
+            audit.record(
+                AuditAction.ORGANIZATION_RESTORE_RUN,
+                actor_user_id=None,
+                organization_id=organization_id,
+                resource_type="organization_restore",
+                details={"reason": "failed"},
+            )
+            await session.commit()
+            print(f"Error: {error}", file=err)
+            return 1
+        audit.record(
+            AuditAction.ORGANIZATION_RESTORE_RUN,
+            actor_user_id=None,
+            organization_id=organization_id,
+            resource_type="organization_restore",
+            resource_id=restore.id,
+            details={"reason": restore.status.value},
+        )
+        await session.commit()
+    print(f"Restore: {restore.id}", file=out)
+    print(f"Status: {restore.status.value}", file=out)
+    return 0 if restore.status is OrganizationRestoreStatus.COMPLETED else 1
+
+
+def _restore_mappings(pairs: list[str]) -> dict[str, uuid.UUID]:
+    mappings: dict[str, uuid.UUID] = {}
+    for pair in pairs:
+        archived, separator, target = pair.partition(":")
+        if not separator or not archived:
+            raise ValueError("Each --map must be 'archived_id:target_id'.")
+        try:
+            mappings[str(uuid.UUID(archived))] = uuid.UUID(target)
+        except ValueError as error:
+            raise ValueError("A --map value has an invalid id.") from error
+    return mappings
 
 
 def model_environment(out: TextIO | None = None, *, json_output: bool = False) -> int:

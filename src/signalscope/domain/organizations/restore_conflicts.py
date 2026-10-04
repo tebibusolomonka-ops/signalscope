@@ -110,5 +110,3 @@ class OrganizationRestoreConflictService:
 def _first(archive: OrganizationArchive, section: str) -> dict[str, object] | None:
     rows = archive.sections.get(section, ())
     return rows[0] if rows else None
-
-

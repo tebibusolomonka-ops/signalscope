@@ -52,6 +52,7 @@ class AuditAction(StrEnum):
     ORGANIZATION_EXPORT_CLEANUP = "organization.export_cleanup"
     ORGANIZATION_BACKUP_POLICY_CHANGED = "organization.backup_policy_changed"
     ORGANIZATION_BACKUP_RUN = "organization.backup_run"
+    ORGANIZATION_RESTORE_RUN = "organization.restore_run"
 
 
 class SecurityAuditService:
