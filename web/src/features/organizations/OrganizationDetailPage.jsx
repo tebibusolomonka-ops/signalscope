@@ -12,7 +12,7 @@ import { Retention } from "./Retention.jsx";
 
 export function OrganizationDetailPage() {
   const { organizationId } = useParams();
-  const { api } = useAuth();
+  const { api, user } = useAuth();
   const load = useCallback(async () => {
     const [organization, mine] = await Promise.all([
       api.get(`/organizations/${organizationId}`),
@@ -45,6 +45,11 @@ export function OrganizationDetailPage() {
       {(role === "owner" || role === "admin" || role === null) && (
         <p>
           <Link to={`/organizations/${organizationId}/exports`}>Manage portable exports</Link>
+        </p>
+      )}
+      {user?.is_system_admin && (
+        <p>
+          <Link to={`/organizations/${organizationId}/restore-plan`}>Plan a restore</Link>
         </p>
       )}
       <Members organizationId={organizationId} />
