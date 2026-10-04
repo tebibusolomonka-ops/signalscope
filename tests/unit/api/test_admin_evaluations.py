@@ -1,4 +1,3 @@
-
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -9,6 +8,7 @@ def test_evaluation_routes_are_in_openapi(app: FastAPI) -> None:
 
     assert set(paths["/admin/evaluations"]) == {"get"}
     assert set(paths["/admin/evaluations/import"]) == {"post"}
+    assert set(paths["/admin/evaluations/compare"]) == {"post"}
     assert set(paths["/admin/evaluations/{report_id}"]) == {"get"}
     assert {item["name"] for item in paths["/admin/evaluations"]["get"]["parameters"]} == {
         "task",

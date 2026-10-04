@@ -77,3 +77,60 @@ async def test_permissions_and_errors(
     assert anonymous.status_code == 401
     assert unknown.status_code == 404
     assert malformed.status_code == 422
+
+
+async def test_compare(
+    auth_client: httpx.AsyncClient, session_factory: async_sessionmaker[AsyncSession]
+) -> None:
+    tenants: Tenants = await make_tenants(auth_client, session_factory)
+
+    async def store(**overrides):
+        created = await auth_client.post(
+            "/admin/evaluations/import",
+            json={"report": report(**overrides)},
+            headers=tenants.system,
+        )
+        return created.json()["id"]
+
+    first = await store(model="e5-small", metrics={"recall@5": 0.8})
+    second = await store(model="e5-base", metrics={"recall@5": 0.9})
+    other_task = await store(task="relation_evaluation", metrics={"f1": 0.4})
+
+    compared = await auth_client.post(
+        "/admin/evaluations/compare",
+        json={"report_ids": [first, second]},
+        headers=tenants.system,
+    )
+    assert compared.status_code == 200, compared.text
+    body = compared.json()
+    assert body["task"] == "embedding_retrieval"
+    assert body["reports"] == [first, second]
+    assert body["metrics"]["recall@5"]["values"] == [0.8, 0.9]
+    assert (
+        "winner" not in compared.text
+        and "better" not in compared.text
+        and "recommend" not in compared.text
+    )
+
+    one = await auth_client.post(
+        "/admin/evaluations/compare", json={"report_ids": [first]}, headers=tenants.system
+    )
+    mismatch = await auth_client.post(
+        "/admin/evaluations/compare",
+        json={"report_ids": [first, other_task]},
+        headers=tenants.system,
+    )
+    unknown = await auth_client.post(
+        "/admin/evaluations/compare",
+        json={"report_ids": [first, str(uuid.uuid4())]},
+        headers=tenants.system,
+    )
+    denied = await auth_client.post(
+        "/admin/evaluations/compare",
+        json={"report_ids": [first, second]},
+        headers=tenants.a.headers["owner"],
+    )
+    assert one.status_code == 422
+    assert mismatch.status_code == 422
+    assert unknown.status_code == 404
+    assert denied.status_code == 403

@@ -1,19 +1,22 @@
 import uuid
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Query, status
 
 from signalscope.api.auth import CurrentSession
 from signalscope.api.dependencies import DatabaseSession
 from signalscope.api.pagination import Page, Pagination
+from signalscope.core.errors import InvalidInputError
 from signalscope.domain.evaluation.import_service import EvaluationReportImportService
 from signalscope.domain.evaluation.schemas import (
+    EvaluationComparisonRequest,
     EvaluationReportDetailRead,
     EvaluationReportImportRequest,
     EvaluationReportSummaryRead,
 )
 from signalscope.domain.evaluation.service import EvaluationReportService
+from signalscope.evaluation.comparison import compare_reports
 
 router = APIRouter(prefix="/admin/evaluations", tags=["Evaluation administration"])
 
@@ -60,6 +63,27 @@ async def import_evaluation(
         request.report, imported_by_user_id=current.user.id
     )
     return EvaluationReportDetailRead.model_validate(imported.record)
+
+
+@router.post("/compare")
+async def compare_evaluations(
+    request: EvaluationComparisonRequest, current: CurrentSession, session: DatabaseSession
+) -> dict[str, Any]:
+    """Factual metric differences between two or more stored reports of the same task.
+
+    No winner or recommendation is returned. System admins only.
+    """
+    if len(request.report_ids) < 2:
+        raise InvalidInputError("At least two reports are needed to compare.")
+    records = await EvaluationReportService(session, current.user).get_many(request.report_ids)
+    try:
+        comparison = compare_reports(
+            [record.report_json for record in records],
+            [str(record.id) for record in records],
+        )
+    except ValueError as error:
+        raise InvalidInputError(str(error)) from error
+    return comparison.to_dict()
 
 
 @router.get("/{report_id}")

@@ -25,9 +25,14 @@ class ReportComparison:
 
 
 def compare_evaluation_reports(paths: list[Path]) -> ReportComparison:
-    if len(paths) < 2:
-        raise ValueError("At least two evaluation reports are required.")
     reports = [_load(path) for path in paths]
+    return compare_reports(reports, [path.name for path in paths])
+
+
+def compare_reports(reports: list[dict[str, Any]], labels: list[str]) -> ReportComparison:
+    """Compare already-loaded reports. labels name each report in the result."""
+    if len(reports) < 2:
+        raise ValueError("At least two evaluation reports are required.")
     task = reports[0]["task"]
     fingerprint = reports[0]["dataset"]["fingerprint"]
     if any(report["task"] != task for report in reports[1:]):
@@ -41,7 +46,7 @@ def compare_evaluation_reports(paths: list[Path]) -> ReportComparison:
     return ReportComparison(
         task=task,
         dataset_fingerprint=fingerprint,
-        reports=tuple(path.name for path in paths),
+        reports=tuple(labels),
         metrics=metrics,
         timings=timings,
     )

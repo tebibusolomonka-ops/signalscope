@@ -53,6 +53,16 @@ class EvaluationReportService:
             raise NotFoundError("Evaluation report was not found.")
         return record
 
+    async def get_many(self, report_ids: list[uuid.UUID]) -> list[EvaluationReportRecord]:
+        self._require_admin()
+        found = await self.session.scalars(
+            select(EvaluationReportRecord).where(EvaluationReportRecord.id.in_(report_ids))
+        )
+        by_id = {record.id: record for record in found}
+        if any(report_id not in by_id for report_id in report_ids):
+            raise NotFoundError("An evaluation report was not found.")
+        return [by_id[report_id] for report_id in report_ids]
+
     def _require_admin(self) -> None:
         if self.actor is not None and not (self.actor.is_system_admin and self.actor.is_active):
             raise ForbiddenError(SYSTEM_ADMIN_REQUIRED)

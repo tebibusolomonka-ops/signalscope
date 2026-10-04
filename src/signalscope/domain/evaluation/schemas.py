@@ -32,3 +32,8 @@ class EvaluationReportImportRequest(BaseModel):
 
     report: dict[str, Any]
 
+
+class EvaluationComparisonRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    report_ids: list[uuid.UUID]
