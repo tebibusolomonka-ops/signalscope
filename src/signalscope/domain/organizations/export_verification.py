@@ -2,6 +2,7 @@ import hashlib
 import io
 import json
 import re
+import uuid
 import zipfile
 from collections import Counter
 from dataclasses import dataclass
@@ -70,8 +71,10 @@ class OrganizationExportVerificationService:
                     format_version = raw_version
                 if format_version != EXPORT_FORMAT_VERSION:
                     problems.append("Manifest format version is not supported.")
-                asset_paths = _asset_paths(manifest)
+                assets = _asset_entries(manifest, problems)
+                asset_paths = set(assets)
                 entries = _manifest_entries(manifest, asset_paths, problems)
+                _check_asset_files(assets, entries, problems)
                 counts = _record_counts(manifest, problems)
                 expected_paths = set(entries)
                 actual_paths = set(names) - {MANIFEST_FILE}
@@ -148,18 +151,71 @@ def _manifest_entries(
     return entries
 
 
-def _asset_paths(manifest: dict[str, Any]) -> set[str]:
+def _asset_entries(manifest: dict[str, Any], problems: list[str]) -> dict[str, dict[str, Any]]:
     assets = manifest.get("assets")
+    if assets is None:
+        return {}
     if not isinstance(assets, list) or len(assets) > MAX_RECORD_COUNT:
-        return set()
-    return {
-        path
-        for asset in assets
-        if isinstance(asset, dict)
-        and isinstance((path := asset.get("path")), str)
-        and path.startswith("assets/")
-        and _safe_path(path)
-    }
+        problems.append("Manifest assets must be a bounded list.")
+        return {}
+    entries: dict[str, dict[str, Any]] = {}
+    for asset in assets:
+        if not isinstance(asset, dict):
+            problems.append("Manifest asset entry is invalid.")
+            continue
+        asset_id = asset.get("asset_id")
+        document_id = asset.get("document_id")
+        path = asset.get("path")
+        filename = asset.get("filename")
+        content_type = asset.get("content_type")
+        size = asset.get("size_bytes")
+        checksum = asset.get("sha256")
+        if not _uuid(asset_id) or not _uuid(document_id):
+            problems.append("Manifest asset identifiers are invalid.")
+            continue
+        if path != f"assets/{asset_id}" or not isinstance(path, str) or not _safe_path(path):
+            problems.append("Manifest asset path is invalid.")
+            continue
+        if path in entries:
+            problems.append(f"Duplicate manifest asset path: {path}")
+            continue
+        if filename is not None and not isinstance(filename, str):
+            problems.append(f"Manifest asset filename is invalid: {path}")
+            continue
+        if not isinstance(content_type, str) or not content_type:
+            problems.append(f"Manifest asset content type is invalid: {path}")
+            continue
+        if not isinstance(size, int) or isinstance(size, bool) or not 0 <= size <= MAX_MEMBER_BYTES:
+            problems.append(f"Manifest asset size is invalid: {path}")
+            continue
+        if not isinstance(checksum, str) or SHA256_PATTERN.fullmatch(checksum) is None:
+            problems.append(f"Manifest asset checksum is invalid: {path}")
+            continue
+        entries[path] = asset
+    return entries
+
+
+def _check_asset_files(
+    assets: dict[str, dict[str, Any]],
+    files: dict[str, dict[str, Any]],
+    problems: list[str],
+) -> None:
+    for path, asset in assets.items():
+        file = files.get(path)
+        if file is None:
+            problems.append(f"Manifest asset file entry is missing: {path}")
+        elif file["size_bytes"] != asset["size_bytes"] or file["sha256"] != asset["sha256"]:
+            problems.append(f"Manifest asset metadata does not match its file entry: {path}")
+
+
+def _uuid(value: Any) -> bool:
+    if not isinstance(value, str):
+        return False
+    try:
+        uuid.UUID(value)
+    except ValueError:
+        return False
+    return True
 
 
 def _record_counts(manifest: dict[str, Any], problems: list[str]) -> dict[str, int]:

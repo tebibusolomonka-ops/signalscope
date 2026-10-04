@@ -2,6 +2,7 @@ import hashlib
 import io
 import json
 import zipfile
+from uuid import UUID
 
 import pytest
 
@@ -17,11 +18,13 @@ def archive(
     count: int = 1,
     include_member: bool = True,
     manifest_path: str | None = None,
+    assets: list[dict[str, object]] | None = None,
 ) -> bytes:
     listed_path = manifest_path or path
     manifest = {
         "format_version": "2",
         "record_counts": {"documents": count},
+        "assets": assets or [],
         "files": [
             {
                 "path": listed_path,
@@ -106,3 +109,68 @@ def test_rejects_wrong_record_count() -> None:
 
     assert not result.valid
     assert "Record count does not match: documents.jsonl" in result.problems
+
+
+def test_verifies_binary_asset_metadata_and_content() -> None:
+    asset_id = UUID("11111111-1111-1111-1111-111111111111")
+    document_id = UUID("22222222-2222-2222-2222-222222222222")
+    content = b"binary content"
+    path = f"assets/{asset_id}"
+    asset = {
+        "asset_id": str(asset_id),
+        "document_id": str(document_id),
+        "path": path,
+        "filename": "report.pdf",
+        "content_type": "application/pdf",
+        "size_bytes": len(content),
+        "sha256": hashlib.sha256(content).hexdigest(),
+    }
+
+    result = OrganizationExportVerificationService().verify(
+        archive(content=content, path=path, count=0, assets=[asset])
+    )
+
+    assert result.valid
+    assert result.checked_files == 1
+    assert result.checked_records == 0
+
+
+def test_rejects_asset_manifest_metadata_that_differs_from_file_entry() -> None:
+    asset_id = "11111111-1111-1111-1111-111111111111"
+    content = b"binary content"
+    path = f"assets/{asset_id}"
+    asset = {
+        "asset_id": asset_id,
+        "document_id": "22222222-2222-2222-2222-222222222222",
+        "path": path,
+        "filename": None,
+        "content_type": "application/octet-stream",
+        "size_bytes": len(content) + 1,
+        "sha256": hashlib.sha256(content).hexdigest(),
+    }
+
+    result = OrganizationExportVerificationService().verify(
+        archive(content=content, path=path, count=0, assets=[asset])
+    )
+
+    assert not result.valid
+    assert f"Manifest asset metadata does not match its file entry: {path}" in result.problems
+
+
+def test_rejects_asset_path_that_does_not_match_its_id() -> None:
+    asset = {
+        "asset_id": "11111111-1111-1111-1111-111111111111",
+        "document_id": "22222222-2222-2222-2222-222222222222",
+        "path": "assets/different",
+        "filename": "report.pdf",
+        "content_type": "application/pdf",
+        "size_bytes": 1,
+        "sha256": hashlib.sha256(b"x").hexdigest(),
+    }
+
+    result = OrganizationExportVerificationService().verify(
+        archive(content=b"x", path="assets/different", count=0, assets=[asset])
+    )
+
+    assert not result.valid
+    assert "Manifest asset path is invalid." in result.problems
