@@ -42,3 +42,10 @@ class OrganizationExportVerificationRead(BaseModel):
             checked_records=verification.checked_records,
             problems=verification.problems,
         )
+
+
+class OrganizationExportAssetsRead(BaseModel):
+    asset_count: int
+    asset_bytes: int
+    max_assets: int
+    max_bytes: int

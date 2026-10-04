@@ -5,6 +5,7 @@ from fastapi import APIRouter, Request, Response, status
 from signalscope.api.auth import CurrentSession
 from signalscope.api.dependencies import Blobs, DatabaseSession
 from signalscope.domain.organizations.export_schemas import (
+    OrganizationExportAssetsRead,
     OrganizationExportRead,
     OrganizationExportVerificationRead,
 )
@@ -38,6 +39,23 @@ async def list_organization_exports(
 ) -> list[OrganizationExportRead]:
     exports = await OrganizationExportService(session, current.user).list(organization_id)
     return [OrganizationExportRead.model_validate(export) for export in exports]
+
+
+@router.get("/assets")
+async def get_organization_export_assets(
+    organization_id: uuid.UUID,
+    current: CurrentSession,
+    session: DatabaseSession,
+    request: Request,
+) -> OrganizationExportAssetsRead:
+    assets = await OrganizationExportService(session, current.user).assets(organization_id)
+    settings = request.app.state.settings
+    return OrganizationExportAssetsRead(
+        asset_count=assets.asset_count,
+        asset_bytes=assets.asset_bytes,
+        max_assets=settings.organization_export_max_assets,
+        max_bytes=settings.organization_export_max_bytes,
+    )
 
 
 @router.get("/{export_id}")

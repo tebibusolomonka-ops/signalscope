@@ -69,6 +69,8 @@ temporary folder. `test_document_chunks_api.py` covers the paged chunk
 navigation route and its tenant scope.
 `test_evaluation_report_import.py` and `test_admin_evaluations_api.py` cover
 storing, listing, comparing and secret-stripping of evaluation reports.
+Organization archive tests cover binary asset inclusion, count and byte limits,
+manifest metadata, checksums and safe restore planning without database writes.
 `EvidenceNavigationFlow.test.jsx` opens evidence at an exact late chunk from
 search and entity pages and steps passages, proving the direct lookup needs
 no page scan. `ResearchNavigationFlow.test.jsx` is a web end-to-end test: it signs in,

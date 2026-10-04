@@ -20,6 +20,7 @@ const EXPORT = {
   sha256: "a".repeat(64),
   safe_error: null,
 };
+const ASSETS = { asset_count: 0, asset_bytes: 0, max_assets: 10000, max_bytes: 500000000 };
 
 let downloads;
 afterEach(() => downloads?.restore());
@@ -36,6 +37,9 @@ describe("organization exports", () => {
           body: [{ organization: { id: "org-1", name: "Harbour Watch" }, role: "owner" }],
         },
         "GET /organizations/org-1/exports": () => ({ body: exports }),
+        "GET /organizations/org-1/exports/assets": {
+          body: { asset_count: 2, asset_bytes: 1536, max_assets: 10000, max_bytes: 500000000 },
+        },
         "POST /organizations/org-1/exports": () => {
           exports.unshift({ ...EXPORT, id: "export-2", status: "running" });
           return { status: 201, body: exports[0] };
@@ -51,6 +55,7 @@ describe("organization exports", () => {
     });
 
     expect(await screen.findByText("1.5 KB")).toBeInTheDocument();
+    expect(screen.getByText(/Export assets: 2 \(1.5 KB\)/)).toBeInTheDocument();
     expect(screen.getByText("completed")).toBeInTheDocument();
     expect(screen.getByText("1", { selector: "td" })).toBeInTheDocument();
     expect(screen.queryByText("organization-exports/private.zip")).not.toBeInTheDocument();
@@ -83,6 +88,7 @@ describe("organization exports", () => {
           status: 403,
           body: { error: { code: "forbidden", message: "Only owners and admins may export." } },
         },
+        "GET /organizations/org-1/exports/assets": { body: ASSETS },
       },
     });
 
@@ -98,6 +104,7 @@ describe("organization exports", () => {
           body: [{ organization: { id: "org-1", name: "Harbour Watch" }, role: "admin" }],
         },
         "GET /organizations/org-1/exports": { body: [EXPORT] },
+        "GET /organizations/org-1/exports/assets": { body: ASSETS },
         "POST /organizations/org-1/exports/export-1/verify": {
           body: {
             valid: false,
@@ -127,6 +134,7 @@ describe("organization exports", () => {
           body: [{ organization: { id: "org-1", name: "Harbour Watch" }, role: "owner" }],
         },
         "GET /organizations/org-1/exports": { body: [EXPORT] },
+        "GET /organizations/org-1/exports/assets": { body: ASSETS },
         "POST /organizations/org-1/exports/export-1/verify": () =>
           new Promise((resolve) => {
             finish = resolve;
@@ -150,6 +158,7 @@ describe("organization exports", () => {
           body: [{ organization: { id: "org-1", name: "Harbour Watch" }, role: "member" }],
         },
         "GET /organizations/org-1/exports": { body: [EXPORT] },
+        "GET /organizations/org-1/exports/assets": { body: ASSETS },
       },
     });
 
@@ -169,6 +178,7 @@ describe("organization exports", () => {
           ],
         },
         "GET /organizations/org-1/exports": { body: [EXPORT] },
+        "GET /organizations/org-1/exports/assets": { body: ASSETS },
         "POST /organizations/org-1/exports/export-1/verify": {
           body: { valid: true, checked_files: 1, checked_records: 1, problems: [] },
         },

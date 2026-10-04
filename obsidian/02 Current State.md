@@ -80,9 +80,12 @@ authentication throttles).
   and Claim scoping through tenant evidence, BlobStore artifacts, owner/admin
   API administration and downloads, `signalscope export-organization`, and
   the `/organizations/:organizationId/exports` workspace with factual
-  verification results. Passwords, session
-  hashes, invitation hashes, model caches and binary asset contents are not
-  exported.
+  verification results. Raw document assets are included at deterministic ZIP
+  paths and checked against both their database records and manifest entries.
+  Configurable asset count and byte limits are shown in the workspace and
+  enforced before asset reads. Passwords, session hashes, invitation hashes
+  and model caches are not exported. System admins can upload an archive to a
+  read-only restore planning workspace; no restore writes exist yet.
 - Explicit developer benchmarks report the local model environment and run
   embedding, reranker, structured extraction and fixed-evidence answer model
   measurements. Normal tests and CI use fakes and never load or download models.

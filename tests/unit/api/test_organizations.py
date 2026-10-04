@@ -30,6 +30,7 @@ def test_routes_are_in_openapi(app: FastAPI) -> None:
             assert operation["security"] == [{"HTTPBearer": []}]
     assert set(paths["/organizations/{organization_id}/access-summary"]) == {"get"}
     assert set(paths["/organizations/{organization_id}/exports"]) == {"get", "post"}
+    assert set(paths["/organizations/{organization_id}/exports/assets"]) == {"get"}
     assert set(paths["/organizations/{organization_id}/exports/{export_id}"]) == {"get"}
     assert set(paths["/organizations/{organization_id}/exports/{export_id}/download"]) == {"get"}
     assert set(paths["/organizations/{organization_id}/exports/{export_id}/verify"]) == {"post"}

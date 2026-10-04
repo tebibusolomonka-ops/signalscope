@@ -75,6 +75,10 @@ One Python package, `src/signalscope`, with one PostgreSQL database. See
 - `domain/retention/`: `OrganizationRetentionPolicy` (one row per
   organization) and `AuditRetentionService` (policy, preview, bounded
   cleanup of the organization's audit events).
+- Organization export archives include tenant JSON records and verified raw
+  document assets. The manifest gives every asset a deterministic ZIP path,
+  size and checksum. Configured count and byte limits are checked before any
+  asset is read.
 - **Dashboard** (`dashboard/`): aggregate counts and zero-filled UTC daily
   series, built with SQL aggregates.
 - **Relations** (`relations/`): relation extraction interface and an

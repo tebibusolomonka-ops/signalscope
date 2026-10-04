@@ -41,7 +41,9 @@ end-to-end security coverage are complete through planned commit 414.
 Evidence navigation is complete through commit 419, with direct chunk
 lookup, context navigation and Previous/Next passages through commit 424.
 Measured evaluation reports can be imported, listed, compared and reviewed
-(commits 425 to 429). Knowledge-graph relation persistence remains deferred, and real-model
+(commits 425 to 429). Organization archive reading, restore planning, binary
+asset export, verification, limits and administration are complete through
+planned commit 439. Knowledge-graph relation persistence remains deferred, and real-model
 evaluation remains separate work.
 
 ## Next batch

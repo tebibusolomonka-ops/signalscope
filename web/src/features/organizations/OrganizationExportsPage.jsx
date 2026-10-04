@@ -14,7 +14,13 @@ export function OrganizationExportsPage() {
   const { api, user } = useAuth();
   const { active, organizations } = useOrganization();
   const path = `/organizations/${organizationId}/exports`;
-  const load = useCallback(() => api.get(path), [api, path]);
+  const load = useCallback(
+    async () => {
+      const [exports, assets] = await Promise.all([api.get(path), api.get(`${path}/assets`)]);
+      return { exports, assets };
+    },
+    [api, path],
+  );
   const { data, error, loading, reload } = useResource(load);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState(null);
@@ -81,8 +87,13 @@ export function OrganizationExportsPage() {
       </p>
       {loading && <Loading />}
       <ErrorMessage error={error ?? actionError} />
-      {data && data.length === 0 && <p>No exports yet.</p>}
-      {data && data.length > 0 && (
+      {data && (
+        <p>
+          Export assets: {data.assets.asset_count} ({formatSize(data.assets.asset_bytes)}). Limits: {data.assets.max_assets} assets and {formatSize(data.assets.max_bytes)}.
+        </p>
+      )}
+      {data && data.exports.length === 0 && <p>No exports yet.</p>}
+      {data && data.exports.length > 0 && (
         <div className="table-wrap">
           <table>
             <thead>
@@ -96,7 +107,7 @@ export function OrganizationExportsPage() {
               </tr>
             </thead>
             <tbody>
-              {data.map((item) => (
+              {data.exports.map((item) => (
                 <tr key={item.id}>
                   <td>{formatTime(item.created_at)}</td>
                   <td>{item.status}</td>

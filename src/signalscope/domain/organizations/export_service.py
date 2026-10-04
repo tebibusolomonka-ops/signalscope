@@ -1,7 +1,8 @@
 import uuid
 from contextlib import suppress
+from dataclasses import dataclass
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from signalscope.core.errors import (
@@ -12,6 +13,8 @@ from signalscope.core.errors import (
     short_error_message,
 )
 from signalscope.domain.audit.service import AuditAction, SecurityAuditService
+from signalscope.domain.documents.asset import DocumentAsset
+from signalscope.domain.documents.model import Document
 from signalscope.domain.organizations.export_archive import (
     EXPORT_FORMAT_VERSION,
     OrganizationExportArchiveService,
@@ -27,11 +30,18 @@ from signalscope.domain.organizations.export_verification import (
 )
 from signalscope.domain.organizations.membership import OrganizationMembership, OrganizationRole
 from signalscope.domain.organizations.model import Organization
+from signalscope.domain.sources.model import Source
 from signalscope.domain.sources.scheduling import Clock, utc_now
 from signalscope.domain.users.model import User
 from signalscope.storage.blob import BlobStore
 
 EXPORT_ROLES = frozenset({OrganizationRole.OWNER, OrganizationRole.ADMIN})
+
+
+@dataclass(frozen=True, slots=True)
+class OrganizationExportAssets:
+    asset_count: int
+    asset_bytes: int
 
 
 class OrganizationExportService:
@@ -119,6 +129,22 @@ class OrganizationExportService:
             .order_by(OrganizationExport.created_at.desc(), OrganizationExport.id.desc())
         )
         return list(exports)
+
+    async def assets(self, organization_id: uuid.UUID) -> OrganizationExportAssets:
+        await self._authorize(organization_id)
+        row = (
+            await self.session.execute(
+                select(
+                    func.count(DocumentAsset.id),
+                    func.coalesce(func.sum(DocumentAsset.size_bytes), 0),
+                )
+                .select_from(DocumentAsset)
+                .join(Document, Document.id == DocumentAsset.document_id)
+                .join(Source, Source.id == Document.source_id)
+                .where(Source.organization_id == organization_id)
+            )
+        ).one()
+        return OrganizationExportAssets(asset_count=int(row[0]), asset_bytes=int(row[1]))
 
     async def get(self, organization_id: uuid.UUID, export_id: uuid.UUID) -> OrganizationExport:
         await self._authorize(organization_id)
