@@ -110,6 +110,18 @@ authentication throttles).
   environment summary, configuration result, readiness, migration head and
   current revision and queue counts. None of them run migrations, change queues,
   load a model or print a secret.
+- HTTP responses carry security headers (nosniff, Referrer-Policy, X-Frame-Options,
+  Permissions-Policy) and a content security policy that is restrictive in
+  production and development-compatible otherwise. A support bundle
+  (`signalscope create-support-bundle`) writes a safe ZIP of configuration,
+  migration state, readiness, queue counts and recent short worker errors with
+  checksums, and never secrets or tenant content. A pilot readiness evaluator
+  (`signalscope pilot-readiness`) produces a factual checklist of passed, failed,
+  warning and manual checks, with local model evidence reported separately; a
+  missing model never fails the pilot on its own. End-to-end coverage ties auth,
+  organization content, backup, export verification, restore planning, readiness,
+  headers, CSP, the support bundle and pilot readiness together and checks tenant
+  isolation and that no secret or tenant content leaks.
 - Organization backups reuse the versioned export archive. One policy per
   organization controls daily or weekly scheduling, retained backup count and
   binary asset inclusion. A backup is completed only after archive verification;

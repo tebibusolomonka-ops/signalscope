@@ -389,6 +389,35 @@ signalscope deployment-diagnostics --json
 It exits nonzero when the configuration has errors, a required dependency is
 unavailable, or the database is not at the current migration head.
 
+When something goes wrong in a pilot, create a support bundle to share. It is a
+ZIP of the configuration summary, migration state, readiness, queue counts and
+the recent short worker error messages, each with a checksum. It never contains
+passwords, tokens, the database URL, raw document or chunk text, research
+answers or private assets.
+
+```bash
+signalscope create-support-bundle --output support.zip
+```
+
+### Pilot preparation workflow
+
+Before a pilot, work through this list:
+
+1. `signalscope validate-production-config` and fix every error.
+2. Apply migrations and confirm `signalscope deployment-diagnostics` reports the
+   database at the current head and all dependencies ready.
+3. Confirm a manual backup completes and its archive verifies
+   (`signalscope run-organization-backup <id>` and
+   `signalscope verify-organization-export`), and that a restore plan into an
+   empty organization is clean.
+4. `signalscope pilot-readiness` for the full checklist. It groups passed,
+   failed and warning checks, lists the manual steps a person must confirm (such
+   as TLS in front of the API), and reports local model evidence in its own
+   section. Missing model evidence does not fail the pilot on its own.
+
+The pilot readiness output is a factual checklist, not a score. Fix the failed
+checks, record the manual ones, and keep a support bundle for reference.
+
 ## Admin web app
 
 `web/` holds a small React admin app, written in JavaScript and built with
