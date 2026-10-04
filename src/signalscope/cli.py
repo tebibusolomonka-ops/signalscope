@@ -31,6 +31,7 @@ from signalscope.core.logging import configure_logging
 from signalscope.core.settings import Settings, SettingsError, load_settings
 from signalscope.db.engine import create_database_engine
 from signalscope.db.session import create_session_factory
+from signalscope.domain.audit.service import AuditAction, SecurityAuditService
 from signalscope.domain.blobs.cleanup import BlobCleanupService
 from signalscope.domain.claims.job import ClaimExtractionJobStatus
 from signalscope.domain.claims.job_repository import ClaimExtractionJobRepository
@@ -63,13 +64,16 @@ from signalscope.domain.investigations.export import (
     InvestigationExportService,
     investigation_markdown,
 )
+from signalscope.domain.organizations.backup_service import OrganizationBackupService
 from signalscope.domain.organizations.export_archive import OrganizationExportArchiveService
 from signalscope.domain.organizations.export_cleanup import OrganizationExportCleanupService
 from signalscope.domain.organizations.export_inventory import OrganizationExportInventoryService
+from signalscope.domain.organizations.export_record import OrganizationExportStatus
 from signalscope.domain.organizations.export_verification import (
     OrganizationExportVerificationService,
 )
 from signalscope.domain.organizations.invitation_cleanup import InvitationCleanupService
+from signalscope.domain.organizations.model import Organization
 from signalscope.domain.organizations.restore_plan import build_restore_plan
 from signalscope.domain.processing.file_import import FileImportService
 from signalscope.domain.processing.job_repository import DocumentProcessingJobRepository
@@ -382,6 +386,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 overwrite=args.overwrite,
             )
         )
+    if args.command == "run-organization-backup":
+        return asyncio.run(run_organization_backup(args.organization_id, settings))
     if args.command == "verify-organization-export":
         return verify_organization_export(args.path)
     if args.command == "plan-organization-restore":
@@ -605,6 +611,13 @@ def build_parser() -> argparse.ArgumentParser:
         "verify-organization-export", help="verify a portable organization ZIP archive"
     )
     organization_export_verify.add_argument("path", type=Path, help="local ZIP archive to verify")
+
+    organization_backup = commands.add_parser(
+        "run-organization-backup", help="run a verified portable backup for one organization"
+    )
+    organization_backup.add_argument(
+        "organization_id", type=uuid.UUID, help="ID of the organization"
+    )
 
     organization_restore_plan = commands.add_parser(
         "plan-organization-restore", help="verify and plan an organization restore without changes"
@@ -1375,6 +1388,46 @@ def verify_organization_export(
     for problem in result.problems:
         print(f"Problem: {problem}", file=out)
     return 0 if result.valid else 1
+
+
+async def run_organization_backup(
+    organization_id: uuid.UUID,
+    settings: Settings,
+    out: TextIO | None = None,
+    err: TextIO | None = None,
+) -> int:
+    """Run one verified organization backup from the local command line."""
+    out = sys.stdout if out is None else out
+    err = sys.stderr if err is None else err
+    if settings.database_url is None:
+        print(NO_DATABASE_ERROR, file=err)
+        return 1
+    if settings.blob_dir is None:
+        print(NO_BLOB_DIR_ERROR, file=err)
+        return 1
+    async with _database(settings) as session_factory, session_factory() as session:
+        organization = await session.get(Organization, organization_id)
+        if organization is None:
+            print("Error: Organization was not found.", file=err)
+            return 1
+        SecurityAuditService(session).record(
+            AuditAction.ORGANIZATION_BACKUP_RUN,
+            actor_user_id=None,
+            organization_id=organization_id,
+            resource_type="organization_backup",
+            resource_id=organization_id,
+        )
+        export = await OrganizationBackupService(
+            session,
+            LocalBlobStore(settings.blob_dir),
+            max_assets=settings.organization_export_max_assets,
+            max_bytes=settings.organization_export_max_bytes,
+        ).run(organization_id, organization.created_by_user_id)
+    print(f"Backup: {export.id}", file=out)
+    print(f"Status: {export.status}", file=out)
+    if export.safe_error:
+        print(f"Error: {export.safe_error}", file=err)
+    return 0 if export.status is OrganizationExportStatus.COMPLETED else 1
 
 
 async def plan_organization_restore(

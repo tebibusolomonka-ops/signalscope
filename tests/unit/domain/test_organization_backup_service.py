@@ -157,7 +157,8 @@ async def test_verification_failure_does_not_update_policy() -> None:
     export = await service.run(ORGANIZATION_ID, USER_ID)
 
     assert export.status is OrganizationExportStatus.FAILED
-    assert export.artifact_key is None
+    assert export.artifact_key is not None
+    assert export.artifact_key.startswith("organization-backups/")
     assert export.safe_error == "Backup export verification failed."
     assert session.policy.last_run_at is None
     assert session.policy.next_run_at == NOW + timedelta(days=1)

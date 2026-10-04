@@ -55,7 +55,9 @@ class OrganizationBackupService:
     ) -> OrganizationExport:
         policy = await self.session.get(OrganizationBackupPolicy, organization_id)
         if policy is None:
-            raise ValueError("Organization backup policy was not found.")
+            policy = OrganizationBackupPolicy(organization_id=organization_id)
+            self.session.add(policy)
+            await self.session.flush()
 
         now = self.clock()
         export = OrganizationExport(
@@ -90,7 +92,6 @@ class OrganizationBackupService:
                     await self.blobs.delete(export.artifact_key)
             export.status = OrganizationExportStatus.FAILED
             export.finished_at = self.clock()
-            export.artifact_key = None
             export.safe_error = _safe_error(error)
             policy.next_run_at = export.finished_at + _frequency_delta(policy.frequency)
 

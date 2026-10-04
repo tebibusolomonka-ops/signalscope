@@ -76,6 +76,8 @@ def test_organization_export_arguments() -> None:
         Path("tenant.zip"),
         True,
     )
+    backup = build_parser().parse_args(["run-organization-backup", str(organization_id)])
+    assert backup.organization_id == organization_id
 
 
 async def test_existing_file_is_not_replaced(tmp_path: Path) -> None:

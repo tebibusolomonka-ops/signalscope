@@ -34,6 +34,9 @@ def test_routes_are_in_openapi(app: FastAPI) -> None:
     assert set(paths["/organizations/{organization_id}/exports/{export_id}"]) == {"get"}
     assert set(paths["/organizations/{organization_id}/exports/{export_id}/download"]) == {"get"}
     assert set(paths["/organizations/{organization_id}/exports/{export_id}/verify"]) == {"post"}
+    assert set(paths["/organizations/{organization_id}/backup-policy"]) == {"get", "put"}
+    assert set(paths["/organizations/{organization_id}/backups/run"]) == {"post"}
+    assert set(paths["/organizations/{organization_id}/backups"]) == {"get"}
     export = app.openapi()["components"]["schemas"]["OrganizationExportRead"]
     assert "artifact_key" not in export["properties"]
     summary = app.openapi()["components"]["schemas"]["OrganizationAccessSummaryRead"]
