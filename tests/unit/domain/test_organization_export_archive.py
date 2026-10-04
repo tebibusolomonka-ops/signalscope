@@ -8,7 +8,7 @@ from uuid import UUID
 
 import pytest
 
-from signalscope.core.errors import ServiceUnavailableError
+from signalscope.core.errors import InvalidInputError, ServiceUnavailableError
 from signalscope.domain.documents.asset import DocumentAsset
 from signalscope.domain.organizations.export_archive import OrganizationExportArchiveService
 from signalscope.domain.organizations.export_inventory import OrganizationExportInventory
@@ -206,3 +206,28 @@ async def test_export_rejects_asset_bytes_that_do_not_match_the_record() -> None
 
     with pytest.raises(ServiceUnavailableError, match="Stored asset does not match its record"):
         await service.build(ORGANIZATION_ID)
+
+
+@pytest.mark.anyio
+async def test_export_applies_asset_count_and_size_limits_before_reading_blobs() -> None:
+    asset = DocumentAsset(
+        id=ASSET_ID,
+        document_id=DOCUMENT_ID,
+        storage_key="document-assets/report.pdf",
+        filename="report.pdf",
+        content_type="application/pdf",
+        size_bytes=12,
+        sha256="a" * 64,
+        created_at=NOW,
+        updated_at=NOW,
+    )
+    exported = replace(inventory(), document_assets=(asset,))
+
+    with pytest.raises(InvalidInputError, match="1 assets; the limit is 0"):
+        await OrganizationExportArchiveService(
+            InventoryService(exported), MemoryBlobs(), max_assets=0
+        ).build(ORGANIZATION_ID)
+    with pytest.raises(InvalidInputError, match="12 asset bytes; the limit is 11"):
+        await OrganizationExportArchiveService(
+            InventoryService(exported), MemoryBlobs(), max_bytes=11
+        ).build(ORGANIZATION_ID)

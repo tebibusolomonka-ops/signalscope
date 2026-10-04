@@ -1337,10 +1337,14 @@ async def export_organization(
 
     async with _database(settings) as session_factory, session_factory() as session:
         try:
+            blobs = LocalBlobStore(settings.blob_dir) if settings.blob_dir is not None else None
             archive = await OrganizationExportArchiveService(
-                OrganizationExportInventoryService(session)
+                OrganizationExportInventoryService(session),
+                blobs,
+                max_assets=settings.organization_export_max_assets,
+                max_bytes=settings.organization_export_max_bytes,
             ).build(organization_id)
-        except NotFoundError as error:
+        except (InvalidInputError, NotFoundError) as error:
             print(f"Error: {error}", file=err)
             return 1
     try:

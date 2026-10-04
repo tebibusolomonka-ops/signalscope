@@ -63,6 +63,18 @@ def test_load_settings_reads_organization_export_retention() -> None:
     assert settings.organization_export_retention_days == 45
 
 
+def test_load_settings_reads_organization_export_limits() -> None:
+    settings = load_settings(
+        {
+            "SIGNALSCOPE_ORGANIZATION_EXPORT_MAX_ASSETS": "25",
+            "SIGNALSCOPE_ORGANIZATION_EXPORT_MAX_BYTES": "4096",
+        }
+    )
+
+    assert settings.organization_export_max_assets == 25
+    assert settings.organization_export_max_bytes == 4096
+
+
 @pytest.mark.parametrize("days", [0, 366])
 def test_organization_export_retention_is_bounded(days: int) -> None:
     with pytest.raises(SettingsError, match="organization_export_retention_days"):

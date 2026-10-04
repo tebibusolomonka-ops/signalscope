@@ -43,11 +43,15 @@ class OrganizationExportService:
         actor: User,
         blobs: BlobStore | None = None,
         clock: Clock = utc_now,
+        max_assets: int = 10_000,
+        max_bytes: int = 500_000_000,
     ) -> None:
         self.session = session
         self.actor = actor
         self.blobs = blobs
         self.clock = clock
+        self.max_assets = max_assets
+        self.max_bytes = max_bytes
 
     async def create(self, organization_id: uuid.UUID) -> OrganizationExport:
         await self._authorize(organization_id)
@@ -69,7 +73,11 @@ class OrganizationExportService:
         artifact_key = export.artifact_key
         try:
             archive = await OrganizationExportArchiveService(
-                OrganizationExportInventoryService(self.session), self.blobs, self.clock
+                OrganizationExportInventoryService(self.session),
+                self.blobs,
+                self.clock,
+                self.max_assets,
+                self.max_bytes,
             ).store(organization_id, export.artifact_key)
             export.status = OrganizationExportStatus.COMPLETED
             export.finished_at = self.clock()

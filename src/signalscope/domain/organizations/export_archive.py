@@ -11,7 +11,7 @@ from typing import Any
 from sqlalchemy import inspect
 from sqlalchemy.orm import DeclarativeBase
 
-from signalscope.core.errors import ServiceUnavailableError
+from signalscope.core.errors import InvalidInputError, ServiceUnavailableError
 from signalscope.domain.documents.asset import DocumentAsset
 from signalscope.domain.organizations.export_inventory import (
     OrganizationExportInventory,
@@ -65,13 +65,27 @@ class OrganizationExportArchiveService:
         inventory: OrganizationExportInventoryService,
         blobs: BlobStore | None = None,
         clock: Clock = utc_now,
+        max_assets: int = 10_000,
+        max_bytes: int = 500_000_000,
     ) -> None:
         self.inventory = inventory
         self.blobs = blobs
         self.clock = clock
+        self.max_assets = max_assets
+        self.max_bytes = max_bytes
 
     async def build(self, organization_id: uuid.UUID) -> OrganizationExportArchive:
         inventory = await self.inventory.build(organization_id)
+        asset_count = len(inventory.document_assets)
+        asset_bytes = sum(asset.size_bytes for asset in inventory.document_assets)
+        if asset_count > self.max_assets:
+            raise InvalidInputError(
+                f"Organization export has {asset_count} assets; the limit is {self.max_assets}."
+            )
+        if asset_bytes > self.max_bytes:
+            raise InvalidInputError(
+                f"Organization export has {asset_bytes} asset bytes; the limit is {self.max_bytes}."
+            )
         files = self._files(inventory)
         files.update(await self._asset_files(inventory.document_assets))
         manifest: dict[str, Any] = {

@@ -20,6 +20,8 @@ MAX_AUTH_LOGIN_BLOCK_SECONDS = 604_800
 MAX_ORGANIZATION_INVITATION_DAYS = 90
 MAX_INVITATION_RETENTION_DAYS = 365
 MAX_ORGANIZATION_EXPORT_RETENTION_DAYS = 365
+MAX_ORGANIZATION_EXPORT_ASSETS = 1_000_000
+MAX_ORGANIZATION_EXPORT_BYTES = 10_000_000_000
 
 
 class SettingsError(SignalScopeError, ValueError):
@@ -96,6 +98,8 @@ class Settings:
     organization_invitation_retention_days: int = 30
     # How long completed and failed portable exports remain available.
     organization_export_retention_days: int = 30
+    organization_export_max_assets: int = 10_000
+    organization_export_max_bytes: int = 500_000_000
 
     def __post_init__(self) -> None:
         if not self.app_name.strip():
@@ -155,6 +159,14 @@ class Settings:
             raise SettingsError(
                 "organization_export_retention_days must be from 1 to "
                 f"{MAX_ORGANIZATION_EXPORT_RETENTION_DAYS}"
+            )
+        if not 1 <= self.organization_export_max_assets <= MAX_ORGANIZATION_EXPORT_ASSETS:
+            raise SettingsError(
+                f"organization_export_max_assets must be from 1 to {MAX_ORGANIZATION_EXPORT_ASSETS}"
+            )
+        if not 1 <= self.organization_export_max_bytes <= MAX_ORGANIZATION_EXPORT_BYTES:
+            raise SettingsError(
+                f"organization_export_max_bytes must be from 1 to {MAX_ORGANIZATION_EXPORT_BYTES}"
             )
         if self.database_url is not None and not self.database_url.startswith(DATABASE_URL_PREFIX):
             raise SettingsError(f"Database URL must start with {DATABASE_URL_PREFIX}")
@@ -252,6 +264,16 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
             env,
             "SIGNALSCOPE_ORGANIZATION_EXPORT_RETENTION_DAYS",
             defaults.organization_export_retention_days,
+        ),
+        organization_export_max_assets=_read_int(
+            env,
+            "SIGNALSCOPE_ORGANIZATION_EXPORT_MAX_ASSETS",
+            defaults.organization_export_max_assets,
+        ),
+        organization_export_max_bytes=_read_int(
+            env,
+            "SIGNALSCOPE_ORGANIZATION_EXPORT_MAX_BYTES",
+            defaults.organization_export_max_bytes,
         ),
     )
 

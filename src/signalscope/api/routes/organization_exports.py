@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Response, status
+from fastapi import APIRouter, Request, Response, status
 
 from signalscope.api.auth import CurrentSession
 from signalscope.api.dependencies import Blobs, DatabaseSession
@@ -19,8 +19,16 @@ async def create_organization_export(
     current: CurrentSession,
     session: DatabaseSession,
     blobs: Blobs,
+    request: Request,
 ) -> OrganizationExportRead:
-    export = await OrganizationExportService(session, current.user, blobs).create(organization_id)
+    settings = request.app.state.settings
+    export = await OrganizationExportService(
+        session,
+        current.user,
+        blobs,
+        max_assets=settings.organization_export_max_assets,
+        max_bytes=settings.organization_export_max_bytes,
+    ).create(organization_id)
     return OrganizationExportRead.model_validate(export)
 
 
