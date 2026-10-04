@@ -114,14 +114,16 @@ class OrganizationDisasterRecoveryDrillService:
             raise ServiceUnavailableError("The backup archive did not verify.")
         read = OrganizationArchiveReader().read(archive.data)
         inventory = OrganizationRestoreInventoryService().build(read)
-        conflicts = await OrganizationRestoreConflictService(self.session).analyze(read, None)
+        # A verification drill has no restore target, so there are no
+        # target conflicts. The restore warnings are still worth recording.
+        conflicts = await OrganizationRestoreConflictService(self.session).analyze(read)
         return {
             "mode": DisasterRecoveryDrillMode.VERIFICATION_ONLY.value,
             "archive_sha256": archive.sha256,
             "archive_size_bytes": archive.size_bytes,
             "counts": inventory.counts,
             "asset_count": inventory.asset_count,
-            "plan_conflicts": list(conflicts.conflicts),
+            "plan_conflicts": [],
             "plan_warnings": list(conflicts.warnings),
         }
 
