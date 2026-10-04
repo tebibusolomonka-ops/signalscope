@@ -1,7 +1,10 @@
 # Current State
 
-Batch 420 to 459 is in progress on top of a 428-commit history (HEAD
-c4b5355 at its start). Work is complete through planned commit 444. Durable operation history and portable organization
+Batch 420 to 459 is complete, pushed and green (HEAD `fa5dd1c`, Alembic head
+`b2d5f8a1c4e7`). Batch 460 to 489 (disaster-recovery drills, operational
+observability, session hardening, input and abuse protection, release-candidate
+and deployment gates, acceptance and release readiness) is now in progress.
+Durable operation history and portable organization
 exports, model evaluation evidence tooling and authentication hardening were
 complete through commit 414, and exact evidence navigation through commit
 419. Measured evaluation reports can now be imported, listed, compared and
