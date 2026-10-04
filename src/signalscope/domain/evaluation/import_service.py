@@ -38,6 +38,7 @@ class EvaluationReportImportService:
         self, report: dict[str, Any], imported_by_user_id: uuid.UUID | None = None
     ) -> ImportedReport:
         _validate(report)
+        report = _safe_report(report)
         canonical = (
             json.dumps(report, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
         ).encode()
@@ -90,3 +91,10 @@ def _safe_environment(environment: Any) -> dict[str, Any]:
     if not isinstance(environment, dict):
         return {}
     return {key: value for key, value in environment.items() if key in SAFE_ENVIRONMENT_KEYS}
+
+
+def _safe_report(report: dict[str, Any]) -> dict[str, Any]:
+    """Copy a report while retaining only approved environment facts."""
+    safe = dict(report)
+    safe["environment"] = _safe_environment(report.get("environment"))
+    return safe
