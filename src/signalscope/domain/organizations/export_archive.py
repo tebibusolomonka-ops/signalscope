@@ -74,10 +74,13 @@ class OrganizationExportArchiveService:
         self.max_assets = max_assets
         self.max_bytes = max_bytes
 
-    async def build(self, organization_id: uuid.UUID) -> OrganizationExportArchive:
+    async def build(
+        self, organization_id: uuid.UUID, *, include_assets: bool = True
+    ) -> OrganizationExportArchive:
         inventory = await self.inventory.build(organization_id)
-        asset_count = len(inventory.document_assets)
-        asset_bytes = sum(asset.size_bytes for asset in inventory.document_assets)
+        assets = inventory.document_assets if include_assets else ()
+        asset_count = len(assets)
+        asset_bytes = sum(asset.size_bytes for asset in assets)
         if asset_count > self.max_assets:
             raise InvalidInputError(
                 f"Organization export has {asset_count} assets; the limit is {self.max_assets}."
@@ -87,7 +90,7 @@ class OrganizationExportArchiveService:
                 f"Organization export has {asset_bytes} asset bytes; the limit is {self.max_bytes}."
             )
         files = self._files(inventory)
-        files.update(await self._asset_files(inventory.document_assets))
+        files.update(await self._asset_files(assets))
         manifest: dict[str, Any] = {
             "format_version": EXPORT_FORMAT_VERSION,
             "organization_id": str(organization_id),
@@ -95,7 +98,7 @@ class OrganizationExportArchiveService:
             "record_counts": {
                 name: inventory.counts[name] for name in FILES if inventory.counts[name]
             },
-            "assets": [_asset_manifest_entry(asset) for asset in inventory.document_assets],
+            "assets": [_asset_manifest_entry(asset) for asset in assets],
             "files": [
                 {
                     "path": path,
@@ -114,9 +117,13 @@ class OrganizationExportArchiveService:
         )
 
     async def store(
-        self, organization_id: uuid.UUID, artifact_key: str
+        self,
+        organization_id: uuid.UUID,
+        artifact_key: str,
+        *,
+        include_assets: bool = True,
     ) -> OrganizationExportArchive:
-        archive = await self.build(organization_id)
+        archive = await self.build(organization_id, include_assets=include_assets)
         if self.blobs is None:
             raise ServiceUnavailableError("File storage is not configured.")
         await self.blobs.put(artifact_key, archive.data)

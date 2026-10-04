@@ -186,6 +186,32 @@ async def test_manifest_describes_binary_assets_without_storage_keys() -> None:
 
 
 @pytest.mark.anyio
+async def test_archive_can_omit_binary_assets() -> None:
+    content = b"binary report"
+    asset = DocumentAsset(
+        id=ASSET_ID,
+        document_id=DOCUMENT_ID,
+        storage_key="document-assets/private-key.pdf",
+        filename="report.pdf",
+        content_type="application/pdf",
+        size_bytes=len(content),
+        sha256=hashlib.sha256(content).hexdigest(),
+        created_at=NOW,
+        updated_at=NOW,
+    )
+    exported = replace(inventory(), document_assets=(asset,))
+
+    result = await OrganizationExportArchiveService(
+        InventoryService(exported),
+        clock=lambda: NOW,  # type: ignore[arg-type]
+    ).build(ORGANIZATION_ID, include_assets=False)
+
+    assert result.manifest["assets"] == []
+    with zipfile.ZipFile(io.BytesIO(result.data)) as archive:
+        assert f"assets/{ASSET_ID}" not in archive.namelist()
+
+
+@pytest.mark.anyio
 async def test_export_rejects_asset_bytes_that_do_not_match_the_record() -> None:
     asset = DocumentAsset(
         id=ASSET_ID,
