@@ -38,6 +38,7 @@ from signalscope.domain.claims.job_repository import ClaimExtractionJobRepositor
 from signalscope.domain.claims.queue import ClaimExtractionQueueService
 from signalscope.domain.claims.worker import ClaimExtractionWorker
 from signalscope.domain.diagnostics.deployment import DeploymentDiagnosticsService
+from signalscope.domain.diagnostics.pilot_readiness import PilotReadinessEvaluator
 from signalscope.domain.diagnostics.production_config import ProductionConfigurationValidator
 from signalscope.domain.diagnostics.support_bundle import SupportBundleService
 from signalscope.domain.documents.files import MAX_FILE_BYTES
@@ -312,6 +313,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(deployment_diagnostics(settings, json_output=args.json))
     if args.command == "create-support-bundle":
         return asyncio.run(create_support_bundle(args.output, settings, overwrite=args.overwrite))
+    if args.command == "pilot-readiness":
+        return asyncio.run(pilot_readiness(settings, json_output=args.json))
     if args.command == "compare-evaluation-reports":
         return compare_evaluation_reports_command(args.reports, json_output=args.json)
     if args.command == "check-evaluation-report":
@@ -777,6 +780,9 @@ def build_parser() -> argparse.ArgumentParser:
     support_bundle.add_argument(
         "--overwrite", action="store_true", help="replace the output file if it exists"
     )
+
+    pilot = commands.add_parser("pilot-readiness", help="print a factual pilot readiness checklist")
+    pilot.add_argument("--json", action="store_true", help="write JSON output")
 
     comparison = commands.add_parser(
         "compare-evaluation-reports", help="compare factual metrics from compatible reports"
@@ -1731,6 +1737,39 @@ async def create_support_bundle(
         return 1
     print(f"Wrote {output}", file=out)
     return 0
+
+
+async def pilot_readiness(
+    settings: Settings, out: TextIO | None = None, *, json_output: bool = False
+) -> int:
+    """Print a pilot readiness checklist. Returns nonzero when a check failed."""
+    out = sys.stdout if out is None else out
+    evaluator = PilotReadinessEvaluator(settings)
+    if settings.database_url is None:
+        report = evaluator.evaluate_without_database()
+    else:
+        blobs = LocalBlobStore(settings.blob_dir) if settings.blob_dir is not None else None
+        async with _database(settings) as session_factory, session_factory() as session:
+            report = await evaluator.evaluate(session, blobs)
+    data = report.to_dict()
+    if json_output:
+        print(json.dumps(data, sort_keys=True), file=out)
+    else:
+        print(f"Ready: {'yes' if report.ready else 'no'}", file=out)
+        print(f"Passed: {len(data['passed'])}", file=out)
+        for failure in data["failed"]:
+            print(f"FAILED: {failure['name']}: {failure['message']}", file=out)
+        for warning in data["warnings"]:
+            print(f"WARNING: {warning['name']}: {warning['message']}", file=out)
+        for step in data["manual"]:
+            print(f"MANUAL: {step}", file=out)
+        model = data["model"]
+        print(
+            f"Model: configured {model['configured']}, "
+            f"evaluation evidence {model['evaluation_evidence_available']}",
+            file=out,
+        )
+    return 0 if report.ready else 1
 
 
 def compare_evaluation_reports_command(
