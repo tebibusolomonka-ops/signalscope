@@ -101,6 +101,15 @@ authentication throttles).
   Restores have durable lifecycle records and audit events, a system-admin
   apply API (`POST /organizations/:id/restore`) and a `signalscope
   restore-organization` command that is a dry run unless `--apply` is given.
+- Disaster recovery drills exercise backup and restore readiness and record the
+  factual result (`organization_disaster_recovery_drills`). A verification-only
+  drill backs up, verifies and plans a restore without changing data; a
+  restore-test drill also restores into a separate empty target using the
+  constrained restore service. Owners/admins/system admins run verification
+  drills; restore-test needs a system admin. There is an admin API
+  (`/organizations/:id/drills`), a `signalscope run-disaster-recovery-drill`
+  command and a Disaster recovery web workspace. Drills never create, delete or
+  overwrite organizations and never restore credentials, sessions or throttles.
 - Production readiness and deployment diagnostics are factual and read-only. A
   dependency readiness service checks the database, file storage, scheduler and
   job queues and reports configured local models without loading or downloading

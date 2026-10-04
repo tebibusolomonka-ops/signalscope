@@ -358,6 +358,31 @@ value. The server re-verifies the archive every time; it never trusts a caller
 that says the archive was already checked. Restores are recorded with their
 lifecycle (running, completed or failed) and as audit events.
 
+### Disaster recovery drills
+
+A disaster recovery drill exercises the backup and restore path on purpose and
+records the factual result. A verification-only drill backs up an organization,
+verifies the archive and plans a restore without changing data. A restore-test
+drill also restores into a separate, explicitly chosen empty target
+organization using the same constrained restore service; it never creates,
+deletes or overwrites an organization and never restores credentials.
+
+Owners, admins and system admins can run verification-only drills; restore-test
+drills require a system admin. Over the API:
+`POST /organizations/<id>/drills` with `{"mode": "verification_only"}` or
+`{"mode": "restore_test", "target_organization_id": "<empty-org>"}`, listed at
+`GET /organizations/<id>/drills`. On the server:
+
+```bash
+signalscope run-disaster-recovery-drill <id>
+signalscope run-disaster-recovery-drill <id> --mode restore-test \
+  --target-organization <empty-org-id>
+```
+
+The organization administration area has a Disaster recovery workspace that
+shows recent drills and runs a verification drill, with restore tests limited to
+system admins and an empty target.
+
 ## Production readiness and diagnostics
 
 The API has two operational endpoints next to `/health`. `GET /health/live`
