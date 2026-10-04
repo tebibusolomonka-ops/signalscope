@@ -233,12 +233,15 @@ async def test_restore_rebuilds_organization_without_restoring_secrets(
     credentials_before = await count(session_factory, UserPasswordCredential)
     sessions_before = await count(session_factory, UserSession)
     throttles_before = await count(session_factory, AuthenticationThrottle)
-    sources_a_before = await count(session_factory, Source)
+    async with session_factory() as session:
+        sources_a_before = await session.scalar(
+            select(func.count()).select_from(Source).where(Source.organization_id == tenants.a.id)
+        )
 
     # Plan the restore into empty Organization B.
     async with session_factory() as session:
         plan = await build_restore_plan(session, archive.data, tenants.b.id)
-    assert plan["conflicts"] == []
+    assert list(plan["conflicts"]) == []
 
     # Map Organization A's owner to a different existing user, then apply.
     restore_blobs = MemoryBlobs()
@@ -328,9 +331,12 @@ async def test_restore_rebuilds_organization_without_restoring_secrets(
     assert hashlib.sha256(restore_blobs.values[asset_b.storage_key]).hexdigest() == a.asset_sha256
 
     # Organization A is unchanged, and nothing leaks across tenants.
-    assert await count(session_factory, Source) == sources_a_before
     async with session_factory() as session:
+        sources_a_after = await session.scalar(
+            select(func.count()).select_from(Source).where(Source.organization_id == tenants.a.id)
+        )
         source_a = await session.get(Source, a.source_id)
+    assert sources_a_after == sources_a_before
     assert source_a is not None and source_a.organization_id == tenants.a.id
 
     # Credentials, sessions, login throttle and invitations are never restored.

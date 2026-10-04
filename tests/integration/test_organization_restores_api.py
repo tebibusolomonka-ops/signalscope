@@ -126,7 +126,7 @@ async def test_restore_requires_confirmation(
         headers={**tenants.system, **ZIP},
     )
 
-    assert response.status_code == 400
+    assert response.status_code == 422
     assert "confirmed" in response.json()["error"]["message"]
     assert await restore_run_events(session_factory) == []
 
@@ -145,7 +145,7 @@ async def test_restore_refuses_non_empty_target(
         headers={**tenants.system, **ZIP},
     )
 
-    assert response.status_code == 400
+    assert response.status_code == 422
     assert "must be empty" in response.json()["error"]["message"]
     async with session_factory() as session:
         restores = await session.scalar(select(OrganizationRestore.id))
@@ -168,7 +168,7 @@ async def test_restore_refuses_bad_user_mapping(
         headers={**tenants.system, **ZIP},
     )
 
-    assert response.status_code == 400
+    assert response.status_code == 422
     assert "active user mapping" in response.json()["error"]["message"]
 
 
@@ -184,7 +184,7 @@ async def test_restore_refuses_corrupt_archive(
         headers={**tenants.system, **ZIP},
     )
 
-    assert response.status_code == 400
+    assert response.status_code == 422
     events = await restore_run_events(session_factory)
     assert len(events) == 1 and events[0].details == {"reason": "failed"}
 

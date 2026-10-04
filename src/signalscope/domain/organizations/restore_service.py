@@ -105,11 +105,13 @@ class OrganizationRestoreService:
         )
         self.session.add(restore)
         await self.session.commit()
+        # A rollback below expires the record, so keep its id for the failure path.
+        restore_id = restore.id
 
         staged_keys: list[str] = []
         final_keys: list[str] = []
         try:
-            staged_keys = await self._stage_assets(restore.id, archive)
+            staged_keys = await self._stage_assets(restore_id, archive)
             restored_counts, final_keys = await self._restore_records(
                 archive, target_organization_id, users, staged_keys
             )
@@ -123,7 +125,7 @@ class OrganizationRestoreService:
         except BaseException as error:
             await self.session.rollback()
             await self._delete_blobs(final_keys + staged_keys)
-            stored = await self.session.get(OrganizationRestore, restore.id)
+            stored = await self.session.get(OrganizationRestore, restore_id)
             if stored is not None:
                 stored.status = OrganizationRestoreStatus.FAILED
                 stored.finished_at = self.clock()
