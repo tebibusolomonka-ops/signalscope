@@ -92,6 +92,7 @@ class OrganizationBackupService:
             export.finished_at = self.clock()
             export.artifact_key = None
             export.safe_error = _safe_error(error)
+            policy.next_run_at = export.finished_at + _frequency_delta(policy.frequency)
 
         await self.session.commit()
         return export
