@@ -37,6 +37,7 @@ from signalscope.domain.claims.job import ClaimExtractionJobStatus
 from signalscope.domain.claims.job_repository import ClaimExtractionJobRepository
 from signalscope.domain.claims.queue import ClaimExtractionQueueService
 from signalscope.domain.claims.worker import ClaimExtractionWorker
+from signalscope.domain.diagnostics.production_config import ProductionConfigurationValidator
 from signalscope.domain.documents.files import MAX_FILE_BYTES
 from signalscope.domain.entities.job import EntityExtractionJobStatus
 from signalscope.domain.entities.job_repository import EntityExtractionJobRepository
@@ -303,6 +304,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(check_answer_model(settings))
     if args.command == "model-environment":
         return model_environment(json_output=args.json)
+    if args.command == "validate-production-config":
+        return validate_production_config(settings, json_output=args.json)
     if args.command == "compare-evaluation-reports":
         return compare_evaluation_reports_command(args.reports, json_output=args.json)
     if args.command == "check-evaluation-report":
@@ -747,6 +750,11 @@ def build_parser() -> argparse.ArgumentParser:
         "model-environment", help="report local model dependencies without loading models"
     )
     environment_report.add_argument("--json", action="store_true", help="write JSON output")
+
+    production_config = commands.add_parser(
+        "validate-production-config", help="check settings for production without printing secrets"
+    )
+    production_config.add_argument("--json", action="store_true", help="write JSON output")
 
     comparison = commands.add_parser(
         "compare-evaluation-reports", help="compare factual metrics from compatible reports"
@@ -1608,6 +1616,24 @@ def model_environment(out: TextIO | None = None, *, json_output: bool = False) -
     for use, model in report.models.items():
         print(f"{use} model: {model}", file=out)
     return 0
+
+
+def validate_production_config(
+    settings: Settings, out: TextIO | None = None, *, json_output: bool = False
+) -> int:
+    """Check settings for production. Returns nonzero when there are errors."""
+    out = sys.stdout if out is None else out
+    result = ProductionConfigurationValidator(settings).validate()
+    if json_output:
+        payload = [
+            {"check": finding.check, "level": finding.level.value, "message": finding.message}
+            for finding in result.findings
+        ]
+        print(json.dumps(payload, sort_keys=True), file=out)
+    else:
+        for finding in result.findings:
+            print(f"{finding.level.value.upper()}: {finding.check}: {finding.message}", file=out)
+    return 1 if result.has_errors else 0
 
 
 def compare_evaluation_reports_command(
