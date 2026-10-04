@@ -80,3 +80,34 @@ class OperationAttemptRead(BaseModel):
     outcome: OperationAttemptOutcome
     safe_error: str | None
     created_at: datetime
+
+
+class OperationTrendPointRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    bucket_start: datetime
+    total: int
+    succeeded: int
+    failed: int
+    recovered: int
+    running: int
+    retried: int
+
+
+class QueueLatencyRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    queue: str
+    completed: int
+    min_seconds: float
+    max_seconds: float
+    average_seconds: float
+    p50_seconds: float
+    p95_seconds: float
+
+
+class OperationTrendsRead(BaseModel):
+    organization_id: uuid.UUID
+    bucket: str
+    points: list[OperationTrendPointRead]
+    latency: list[QueueLatencyRead]

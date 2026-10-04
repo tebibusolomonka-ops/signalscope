@@ -7,9 +7,11 @@ from fastapi import APIRouter, Query
 from signalscope.api.dependencies import DatabaseSession
 from signalscope.api.pagination import Page, Pagination
 from signalscope.api.tenancy import Policy
+from signalscope.domain.operations.access import operations_scope
 from signalscope.domain.operations.attempt import OperationAttemptOutcome, OperationAttemptQueue
 from signalscope.domain.operations.failed_jobs import FailedJobInspectionService
 from signalscope.domain.operations.history import OperationHistoryService
+from signalscope.domain.operations.latency import OperationLatencyService
 from signalscope.domain.operations.overview import OrganizationOperationsService
 from signalscope.domain.operations.queues import OperationsQueue
 from signalscope.domain.operations.recovery import FailedJobRecoveryService
@@ -18,7 +20,11 @@ from signalscope.domain.operations.schemas import (
     OperationAttemptRead,
     OperationsJobRead,
     OperationsOverviewRead,
+    OperationTrendPointRead,
+    OperationTrendsRead,
+    QueueLatencyRead,
 )
+from signalscope.domain.operations.trends import OperationTrendService, TrendBucket
 
 router = APIRouter(prefix="/operations", tags=["Operations"])
 
@@ -98,6 +104,37 @@ async def operation_history(
         total=total,
         limit=page.limit,
         offset=page.offset,
+    )
+
+
+@router.get("/trends")
+async def operation_trends(
+    organization_id: OrganizationId,
+    session: DatabaseSession,
+    policy: Policy,
+    queue: OperationAttemptQueue | None = None,
+    created_from: datetime | None = None,
+    created_to: datetime | None = None,
+    bucket: TrendBucket = TrendBucket.DAY,
+) -> OperationTrendsRead:
+    """Factual attempt-outcome buckets and latency summaries for one organization.
+
+    Same access as the overview: owner or admin there, or a system admin. The
+    organization filter is always applied, so there is no all-tenant view.
+    """
+    await operations_scope(policy, organization_id)
+    queue_value = queue.value if queue is not None else None
+    trends = await OperationTrendService(session).summarize(
+        organization_id, queue=queue_value, start=created_from, end=created_to, bucket=bucket
+    )
+    latency = await OperationLatencyService(session).summarize(
+        organization_id, queue=queue_value, start=created_from, end=created_to
+    )
+    return OperationTrendsRead(
+        organization_id=organization_id,
+        bucket=trends.bucket.value,
+        points=[OperationTrendPointRead.model_validate(point) for point in trends.points],
+        latency=[QueueLatencyRead.model_validate(summary) for summary in latency.queues],
     )
 
 
