@@ -92,6 +92,7 @@ async def test_upgrade_from_empty_database(
         "organization_retention_policies",
         "operation_attempts",
         "organization_exports",
+        "organization_backup_policies",
         "evaluation_report_records",
     }
     head = ScriptDirectory.from_config(migration_config).get_current_head()
