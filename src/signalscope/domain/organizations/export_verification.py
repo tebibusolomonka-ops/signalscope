@@ -42,7 +42,7 @@ class OrganizationExportVerificationService:
             with zipfile.ZipFile(io.BytesIO(data)) as archive:
                 infos = archive.infolist()
                 names = [info.filename for info in infos]
-                if len(infos) > len(FILES) + 1:
+                if len(infos) > len(FILES) + MAX_RECORD_COUNT + 1:
                     problems.append("Archive contains too many members.")
                 for name in names:
                     if not _safe_path(name):
@@ -70,7 +70,8 @@ class OrganizationExportVerificationService:
                     format_version = raw_version
                 if format_version != EXPORT_FORMAT_VERSION:
                     problems.append("Manifest format version is not supported.")
-                entries = _manifest_entries(manifest, problems)
+                asset_paths = _asset_paths(manifest)
+                entries = _manifest_entries(manifest, asset_paths, problems)
                 counts = _record_counts(manifest, problems)
                 expected_paths = set(entries)
                 actual_paths = set(names) - {MANIFEST_FILE}
@@ -95,6 +96,8 @@ class OrganizationExportVerificationService:
                         problems.append(f"Archive member size does not match: {path}")
                     if hashlib.sha256(content).hexdigest() != entry["sha256"]:
                         problems.append(f"Archive member checksum does not match: {path}")
+                    if path in asset_paths:
+                        continue
                     records = _read_records(path, content, problems)
                     if records is None:
                         continue
@@ -110,9 +113,11 @@ class OrganizationExportVerificationService:
         return _result(format_version, checked_files, checked_records, problems)
 
 
-def _manifest_entries(manifest: dict[str, Any], problems: list[str]) -> dict[str, dict[str, Any]]:
+def _manifest_entries(
+    manifest: dict[str, Any], asset_paths: set[str], problems: list[str]
+) -> dict[str, dict[str, Any]]:
     raw_entries = manifest.get("files")
-    if not isinstance(raw_entries, list) or len(raw_entries) > len(FILES):
+    if not isinstance(raw_entries, list) or len(raw_entries) > len(FILES) + MAX_RECORD_COUNT:
         problems.append("Manifest files must be a bounded list.")
         return {}
     entries: dict[str, dict[str, Any]] = {}
@@ -123,7 +128,11 @@ def _manifest_entries(manifest: dict[str, Any], problems: list[str]) -> dict[str
         path = raw_entry.get("path")
         size = raw_entry.get("size_bytes")
         checksum = raw_entry.get("sha256")
-        if not isinstance(path, str) or path not in DATASET_BY_PATH or not _safe_path(path):
+        if (
+            not isinstance(path, str)
+            or (path not in DATASET_BY_PATH and path not in asset_paths)
+            or not _safe_path(path)
+        ):
             problems.append("Manifest file path is invalid.")
             continue
         if path in entries:
@@ -137,6 +146,20 @@ def _manifest_entries(manifest: dict[str, Any], problems: list[str]) -> dict[str
             continue
         entries[path] = raw_entry
     return entries
+
+
+def _asset_paths(manifest: dict[str, Any]) -> set[str]:
+    assets = manifest.get("assets")
+    if not isinstance(assets, list) or len(assets) > MAX_RECORD_COUNT:
+        return set()
+    return {
+        path
+        for asset in assets
+        if isinstance(asset, dict)
+        and isinstance((path := asset.get("path")), str)
+        and path.startswith("assets/")
+        and _safe_path(path)
+    }
 
 
 def _record_counts(manifest: dict[str, Any], problems: list[str]) -> dict[str, int]:

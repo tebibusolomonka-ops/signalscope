@@ -8,6 +8,7 @@ from uuid import UUID
 
 import pytest
 
+from signalscope.core.errors import ServiceUnavailableError
 from signalscope.domain.documents.asset import DocumentAsset
 from signalscope.domain.organizations.export_archive import OrganizationExportArchiveService
 from signalscope.domain.organizations.export_inventory import OrganizationExportInventory
@@ -146,21 +147,25 @@ async def test_archive_checksum_changes_when_member_content_changes() -> None:
 
 @pytest.mark.anyio
 async def test_manifest_describes_binary_assets_without_storage_keys() -> None:
+    content = b"binary report"
     asset = DocumentAsset(
         id=ASSET_ID,
         document_id=DOCUMENT_ID,
         storage_key="document-assets/private-key.pdf",
         filename="report.pdf",
         content_type="application/pdf",
-        size_bytes=128,
-        sha256="a" * 64,
+        size_bytes=len(content),
+        sha256=hashlib.sha256(content).hexdigest(),
         created_at=NOW,
         updated_at=NOW,
     )
     exported = replace(inventory(), document_assets=(asset,))
 
+    blobs = MemoryBlobs()
+    blobs.values[asset.storage_key] = content
     result = await OrganizationExportArchiveService(
         InventoryService(exported),
+        blobs,
         clock=lambda: NOW,  # type: ignore[arg-type]
     ).build(ORGANIZATION_ID)
 
@@ -171,8 +176,33 @@ async def test_manifest_describes_binary_assets_without_storage_keys() -> None:
             "path": f"assets/{ASSET_ID}",
             "filename": "report.pdf",
             "content_type": "application/pdf",
-            "size_bytes": 128,
-            "sha256": "a" * 64,
+            "size_bytes": len(content),
+            "sha256": hashlib.sha256(content).hexdigest(),
         }
     ]
     assert "storage_key" not in result.manifest["assets"][0]
+    with zipfile.ZipFile(io.BytesIO(result.data)) as archive:
+        assert archive.read(f"assets/{ASSET_ID}") == content
+
+
+@pytest.mark.anyio
+async def test_export_rejects_asset_bytes_that_do_not_match_the_record() -> None:
+    asset = DocumentAsset(
+        id=ASSET_ID,
+        document_id=DOCUMENT_ID,
+        storage_key="document-assets/report.pdf",
+        filename="report.pdf",
+        content_type="application/pdf",
+        size_bytes=12,
+        sha256="a" * 64,
+        created_at=NOW,
+        updated_at=NOW,
+    )
+    blobs = MemoryBlobs()
+    blobs.values[asset.storage_key] = b"wrong"
+    service = OrganizationExportArchiveService(
+        InventoryService(replace(inventory(), document_assets=(asset,))), blobs
+    )
+
+    with pytest.raises(ServiceUnavailableError, match="Stored asset does not match its record"):
+        await service.build(ORGANIZATION_ID)

@@ -73,6 +73,7 @@ class OrganizationExportArchiveService:
     async def build(self, organization_id: uuid.UUID) -> OrganizationExportArchive:
         inventory = await self.inventory.build(organization_id)
         files = self._files(inventory)
+        files.update(await self._asset_files(inventory.document_assets))
         manifest: dict[str, Any] = {
             "format_version": EXPORT_FORMAT_VERSION,
             "organization_id": str(organization_id),
@@ -119,6 +120,22 @@ class OrganizationExportArchiveService:
             else:
                 content = "".join(_json(record) + "\n" for record in records)
             files[path] = content.encode("utf-8")
+        return files
+
+    async def _asset_files(self, assets: tuple[DocumentAsset, ...]) -> dict[str, bytes]:
+        if not assets:
+            return {}
+        if self.blobs is None:
+            raise ServiceUnavailableError("File storage is not configured.")
+        files: dict[str, bytes] = {}
+        for asset in assets:
+            content = await self.blobs.get(asset.storage_key)
+            if (
+                len(content) != asset.size_bytes
+                or hashlib.sha256(content).hexdigest() != asset.sha256
+            ):
+                raise ServiceUnavailableError(f"Stored asset does not match its record: {asset.id}")
+            files[f"assets/{asset.id}"] = content
         return files
 
     def _zip(self, manifest: dict[str, Any], files: dict[str, bytes]) -> bytes:
