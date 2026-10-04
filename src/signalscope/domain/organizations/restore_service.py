@@ -42,11 +42,13 @@ from signalscope.domain.organizations.restore_record import (
     OrganizationRestore,
     OrganizationRestoreStatus,
 )
+from signalscope.domain.organizations.restore_user_mapping import (
+    OrganizationRestoreUserMappingService,
+)
 from signalscope.domain.research.session import ResearchSession
 from signalscope.domain.research.turn import ResearchTurn
 from signalscope.domain.sources.model import Source
 from signalscope.domain.sources.scheduling import Clock, utc_now
-from signalscope.domain.users.model import User
 from signalscope.storage.blob import BlobStore
 
 MAX_RESTORE_RECORDS = 100_000
@@ -87,7 +89,9 @@ class OrganizationRestoreService:
         )
         if conflicts.conflicts:
             raise InvalidInputError("Restore cannot start: " + "; ".join(conflicts.conflicts))
-        users = await self._resolve_users(archive, user_mappings or {})
+        users = await OrganizationRestoreUserMappingService(self.session).resolve(
+            archive, user_mappings or {}
+        )
         self._require_asset_content(archive)
 
         now = self.clock()
@@ -128,25 +132,6 @@ class OrganizationRestoreService:
             if isinstance(error, SignalScopeError):
                 raise
             raise ServiceUnavailableError("Organization restore failed.") from error
-
-    async def _resolve_users(
-        self, archive: OrganizationArchive, mappings: Mapping[str, uuid.UUID]
-    ) -> dict[uuid.UUID, uuid.UUID]:
-        referenced = _referenced_user_ids(archive)
-        resolved: dict[uuid.UUID, uuid.UUID] = {}
-        used: set[uuid.UUID] = set()
-        for source_id in referenced:
-            target_id = mappings.get(str(source_id), source_id)
-            if target_id in used:
-                raise InvalidInputError("Two archived users cannot map to the same user.")
-            user = await self.session.get(User, target_id)
-            if user is None or not user.is_active:
-                raise InvalidInputError(
-                    f"Archived user requires an active user mapping: {source_id}"
-                )
-            resolved[source_id] = target_id
-            used.add(target_id)
-        return resolved
 
     async def _stage_assets(self, restore_id: uuid.UUID, archive: OrganizationArchive) -> list[str]:
         keys: list[str] = []
@@ -512,23 +497,6 @@ def _convert(value: Any, python_type: type[Any]) -> Any:
     if issubclass(python_type, Enum):
         return python_type(value)
     return value
-
-
-def _referenced_user_ids(archive: OrganizationArchive) -> tuple[uuid.UUID, ...]:
-    references = (
-        ("organization", "created_by_user_id"),
-        ("memberships", "user_id"),
-        ("investigations", "created_by_user_id"),
-        ("investigation_collaborators", "user_id"),
-        ("security_audit", "actor_user_id"),
-    )
-    values = {
-        uuid.UUID(value)
-        for section, key in references
-        for row in archive.sections.get(section, ())
-        if isinstance((value := row.get(key)), str)
-    }
-    return tuple(sorted(values))
 
 
 def _uuid(value: Any, label: str) -> uuid.UUID:
