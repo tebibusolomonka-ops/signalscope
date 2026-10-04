@@ -316,6 +316,12 @@ admins may use them. `signalscope export-organization ORGANIZATION_ID
 `signalscope verify-organization-export FILE.zip` verifies a local archive,
 and `signalscope cleanup-organization-exports` previews retention cleanup;
 `--apply` expires the selected artifacts.
+Organization owners, admins and system admins read and update the scheduled
+backup policy at `/organizations/{organization_id}/backup-policy`, run a
+verified backup with `POST /organizations/{organization_id}/backups/run`, and
+list backup runs at `GET /organizations/{organization_id}/backups`.
+`signalscope run-organization-backup ORGANIZATION_ID` runs the same verified
+backup workflow locally.
 There is no relation route, because no relations are stored.
 
 See [[06 Search and AI]] for the models behind these routes.

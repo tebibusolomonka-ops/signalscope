@@ -79,6 +79,10 @@ One Python package, `src/signalscope`, with one PostgreSQL database. See
   document assets. The manifest gives every asset a deterministic ZIP path,
   size and checksum. Configured count and byte limits are checked before any
   asset is read.
+- Organization backup policies schedule daily or weekly verified portable
+  exports. Backup retention expires only older backup artifacts, never exports
+  created by an administrator. PostgreSQL row locks prevent two schedulers
+  from starting the same due policy.
 - **Dashboard** (`dashboard/`): aggregate counts and zero-filled UTC daily
   series, built with SQL aggregates.
 - **Relations** (`relations/`): relation extraction interface and an

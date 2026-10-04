@@ -71,6 +71,9 @@ navigation route and its tenant scope.
 storing, listing, comparing and secret-stripping of evaluation reports.
 Organization archive tests cover binary asset inclusion, count and byte limits,
 manifest metadata, checksums and safe restore planning without database writes.
+Backup tests cover policy constraints, verified export generation, asset options,
+retention isolation, due-policy locking, API permissions and the administration
+workspace.
 `EvidenceNavigationFlow.test.jsx` opens evidence at an exact late chunk from
 search and entity pages and steps passages, proving the direct lookup needs
 no page scan. `ResearchNavigationFlow.test.jsx` is a web end-to-end test: it signs in,

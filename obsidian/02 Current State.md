@@ -1,7 +1,7 @@
 # Current State
 
 Batch 420 to 459 is in progress on top of a 428-commit history (HEAD
-c4b5355 at its start). Durable operation history and portable organization
+c4b5355 at its start). Work is complete through planned commit 444. Durable operation history and portable organization
 exports, model evaluation evidence tooling and authentication hardening were
 complete through commit 414, and exact evidence navigation through commit
 419. Measured evaluation reports can now be imported, listed, compared and
@@ -86,6 +86,12 @@ authentication throttles).
   enforced before asset reads. Passwords, session hashes, invitation hashes
   and model caches are not exported. System admins can upload an archive to a
   read-only restore planning workspace; no restore writes exist yet.
+- Organization backups reuse the versioned export archive. One policy per
+  organization controls daily or weekly scheduling, retained backup count and
+  binary asset inclusion. A backup is completed only after archive verification;
+  owners, admins and system admins can manage policy, run one immediately and
+  inspect recent verified or failed runs in the web workspace. Backup retention
+  never expires manually created exports.
 - Explicit developer benchmarks report the local model environment and run
   embedding, reranker, structured extraction and fixed-evidence answer model
   measurements. Normal tests and CI use fakes and never load or download models.

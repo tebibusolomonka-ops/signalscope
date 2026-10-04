@@ -288,6 +288,10 @@ Decisions that should hold unless there is a clear reason to change them.
 - **Portable export cleanup is explicit.** Completed and failed artifacts use
   bounded retention cleanup. The command previews by default and requires
   `--apply`; pending and running exports are never selected.
+- **Backups are verified exports.** Scheduled and manual backups use the same
+  portable archive and verifier as organization exports. Daily or weekly policy
+  rows live in PostgreSQL, schedulers lock due rows, and backup retention only
+  expires artifacts created as backups.
 - **Real model benchmarks are explicit developer commands.** Application
   startup, normal tests, checks and CI never load or download model weights.
 - **Evaluation evidence stays factual.** Comparisons do not declare winners,

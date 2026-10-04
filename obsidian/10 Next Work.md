@@ -43,7 +43,9 @@ lookup, context navigation and Previous/Next passages through commit 424.
 Measured evaluation reports can be imported, listed, compared and reviewed
 (commits 425 to 429). Organization archive reading, restore planning, binary
 asset export, verification, limits and administration are complete through
-planned commit 439. Knowledge-graph relation persistence remains deferred, and real-model
+planned commit 439. Verified organization backup policy, execution, scheduling,
+administration and the web workspace are complete through planned commit 444.
+Constrained restore execution is next. Knowledge-graph relation persistence remains deferred, and real-model
 evaluation remains separate work.
 
 ## Next batch

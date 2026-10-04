@@ -43,9 +43,14 @@ export function OrganizationDetailPage() {
         <dd>{role ?? "Not a member (system admin access)"}</dd>
       </dl>
       {(role === "owner" || role === "admin" || role === null) && (
-        <p>
-          <Link to={`/organizations/${organizationId}/exports`}>Manage portable exports</Link>
-        </p>
+        <div className="page-actions">
+          <p>
+            <Link to={`/organizations/${organizationId}/exports`}>Manage portable exports</Link>
+          </p>
+          <p>
+            <Link to={`/organizations/${organizationId}/backups`}>Manage backups</Link>
+          </p>
+        </div>
       )}
       {user?.is_system_admin && (
         <p>
