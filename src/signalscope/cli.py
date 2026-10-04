@@ -37,6 +37,7 @@ from signalscope.domain.claims.job import ClaimExtractionJobStatus
 from signalscope.domain.claims.job_repository import ClaimExtractionJobRepository
 from signalscope.domain.claims.queue import ClaimExtractionQueueService
 from signalscope.domain.claims.worker import ClaimExtractionWorker
+from signalscope.domain.diagnostics.deployment import DeploymentDiagnosticsService
 from signalscope.domain.diagnostics.production_config import ProductionConfigurationValidator
 from signalscope.domain.documents.files import MAX_FILE_BYTES
 from signalscope.domain.entities.job import EntityExtractionJobStatus
@@ -306,6 +307,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return model_environment(json_output=args.json)
     if args.command == "validate-production-config":
         return validate_production_config(settings, json_output=args.json)
+    if args.command == "deployment-diagnostics":
+        return asyncio.run(deployment_diagnostics(settings, json_output=args.json))
     if args.command == "compare-evaluation-reports":
         return compare_evaluation_reports_command(args.reports, json_output=args.json)
     if args.command == "check-evaluation-report":
@@ -755,6 +758,12 @@ def build_parser() -> argparse.ArgumentParser:
         "validate-production-config", help="check settings for production without printing secrets"
     )
     production_config.add_argument("--json", action="store_true", help="write JSON output")
+
+    deployment = commands.add_parser(
+        "deployment-diagnostics",
+        help="report environment, config, readiness, migration and queue facts",
+    )
+    deployment.add_argument("--json", action="store_true", help="write JSON output")
 
     comparison = commands.add_parser(
         "compare-evaluation-reports", help="compare factual metrics from compatible reports"
@@ -1634,6 +1643,51 @@ def validate_production_config(
         for finding in result.findings:
             print(f"{finding.level.value.upper()}: {finding.check}: {finding.message}", file=out)
     return 1 if result.has_errors else 0
+
+
+async def deployment_diagnostics(
+    settings: Settings,
+    out: TextIO | None = None,
+    err: TextIO | None = None,
+    *,
+    json_output: bool = False,
+) -> int:
+    """Report read-only deployment facts. Returns nonzero when not healthy."""
+    out = sys.stdout if out is None else out
+    service = DeploymentDiagnosticsService(settings)
+    if settings.database_url is None:
+        report = service.without_database()
+    else:
+        blobs = LocalBlobStore(settings.blob_dir) if settings.blob_dir is not None else None
+        async with _database(settings) as session_factory, session_factory() as session:
+            report = await service.collect(session, blobs)
+    data = report.to_dict()
+    if json_output:
+        print(json.dumps(data, sort_keys=True), file=out)
+    else:
+        print(f"Healthy: {'yes' if report.healthy else 'no'}", file=out)
+        migration = data["migration"]
+        print(
+            f"Migration: current {migration['current']}, head {migration['head']}, "
+            f"up to date {'yes' if migration['up_to_date'] else 'no'}",
+            file=out,
+        )
+        for finding in data["production_config"]:
+            print(
+                f"Config {finding['level'].upper()}: {finding['check']}: {finding['message']}",
+                file=out,
+            )
+        if report.readiness is not None:
+            print(f"Readiness: {'ready' if report.readiness.ready else 'unavailable'}", file=out)
+            for component in data["readiness"]["components"]:
+                print(f"  {component['name']}: {component['state']}", file=out)
+        for queue in data["queues"]:
+            print(
+                f"  queue {queue['queue']}: waiting {queue['waiting']}, "
+                f"running {queue['running']}, expired {queue['expired_leases']}",
+                file=out,
+            )
+    return 0 if report.healthy else 1
 
 
 def compare_evaluation_reports_command(

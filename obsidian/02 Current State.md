@@ -98,6 +98,18 @@ authentication throttles).
   Restores have durable lifecycle records and audit events, a system-admin
   apply API (`POST /organizations/:id/restore`) and a `signalscope
   restore-organization` command that is a dry run unless `--apply` is given.
+- Production readiness and deployment diagnostics are factual and read-only. A
+  dependency readiness service checks the database, file storage, scheduler and
+  job queues and reports configured local models without loading or downloading
+  them. `GET /health/live` answers even when the database is down; `GET
+  /health/ready` answers 503 when a required dependency is unavailable. A queue
+  readiness service reports waiting, running, oldest waiting age and expired
+  lease counts per queue without reading tenant payloads. A production
+  configuration validator (`signalscope validate-production-config`) and
+  deployment diagnostics (`signalscope deployment-diagnostics`) combine the
+  environment summary, configuration result, readiness, migration head and
+  current revision and queue counts. None of them run migrations, change queues,
+  load a model or print a secret.
 - Organization backups reuse the versioned export archive. One policy per
   organization controls daily or weekly scheduling, retained backup count and
   binary asset inclusion. A backup is completed only after archive verification;

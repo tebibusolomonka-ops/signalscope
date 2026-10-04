@@ -47,9 +47,12 @@ planned commit 439. Verified organization backup policy, execution, scheduling,
 administration and the web workspace are complete through planned commit 444.
 Constrained restore into empty organizations is complete through planned commit
 449: the restore service, explicit user mapping, system-admin apply API and CLI,
-and end-to-end coverage. Production readiness diagnostics, security headers, CSP,
-the support bundle and pilot readiness are next (planned commits 450 to 459).
-Knowledge-graph relation persistence remains deferred, and real-model
+and end-to-end coverage. Production readiness and deployment diagnostics are
+complete through planned commit 454: a dependency readiness service, live and
+ready endpoints, queue readiness, a production configuration validator and
+deployment diagnostics. Security response headers, a content security policy, a
+support diagnostics bundle and pilot readiness are next (planned commits 455 to
+459). Knowledge-graph relation persistence remains deferred, and real-model
 evaluation remains separate work.
 
 ## Next batch

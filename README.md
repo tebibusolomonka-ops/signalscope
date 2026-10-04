@@ -358,6 +358,37 @@ value. The server re-verifies the archive every time; it never trusts a caller
 that says the archive was already checked. Restores are recorded with their
 lifecycle (running, completed or failed) and as audit events.
 
+## Production readiness and diagnostics
+
+The API has two operational endpoints next to `/health`. `GET /health/live`
+reports process liveness and answers even when the database is down. `GET
+/health/ready` checks the database, file storage, scheduler and job queues and
+answers 503 when a required dependency is unavailable, 200 when ready. Neither
+exposes the database URL, credentials or storage secrets. Configured local
+models are reported as ready or degraded, but a missing model dependency never
+blocks readiness.
+
+Before a deployment, check the configuration for production. It reads flags
+only and never prints the database URL or any secret, and it exits nonzero when
+there are errors:
+
+```bash
+signalscope validate-production-config
+```
+
+For a fuller picture, deployment diagnostics combine the model environment, the
+production configuration result, dependency readiness, the migration head and
+current revision, and factual queue counts. It changes nothing: it never runs
+migrations, touches queues, loads a model or prints a secret.
+
+```bash
+signalscope deployment-diagnostics
+signalscope deployment-diagnostics --json
+```
+
+It exits nonzero when the configuration has errors, a required dependency is
+unavailable, or the database is not at the current migration head.
+
 ## Admin web app
 
 `web/` holds a small React admin app, written in JavaScript and built with

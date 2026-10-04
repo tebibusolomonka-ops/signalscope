@@ -124,6 +124,13 @@ content routes below with the active organization's `organization_id`.
 ## Health
 
 - `GET /health`
+- `GET /health/live`: process liveness, answers even when the database is down.
+- `GET /health/ready`: dependency readiness, 503 when a required dependency is
+  unavailable, 200 when ready. No secrets are exposed.
+
+The `signalscope validate-production-config` and `signalscope
+deployment-diagnostics` commands report configuration, readiness, migration and
+queue facts from the command line without changing anything.
 
 ## Sources and ingestion
 
