@@ -17,6 +17,7 @@ import { InvestigationsPage } from "../features/investigations/InvestigationsPag
 import { AcceptInvitationPage } from "../features/invitations/AcceptInvitationPage.jsx";
 import { OrganizationDetailPage } from "../features/organizations/OrganizationDetailPage.jsx";
 import { OrganizationBackupsPage } from "../features/organizations/OrganizationBackupsPage.jsx";
+import { OrganizationDrillsPage } from "../features/organizations/OrganizationDrillsPage.jsx";
 import { OrganizationExportsPage } from "../features/organizations/OrganizationExportsPage.jsx";
 import { OrganizationRestorePlanPage } from "../features/organizations/OrganizationRestorePlanPage.jsx";
 import { OrganizationsPage } from "../features/organizations/OrganizationsPage.jsx";
@@ -86,6 +87,10 @@ export function AppRoutes() {
           <Route
             path="/organizations/:organizationId/backups"
             element={<OrganizationBackupsPage />}
+          />
+          <Route
+            path="/organizations/:organizationId/drills"
+            element={<OrganizationDrillsPage />}
           />
           <Route path="/organizations/:organizationId/restore-plan" element={<OrganizationRestorePlanPage />} />
           <Route path="/users" element={<UsersPage />} />

@@ -50,6 +50,9 @@ export function OrganizationDetailPage() {
           <p>
             <Link to={`/organizations/${organizationId}/backups`}>Manage backups</Link>
           </p>
+          <p>
+            <Link to={`/organizations/${organizationId}/drills`}>Disaster recovery drills</Link>
+          </p>
         </div>
       )}
       {user?.is_system_admin && (
