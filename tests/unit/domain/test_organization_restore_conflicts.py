@@ -46,7 +46,7 @@ async def test_empty_target_has_only_mapping_warning() -> None:
 
 
 @pytest.mark.anyio
-async def test_reports_existing_conflicts() -> None:
+async def test_reports_non_empty_target_conflict() -> None:
     target = Organization(
         id=TARGET_ID,
         name="Target",
@@ -57,8 +57,7 @@ async def test_reports_existing_conflicts() -> None:
         Session(target=target, conflict=True)
     ).analyze(archive({"sources": ({"id": str(TARGET_ID)},)}), TARGET_ID)
 
-    assert "Source ID already exists." in result.conflicts
-    assert "Target organization must be empty for restore." in result.conflicts
+    assert result.conflicts == ("Target organization must be empty for restore.",)
 
 
 @pytest.mark.anyio

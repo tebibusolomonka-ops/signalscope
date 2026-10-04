@@ -1,7 +1,7 @@
 import io
 import json
 import zipfile
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from signalscope.core.errors import InvalidInputError
@@ -20,6 +20,7 @@ class OrganizationArchive:
     manifest: dict[str, Any]
     sections: dict[str, tuple[dict[str, Any], ...]]
     verification: OrganizationExportVerification
+    assets: dict[str, bytes] = field(default_factory=dict)
 
 
 class OrganizationArchiveReader:
@@ -44,6 +45,10 @@ class OrganizationArchiveReader:
                     for name, path in FILES.items()
                     if path in archive.namelist()
                 }
+                assets = {
+                    entry["path"]: archive.read(entry["path"])
+                    for entry in manifest.get("assets", [])
+                }
         except (
             OSError,
             RuntimeError,
@@ -57,6 +62,7 @@ class OrganizationArchiveReader:
             manifest=manifest,
             sections=sections,
             verification=verification,
+            assets=assets,
         )
 
 

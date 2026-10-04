@@ -4,8 +4,7 @@ from dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from signalscope.domain.documents.asset import DocumentAsset
-from signalscope.domain.documents.model import Document
+from signalscope.domain.events.cluster import EventCluster
 from signalscope.domain.investigations.model import Investigation
 from signalscope.domain.organizations.archive_reader import OrganizationArchive
 from signalscope.domain.organizations.model import Organization
@@ -69,17 +68,6 @@ class OrganizationRestoreConflictService:
     async def _target_conflicts(
         self, archive: OrganizationArchive, target_id: uuid.UUID, conflicts: list[str]
     ) -> None:
-        checks = (
-            ("sources", Source.id, "Source ID already exists."),
-            ("documents", Document.id, "Document ID already exists."),
-            ("investigations", Investigation.id, "Investigation ID already exists."),
-            ("research_sessions", ResearchSession.id, "Research session ID already exists."),
-            ("document_assets", DocumentAsset.id, "Asset ID already exists."),
-        )
-        for section, column, message in checks:
-            ids = _ids(archive, section)
-            if ids and await self.session.scalar(select(column).where(column.in_(ids)).limit(1)):
-                conflicts.append(message)
         if (
             await self.session.scalar(
                 select(Source.id).where(Source.organization_id == target_id).limit(1)
@@ -91,6 +79,9 @@ class OrganizationRestoreConflictService:
                 select(ResearchSession.id)
                 .where(ResearchSession.organization_id == target_id)
                 .limit(1)
+            )
+            or await self.session.scalar(
+                select(EventCluster.id).where(EventCluster.organization_id == target_id).limit(1)
             )
         ):
             conflicts.append("Target organization must be empty for restore.")
@@ -121,13 +112,3 @@ def _first(archive: OrganizationArchive, section: str) -> dict[str, object] | No
     return rows[0] if rows else None
 
 
-def _ids(archive: OrganizationArchive, section: str) -> tuple[uuid.UUID, ...]:
-    values = []
-    for row in archive.sections.get(section, ()):
-        value = row.get("id")
-        if isinstance(value, str):
-            try:
-                values.append(uuid.UUID(value))
-            except ValueError:
-                continue
-    return tuple(values)
