@@ -70,6 +70,7 @@ from signalscope.domain.organizations.export_verification import (
     OrganizationExportVerificationService,
 )
 from signalscope.domain.organizations.invitation_cleanup import InvitationCleanupService
+from signalscope.domain.organizations.restore_plan import build_restore_plan
 from signalscope.domain.processing.file_import import FileImportService
 from signalscope.domain.processing.job_repository import DocumentProcessingJobRepository
 from signalscope.domain.processing.model import DocumentProcessingJob, ProcessingJobStatus
@@ -383,6 +384,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
     if args.command == "verify-organization-export":
         return verify_organization_export(args.path)
+    if args.command == "plan-organization-restore":
+        return asyncio.run(
+            plan_organization_restore(
+                args.path, args.organization_id, settings, json_output=args.json
+            )
+        )
     if args.command == "import-evaluation-report":
         return asyncio.run(import_evaluation_report(args.path, settings))
     if args.command == "link-events":
@@ -598,6 +605,13 @@ def build_parser() -> argparse.ArgumentParser:
         "verify-organization-export", help="verify a portable organization ZIP archive"
     )
     organization_export_verify.add_argument("path", type=Path, help="local ZIP archive to verify")
+
+    organization_restore_plan = commands.add_parser(
+        "plan-organization-restore", help="verify and plan an organization restore without changes"
+    )
+    organization_restore_plan.add_argument("path", type=Path, help="local organization ZIP archive")
+    organization_restore_plan.add_argument("--organization-id", type=uuid.UUID, default=None)
+    organization_restore_plan.add_argument("--json", action="store_true", help="write JSON output")
 
     import_evaluation = commands.add_parser(
         "import-evaluation-report", help="store a measured evaluation report JSON file"
@@ -1357,6 +1371,41 @@ def verify_organization_export(
     for problem in result.problems:
         print(f"Problem: {problem}", file=out)
     return 0 if result.valid else 1
+
+
+async def plan_organization_restore(
+    path: Path,
+    organization_id: uuid.UUID | None,
+    settings: Settings,
+    out: TextIO | None = None,
+    err: TextIO | None = None,
+    *,
+    json_output: bool = False,
+) -> int:
+    """Print a verified restore plan without changing database state."""
+    out = sys.stdout if out is None else out
+    err = sys.stderr if err is None else err
+    try:
+        data = path.read_bytes()
+    except OSError as error:
+        print(f"Error: Cannot read {path}: {error.strerror}", file=err)
+        return 1
+    if settings.database_url is None:
+        print(NO_DATABASE_ERROR, file=err)
+        return 1
+    async with _database(settings) as session_factory, session_factory() as session:
+        try:
+            plan = await build_restore_plan(session, data, organization_id)
+        except SignalScopeError as error:
+            print(f"Error: {error}", file=err)
+            return 1
+    if json_output:
+        print(json.dumps(plan, sort_keys=True), file=out)
+    else:
+        print(f"Format version: {plan['archive']['format_version']}", file=out)
+        print("Dry run: no data will be changed.", file=out)
+        print(json.dumps(plan, indent=2, sort_keys=True), file=out)
+    return 0
 
 
 def model_environment(out: TextIO | None = None, *, json_output: bool = False) -> int:
