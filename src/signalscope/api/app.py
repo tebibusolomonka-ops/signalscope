@@ -5,6 +5,7 @@ from signalscope.api.lifespan import lifespan
 from signalscope.api.middleware import RequestIDMiddleware, RequestLoggingMiddleware
 from signalscope.api.routes import (
     admin_auth,
+    admin_evaluations,
     admin_users,
     auth,
     claims,
@@ -62,6 +63,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(auth.router)
     app.include_router(admin_auth.router)
     app.include_router(admin_users.router)
+    app.include_router(admin_evaluations.router)
     app.include_router(organizations.router)
     app.include_router(organization_exports.router)
     app.include_router(organization_invitations.router)
