@@ -39,6 +39,7 @@ from signalscope.domain.claims.queue import ClaimExtractionQueueService
 from signalscope.domain.claims.worker import ClaimExtractionWorker
 from signalscope.domain.diagnostics.deployment import DeploymentDiagnosticsService
 from signalscope.domain.diagnostics.production_config import ProductionConfigurationValidator
+from signalscope.domain.diagnostics.support_bundle import SupportBundleService
 from signalscope.domain.documents.files import MAX_FILE_BYTES
 from signalscope.domain.entities.job import EntityExtractionJobStatus
 from signalscope.domain.entities.job_repository import EntityExtractionJobRepository
@@ -309,6 +310,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return validate_production_config(settings, json_output=args.json)
     if args.command == "deployment-diagnostics":
         return asyncio.run(deployment_diagnostics(settings, json_output=args.json))
+    if args.command == "create-support-bundle":
+        return asyncio.run(create_support_bundle(args.output, settings, overwrite=args.overwrite))
     if args.command == "compare-evaluation-reports":
         return compare_evaluation_reports_command(args.reports, json_output=args.json)
     if args.command == "check-evaluation-report":
@@ -764,6 +767,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="report environment, config, readiness, migration and queue facts",
     )
     deployment.add_argument("--json", action="store_true", help="write JSON output")
+
+    support_bundle = commands.add_parser(
+        "create-support-bundle", help="write a safe diagnostics ZIP with no secrets"
+    )
+    support_bundle.add_argument(
+        "--output", type=Path, required=True, help="write the ZIP bundle to this file"
+    )
+    support_bundle.add_argument(
+        "--overwrite", action="store_true", help="replace the output file if it exists"
+    )
 
     comparison = commands.add_parser(
         "compare-evaluation-reports", help="compare factual metrics from compatible reports"
@@ -1688,6 +1701,36 @@ async def deployment_diagnostics(
                 file=out,
             )
     return 0 if report.healthy else 1
+
+
+async def create_support_bundle(
+    output: Path,
+    settings: Settings,
+    out: TextIO | None = None,
+    err: TextIO | None = None,
+    *,
+    overwrite: bool = False,
+) -> int:
+    """Write a safe support ZIP with no secrets or tenant content."""
+    out = sys.stdout if out is None else out
+    err = sys.stderr if err is None else err
+    if output.exists() and not overwrite:
+        print(f"Error: {output} already exists. Use --overwrite to replace it.", file=err)
+        return 1
+    service = SupportBundleService(settings)
+    if settings.database_url is None:
+        data = service.build_without_database()
+    else:
+        blobs = LocalBlobStore(settings.blob_dir) if settings.blob_dir is not None else None
+        async with _database(settings) as session_factory, session_factory() as session:
+            data = await service.build(session, blobs)
+    try:
+        _write_bytes_atomically(output, data)
+    except OSError as error:
+        print(f"Error: Cannot write {output}: {error.strerror}", file=err)
+        return 1
+    print(f"Wrote {output}", file=out)
+    return 0
 
 
 def compare_evaluation_reports_command(
