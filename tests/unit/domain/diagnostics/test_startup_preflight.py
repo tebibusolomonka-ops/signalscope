@@ -8,6 +8,11 @@ from signalscope.domain.diagnostics.deployment import (
     DeploymentDiagnosticsService,
     DeploymentReport,
 )
+from signalscope.domain.diagnostics.migration_compatibility import (
+    MigrationCompatibilityReport,
+    MigrationCompatibilityService,
+    MigrationCompatibilityState,
+)
 from signalscope.domain.diagnostics.production_config import (
     Level,
     ProductionConfigurationValidator,
@@ -65,6 +70,17 @@ def deployment_report(
 
 
 def service(settings: Settings, report: DeploymentReport) -> StartupPreflightService:
+    state = (
+        MigrationCompatibilityState.CURRENT
+        if report.migration_current == report.migration_head
+        else MigrationCompatibilityState.BEHIND
+    )
+    migration_report = MigrationCompatibilityReport(
+        state,
+        () if report.migration_current is None else (report.migration_current,),
+        () if report.migration_head is None else (report.migration_head,),
+        "Migration check.",
+    )
     return StartupPreflightService(
         settings,
         deployment=FakeDeployment(report),  # type: ignore[arg-type]
@@ -73,6 +89,7 @@ def service(settings: Settings, report: DeploymentReport) -> StartupPreflightSer
             version_lookup=lambda _: "0.1.0",
             python_version=lambda: "3.12.10",
         ),
+        migration=FakeMigration(migration_report),  # type: ignore[arg-type]
     )
 
 
@@ -82,6 +99,25 @@ class FakeDeployment:
 
     def without_database(self) -> DeploymentReport:
         return self.report
+
+
+class FakeMigration:
+    def __init__(self, report: MigrationCompatibilityReport) -> None:
+        self.report = report
+
+    def database_unavailable(self) -> MigrationCompatibilityReport:
+        return self.report
+
+
+class FakeGraph:
+    def heads(self) -> tuple[str, ...]:
+        return ("head",)
+
+    def knows(self, revision: str) -> bool:
+        return revision in {"head", "old"}
+
+    def is_ancestor(self, older: str, newer: str) -> bool:
+        return older == "old" and newer == "head"
 
 
 def levels(report: object) -> dict[str, Level]:
@@ -151,6 +187,13 @@ class ReadOnlySession:
             return None
         return 0
 
+    async def scalars(self, _statement: object) -> object:
+        class Revisions:
+            def all(self) -> list[str]:
+                return ["head"]
+
+        return Revisions()
+
 
 class ReadOnlyBlobs:
     def __init__(self) -> None:
@@ -175,7 +218,11 @@ async def test_preflight_only_queries_dependencies() -> None:
     session = ReadOnlySession()
     blobs = ReadOnlyBlobs()
     deployment = DeploymentDiagnosticsService(settings, migration_head=lambda: "head")
-    preflight = StartupPreflightService(settings, deployment=deployment)
+    preflight = StartupPreflightService(
+        settings,
+        deployment=deployment,
+        migration=MigrationCompatibilityService(FakeGraph()),
+    )
 
     report = await preflight.collect(session, blobs)  # type: ignore[arg-type]
 
@@ -192,7 +239,11 @@ async def test_storage_exception_is_reported_without_mutation() -> None:
 
     settings = production_settings()
     deployment = DeploymentDiagnosticsService(settings, migration_head=lambda: "head")
-    report = await StartupPreflightService(settings, deployment=deployment).collect(
+    report = await StartupPreflightService(
+        settings,
+        deployment=deployment,
+        migration=MigrationCompatibilityService(FakeGraph()),
+    ).collect(
         ReadOnlySession(),  # type: ignore[arg-type]
         FailingBlobs(),
     )

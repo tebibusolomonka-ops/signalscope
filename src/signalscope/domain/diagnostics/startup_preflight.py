@@ -12,6 +12,10 @@ from signalscope.domain.diagnostics.deployment import (
     DeploymentDiagnosticsService,
     DeploymentReport,
 )
+from signalscope.domain.diagnostics.migration_compatibility import (
+    MigrationCompatibilityReport,
+    MigrationCompatibilityService,
+)
 from signalscope.domain.diagnostics.production_config import Level
 from signalscope.domain.diagnostics.readiness import ComponentState
 from signalscope.storage.blob import BlobStore
@@ -28,6 +32,7 @@ class PreflightCheck:
 class StartupPreflightReport:
     checks: tuple[PreflightCheck, ...]
     build: BuildMetadata
+    migration: MigrationCompatibilityReport
 
     @property
     def passed(self) -> bool:
@@ -41,6 +46,7 @@ class StartupPreflightReport:
                 for check in self.checks
             ],
             "build": self.build.to_dict(),
+            "migration_compatibility": self.migration.to_dict(),
         }
 
 
@@ -53,19 +59,27 @@ class StartupPreflightService:
         *,
         deployment: DeploymentDiagnosticsService | None = None,
         build_metadata: BuildMetadataService | None = None,
+        migration: MigrationCompatibilityService | None = None,
     ) -> None:
         self._deployment = deployment or DeploymentDiagnosticsService(settings)
         self._build_metadata = build_metadata or BuildMetadataService(settings)
+        self._migration = migration or MigrationCompatibilityService()
 
     def without_database(self) -> StartupPreflightReport:
-        return self._evaluate(self._deployment.without_database())
+        return self._evaluate(
+            self._deployment.without_database(), self._migration.database_unavailable()
+        )
 
     async def collect(
         self, session: AsyncSession, blobs: BlobStore | None
     ) -> StartupPreflightReport:
-        return self._evaluate(await self._deployment.collect(session, blobs))
+        deployment = await self._deployment.collect(session, blobs)
+        migration = await self._migration.check(session)
+        return self._evaluate(deployment, migration)
 
-    def _evaluate(self, deployment: DeploymentReport) -> StartupPreflightReport:
+    def _evaluate(
+        self, deployment: DeploymentReport, migration: MigrationCompatibilityReport
+    ) -> StartupPreflightReport:
         checks = [
             PreflightCheck(finding.check, finding.level, finding.message)
             for finding in deployment.production_config.findings
@@ -85,20 +99,13 @@ class StartupPreflightService:
                 level = Level.ERROR if component.state is ComponentState.UNAVAILABLE else Level.PASS
                 checks.append(PreflightCheck(name, level, component.detail))
 
-        if deployment.migration_current is None or deployment.migration_head is None:
-            checks.append(
-                PreflightCheck("migration", Level.ERROR, "Migration state could not be determined.")
+        checks.append(
+            PreflightCheck(
+                "migration",
+                Level.PASS if migration.current else Level.ERROR,
+                migration.message,
             )
-        elif deployment.migration_up_to_date:
-            checks.append(PreflightCheck("migration", Level.PASS, "Database migration is current."))
-        else:
-            checks.append(
-                PreflightCheck(
-                    "migration",
-                    Level.ERROR,
-                    "Database migration does not match the application head.",
-                )
-            )
+        )
 
         if not deployment.queues:
             checks.append(
@@ -133,4 +140,4 @@ class StartupPreflightService:
             checks.append(
                 PreflightCheck("build_metadata", Level.PASS, "Build metadata is configured.")
             )
-        return StartupPreflightReport(checks=tuple(checks), build=build)
+        return StartupPreflightReport(checks=tuple(checks), build=build, migration=migration)

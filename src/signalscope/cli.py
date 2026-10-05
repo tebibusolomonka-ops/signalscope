@@ -38,6 +38,10 @@ from signalscope.domain.claims.job_repository import ClaimExtractionJobRepositor
 from signalscope.domain.claims.queue import ClaimExtractionQueueService
 from signalscope.domain.claims.worker import ClaimExtractionWorker
 from signalscope.domain.diagnostics.deployment import DeploymentDiagnosticsService
+from signalscope.domain.diagnostics.migration_compatibility import (
+    MigrationCompatibilityReport,
+    MigrationCompatibilityService,
+)
 from signalscope.domain.diagnostics.pilot_readiness import PilotReadinessEvaluator
 from signalscope.domain.diagnostics.production_config import ProductionConfigurationValidator
 from signalscope.domain.diagnostics.startup_preflight import (
@@ -324,6 +328,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(deployment_diagnostics(settings, json_output=args.json))
     if args.command == "startup-preflight":
         return asyncio.run(startup_preflight(settings, json_output=args.json))
+    if args.command == "check-migration-compatibility":
+        return asyncio.run(check_migration_compatibility(settings, json_output=args.json))
     if args.command == "create-support-bundle":
         return asyncio.run(create_support_bundle(args.output, settings, overwrite=args.overwrite))
     if args.command == "pilot-readiness":
@@ -799,6 +805,12 @@ def build_parser() -> argparse.ArgumentParser:
         "startup-preflight", help="run read-only checks before starting a deployment"
     )
     preflight.add_argument("--json", action="store_true", help="write JSON output")
+
+    migration_check = commands.add_parser(
+        "check-migration-compatibility",
+        help="compare the database revision with the application migration graph",
+    )
+    migration_check.add_argument("--json", action="store_true", help="write JSON output")
 
     support_bundle = commands.add_parser(
         "create-support-bundle", help="write a safe diagnostics ZIP with no secrets"
@@ -1792,6 +1804,32 @@ async def startup_preflight(
         for check in report.checks:
             print(f"{check.level.value.upper()}: {check.check}: {check.message}", file=out)
     return 0 if report.passed else 1
+
+
+async def check_migration_compatibility(
+    settings: Settings,
+    out: TextIO | None = None,
+    *,
+    json_output: bool = False,
+    report: MigrationCompatibilityReport | None = None,
+) -> int:
+    """Report migration compatibility without changing the database."""
+    out = sys.stdout if out is None else out
+    if report is None:
+        service = MigrationCompatibilityService()
+        if settings.database_url is None:
+            report = service.database_unavailable()
+        else:
+            async with _database(settings) as session_factory, session_factory() as session:
+                report = await service.check(session)
+    if json_output:
+        print(json.dumps(report.to_dict(), sort_keys=True), file=out)
+    else:
+        print(f"State: {report.state.value}", file=out)
+        print(f"Database revisions: {', '.join(report.database_revisions) or 'none'}", file=out)
+        print(f"Application heads: {', '.join(report.application_heads) or 'none'}", file=out)
+        print(f"Detail: {report.message}", file=out)
+    return 0 if report.current else 1
 
 
 async def create_support_bundle(
