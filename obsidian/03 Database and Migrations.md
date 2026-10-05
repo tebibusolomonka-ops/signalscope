@@ -1,7 +1,7 @@
 # Database and Migrations
 
 PostgreSQL 17 with the pgvector extension. Current Alembic head:
-`d5b2f3c6a7e1` (Add evaluation report records).
+`d8e2f4a6b1c3` (Add active operation guards).
 
 ## Rules
 
@@ -73,6 +73,9 @@ PostgreSQL 17 with the pgvector extension. Current Alembic head:
   start and finish times, outcome and sanitized error. Job and resource IDs
   are not foreign keys, so history survives queue and content deletion. Lease
   tokens, tracebacks, prompts and content are not stored.
+- **Release evidence** uses existing `organization_exports`,
+  `organization_disaster_recovery_drills` and `evaluation_report_records` rows.
+  Acceptance and release-readiness runs add no table and write no row.
 
 ## Deletion behavior
 

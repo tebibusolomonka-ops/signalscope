@@ -61,10 +61,12 @@ limits, bounded pagination, database-backed concurrent operation guards and
 cross-feature abuse-protection coverage. The next planned work starts with
 application build metadata and deployment preflight evidence.
 
-Batch 480 to 484 is complete through application build metadata, startup
+Batch 480 to 489 is complete through application build metadata, startup
 preflight, migration compatibility analysis, explicit deployment validation
-profiles and deterministic release-candidate manifests. The next planned work
-starts with the versioned acceptance profile and runner.
+profiles, deterministic release-candidate manifests, versioned acceptance,
+organization-scoped backup and drill evidence, security/deployment acceptance
+and the final release-readiness report. No milestone 490 is planned in this
+batch.
 
 ## Next batch
 

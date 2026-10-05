@@ -97,6 +97,11 @@ One Python package, `src/signalscope`, with one PostgreSQL database. See
 - **Evaluation** (`evaluation/`): retrieval evaluation, and event, claim and
   relation extraction evaluation (`evaluation/extraction/`), against local
   datasets.
+- **Release diagnostics** (`domain/diagnostics/`): build metadata, startup
+  preflight, migration compatibility, deployment validation, acceptance and
+  release-readiness reports. The final report reads existing configuration,
+  queue, backup, drill and evaluation evidence; it performs no deployment,
+  migration, backup, restore, drill or model execution.
 
 ## Admin web app
 

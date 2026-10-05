@@ -22,6 +22,11 @@ stops at the first failure, and checks that Alembic has one head.
   replaced with fakes or made to fail on import.
 - Evaluation manifest, report, comparison, gate and bundle tests use local
   fixtures and fake providers. Bundle tests verify stable order and checksums.
+- Acceptance tests cover stale and missing backups, verification and
+  restore-test drills, asset evidence, organization isolation, configured
+  security controls and safe output. Release-readiness coverage checks the
+  combined report, missing evidence, no mutation, no tenant content and no
+  model execution.
 - Relation evaluation tests cover exact matching, per-type metrics, confidence
   buckets, user-defined gates and factual summaries without model downloads.
 - `tests/integration/test_dashboard_end_to_end.py` checks that the dashboard,

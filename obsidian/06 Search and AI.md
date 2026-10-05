@@ -49,6 +49,9 @@ fakes.
 - **Evaluation evidence**: benchmark reports use a common versioned envelope.
   They can be compared factually, checked against user-defined profiles, and
   bundled with environment and gate evidence without running models.
+  Release readiness lists imported report IDs, tasks, models, providers and
+  dataset fingerprints, and says whether stored quality-gate evidence exists.
+  It never runs a model or invents a metric.
 - **Relation evaluation**: versioned datasets, exact micro and per-type metrics,
   optional confidence buckets, project-defined readiness gates and summaries
   provide evidence for human review. They make no persistence decision.

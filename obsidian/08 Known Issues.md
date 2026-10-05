@@ -54,6 +54,12 @@ Open problems after batch 360 to 379. Remove an item when it is fixed.
 - Active export, restore and restore-test guards have no lease. If a process
   stops after committing a running record, an operator must investigate and
   mark that operation terminal before another one can use the same scope.
+- Older backup rows do not store an immutable `include_assets` value. Release
+  evidence reports the current backup-policy value separately; newer drill
+  summaries record asset inclusion directly.
+- Release readiness cannot verify external TLS termination, off-site backup
+  copies, deployment rollback capability or human escalation decisions. Those
+  remain manual checks.
 
 ## Dashboard
 

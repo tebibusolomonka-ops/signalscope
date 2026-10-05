@@ -313,3 +313,8 @@ Decisions that should hold unless there is a clear reason to change them.
   the project, summaries state measurements and limitations, and no command
   enables or recommends relation storage.
 - **Simple English, no AI attribution** in code, docs and commits (AGENTS.md).
+- **Release readiness is evidence, not a score.** Versioned profiles decide
+  which facts are required. Missing evidence is missed or marked for manual
+  review, and no output claims that the system is secure, certified or proven.
+  The command is read-only; deployment and recovery actions remain explicit
+  operator workflows.

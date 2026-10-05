@@ -47,6 +47,10 @@ Backlog commands walk chunks in (document, position) order with keyset paging,
 one bounded transaction per page. They never load a model. A chunk counts as
 already read when it has results or a completed job.
 
+Startup preflight, support diagnostics, pilot readiness and release readiness
+read factual queue counts and query availability. They never claim, retry,
+cancel or otherwise change a queue job.
+
 ## Extraction workers
 
 A rerun of a chunk replaces that model's results for the chunk. The event

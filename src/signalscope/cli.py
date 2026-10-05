@@ -37,11 +37,7 @@ from signalscope.domain.claims.job import ClaimExtractionJobStatus
 from signalscope.domain.claims.job_repository import ClaimExtractionJobRepository
 from signalscope.domain.claims.queue import ClaimExtractionQueueService
 from signalscope.domain.claims.worker import ClaimExtractionWorker
-from signalscope.domain.diagnostics.acceptance import (
-    AcceptanceEvidence,
-    AcceptanceResult,
-    AcceptanceRunner,
-)
+from signalscope.domain.diagnostics.acceptance import AcceptanceResult
 from signalscope.domain.diagnostics.acceptance_profile import (
     AcceptanceProfileError,
     load_acceptance_profile,
@@ -58,9 +54,6 @@ from signalscope.domain.diagnostics.deployment_validation import (
     latest_verified_backup,
     load_deployment_validation_profile,
 )
-from signalscope.domain.diagnostics.disaster_recovery_acceptance import (
-    DisasterRecoveryAcceptanceService,
-)
 from signalscope.domain.diagnostics.migration_compatibility import (
     MigrationCompatibilityReport,
     MigrationCompatibilityService,
@@ -73,8 +66,9 @@ from signalscope.domain.diagnostics.release_candidate import (
     ReleaseCandidateService,
     evaluation_evidence_references,
 )
-from signalscope.domain.diagnostics.security_acceptance import (
-    SecurityDeploymentAcceptanceService,
+from signalscope.domain.diagnostics.release_readiness import (
+    ReleaseReadinessReport,
+    ReleaseReadinessService,
 )
 from signalscope.domain.diagnostics.startup_preflight import (
     StartupPreflightReport,
@@ -377,6 +371,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "run-acceptance":
         return asyncio.run(
             run_acceptance(
+                args.profile,
+                settings,
+                organization_id=args.organization_id,
+                deployment_profile_path=args.deployment_profile,
+                json_output=args.json,
+            )
+        )
+    if args.command == "release-readiness":
+        return asyncio.run(
+            release_readiness(
                 args.profile,
                 settings,
                 organization_id=args.organization_id,
@@ -901,6 +905,22 @@ def build_parser() -> argparse.ArgumentParser:
         help="deployment validation profile used as acceptance evidence",
     )
     acceptance.add_argument("--json", action="store_true", help="write JSON output")
+
+    release_readiness_parser = commands.add_parser(
+        "release-readiness", help="report factual release-readiness evidence"
+    )
+    release_readiness_parser.add_argument("--profile", type=Path, required=True)
+    release_readiness_parser.add_argument(
+        "--organization-id",
+        type=uuid.UUID,
+        help="organization whose backup and disaster recovery evidence is evaluated",
+    )
+    release_readiness_parser.add_argument(
+        "--deployment-profile",
+        type=Path,
+        help="deployment validation profile used as acceptance evidence",
+    )
+    release_readiness_parser.add_argument("--json", action="store_true", help="write JSON output")
 
     support_bundle = commands.add_parser(
         "create-support-bundle", help="write a safe diagnostics ZIP with no secrets"
@@ -2044,61 +2064,25 @@ async def run_acceptance(
             except DeploymentProfileError as error:
                 print(f"Error: {error}", file=err)
                 return 1
-        service = StartupPreflightService(settings)
-        dr_evidence = AcceptanceEvidence({}, {})
-        backup = None
         if settings.database_url is None:
-            preflight = service.without_database()
-            support_bundle_available = bool(SupportBundleService(settings).build_without_database())
+            readiness = await ReleaseReadinessService(settings).collect(
+                profile,
+                session=None,
+                blobs=None,
+                organization_id=organization_id,
+                deployment_profile=deployment_profile,
+            )
         else:
             blobs = LocalBlobStore(settings.blob_dir) if settings.blob_dir is not None else None
             async with _database(settings) as session_factory, session_factory() as session:
-                preflight = await service.collect(session, blobs)
-                backup = await latest_verified_backup(session)
-                support_bundle_available = bool(
-                    await SupportBundleService(settings).build(session, blobs)
+                readiness = await ReleaseReadinessService(settings).collect(
+                    profile,
+                    session=session,
+                    blobs=blobs,
+                    organization_id=organization_id,
+                    deployment_profile=deployment_profile,
                 )
-                if organization_id is not None:
-                    dr_evidence = await DisasterRecoveryAcceptanceService(session).collect(
-                        organization_id, profile
-                    )
-        deployment_validation = (
-            None
-            if deployment_profile is None
-            else DeploymentValidationService(settings, deployment_profile).validate(
-                preflight, backup
-            )
-        )
-        security_evidence = SecurityDeploymentAcceptanceService(settings).collect(
-            preflight,
-            deployment_validation=deployment_validation,
-            support_bundle_available=support_bundle_available,
-        )
-        build = BuildMetadataService(settings).inspect()
-        values: dict[str, bool | None] = {
-            "deployment.migration_current": preflight.migration.current,
-            "operations.startup_preflight_passes": preflight.passed,
-        }
-        references = {"migration_revision": ",".join(preflight.migration.database_revisions)}
-        if build.build_sha is not None:
-            references["build_sha"] = build.build_sha
-        values.update(security_evidence.values)
-        values.update(dr_evidence.values)
-        references.update(security_evidence.references)
-        references.update(dr_evidence.references)
-        facts = {
-            **(security_evidence.facts or {}),
-            **(dr_evidence.facts or {}),
-        }
-        result = AcceptanceRunner().run(
-            profile,
-            AcceptanceEvidence(
-                values,
-                references,
-                security_evidence.warnings + dr_evidence.warnings,
-                facts,
-            ),
-        )
+        result = readiness.acceptance
     if json_output:
         print(json.dumps(result.to_dict(), sort_keys=True), file=out)
     else:
@@ -2108,6 +2092,67 @@ async def run_acceptance(
                 file=out,
             )
     return 0 if result.passed else 1
+
+
+async def release_readiness(
+    profile_path: Path,
+    settings: Settings,
+    out: TextIO | None = None,
+    err: TextIO | None = None,
+    *,
+    organization_id: uuid.UUID | None = None,
+    deployment_profile_path: Path | None = None,
+    json_output: bool = False,
+    report: ReleaseReadinessReport | None = None,
+) -> int:
+    """Report release evidence without deploying or changing data."""
+    out = sys.stdout if out is None else out
+    err = sys.stderr if err is None else err
+    if report is None:
+        try:
+            profile = load_acceptance_profile(profile_path)
+            deployment_profile = (
+                None
+                if deployment_profile_path is None
+                else load_deployment_validation_profile(deployment_profile_path)
+            )
+        except (AcceptanceProfileError, DeploymentProfileError) as error:
+            print(f"Error: {error}", file=err)
+            return 1
+        service = ReleaseReadinessService(settings)
+        if settings.database_url is None:
+            report = await service.collect(
+                profile,
+                session=None,
+                blobs=None,
+                organization_id=organization_id,
+                deployment_profile=deployment_profile,
+            )
+        else:
+            blobs = LocalBlobStore(settings.blob_dir) if settings.blob_dir is not None else None
+            async with _database(settings) as session_factory, session_factory() as session:
+                report = await service.collect(
+                    profile,
+                    session=session,
+                    blobs=blobs,
+                    organization_id=organization_id,
+                    deployment_profile=deployment_profile,
+                )
+    payload = report.to_dict()
+    if json_output:
+        print(json.dumps(payload, sort_keys=True), file=out)
+    else:
+        print(f"Startup preflight: {'met' if report.preflight.passed else 'missed'}", file=out)
+        if report.deployment_validation is None:
+            print("Deployment validation: manual review required", file=out)
+        else:
+            status = "met" if report.deployment_validation.passed else "missed"
+            print(f"Deployment validation: {status}", file=out)
+        for check in report.acceptance.checks:
+            print(f"{check.status.value.upper()}: {check.requirement}: {check.message}", file=out)
+        available = "available" if report.model_evaluations else "unavailable"
+        print(f"Model evaluation evidence: {available}", file=out)
+    return 0 if report.acceptance.passed else 1
 
 
 async def create_support_bundle(

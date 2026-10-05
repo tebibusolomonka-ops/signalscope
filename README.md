@@ -494,24 +494,27 @@ answers or private assets.
 signalscope create-support-bundle --output support.zip
 ```
 
-### Pilot preparation workflow
+### Release-readiness workflow
 
-Before a pilot, work through this list:
+Use this order for a release review:
 
-1. `signalscope validate-production-config` and fix every error.
-2. Apply migrations and confirm `signalscope deployment-diagnostics` reports the
-   database at the current head and all dependencies ready.
-3. Confirm a manual backup completes and its archive verifies
-   (`signalscope run-organization-backup <id>` and
-   `signalscope verify-organization-export`), and that a restore plan into an
-   empty organization is clean.
-4. `signalscope pilot-readiness` for the full checklist. It groups passed,
-   failed and warning checks, lists the manual steps a person must confirm (such
-   as TLS in front of the API), and reports local model evidence in its own
-   section. Missing model evidence does not fail the pilot on its own.
+1. Validate production configuration with `signalscope validate-production-config`.
+2. Run `signalscope startup-preflight --json`.
+3. Verify migration compatibility with
+   `signalscope check-migration-compatibility --json`.
+4. Verify the selected organization's existing backup evidence.
+5. Review its latest verification drill and any explicitly required restore-test drill.
+6. Run `signalscope validate-deployment deployment-profile.json --json`.
+7. Create the release-candidate manifest with `signalscope create-release-candidate`.
+8. Run the acceptance profile with `signalscope run-acceptance --profile
+   acceptance.json --organization-id <id> --deployment-profile deployment-profile.json --json`.
+9. Run `signalscope release-readiness --profile acceptance.json
+   --organization-id <id> --deployment-profile deployment-profile.json --json`.
+10. Complete and record every manual check, including TLS, rollback and escalation decisions.
 
-The pilot readiness output is a factual checklist, not a score. Fix the failed
-checks, record the manual ones, and keep a support bundle for reference.
+The commands evaluate existing evidence. They do not deploy, migrate, create a
+backup, restore data, run a drill or execute a model. See
+[`docs/release-readiness.md`](docs/release-readiness.md) for the operator runbook.
 
 ## Admin web app
 

@@ -1,10 +1,11 @@
 # Current State
 
-Batch 420 to 459 is complete, pushed and green. Batch 460 to 484 is implemented:
+Batch 420 to 459 is complete, pushed and green. Batch 460 to 489 is implemented:
 disaster-recovery drills, operational observability, session hardening, and
 input and abuse protection, plus build metadata, startup preflight, migration
-compatibility, deployment validation and release-candidate evidence. The
-remaining 485 to 489 acceptance and release-readiness work is in progress. Alembic head is
+compatibility, deployment validation, release-candidate evidence, versioned
+acceptance, organization-scoped DR acceptance, security/deployment acceptance
+and a combined release-readiness report. Alembic head is
 `d8e2f4a6b1c3` (Add active operation guards).
 Durable operation history and portable organization
 exports, model evaluation evidence tooling and authentication hardening were
@@ -17,6 +18,11 @@ chunk API, a focused chunk on the document page, and search results and
 research citations that link to the exact passage.
 
 ## Done
+
+- `signalscope release-readiness` combines build, preflight, migration,
+  deployment, pilot, acceptance, backup, drill and imported evaluation facts.
+  It reports met, missed, warning and manual states without a score and without
+  performing any operational action.
 
 - Authentication foundation (commits 273 to 277): users, Argon2id password
   credentials, opaque server-side sessions, and `POST /auth/login`,

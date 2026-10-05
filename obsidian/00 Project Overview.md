@@ -45,11 +45,16 @@ See [[01 Architecture]] for the layers and [[05 Workers and Queues]] for the job
 
 ## Maturity
 
-Early development. There is an HTTP API, a command line and an internal web
+The planned implementation through milestone 489 is complete. There is an HTTP API, a command line and an internal web
 app (`web/`) for research and administration. Optional authentication (off by default) adds accounts,
 organizations and shared investigations, and splits all content by
 organization. Local models are optional and off
 by default. Real model quality has not been measured yet; see
 [[08 Known Issues]].
+
+Release review is supported by versioned deployment and acceptance profiles,
+read-only preflight and migration checks, organization-scoped backup and drill
+evidence, release-candidate manifests and the factual `release-readiness`
+report. Operators still make the release, rollback and escalation decisions.
 
 Current details: [[02 Current State]]. Planned work: [[10 Next Work]].

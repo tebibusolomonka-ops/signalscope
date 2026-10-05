@@ -307,6 +307,12 @@ Aggregates only; no record lists, scores or rankings.
 
 ## Not in the API
 
+Release-readiness is deliberately command-line only. `signalscope
+run-acceptance` evaluates a versioned profile, and `signalscope
+release-readiness` combines that result with preflight, migration, deployment,
+pilot, organization backup/drill and imported evaluation evidence. Neither
+command mutates application data.
+
 Relation extraction and extraction evaluation are command line only
 (`signalscope evaluate-extraction`, `signalscope check-structured-model`).
 Investigations can also be exported with `signalscope export-investigation`.
