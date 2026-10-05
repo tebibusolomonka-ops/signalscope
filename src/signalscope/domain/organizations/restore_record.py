@@ -3,7 +3,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, String
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, String, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -38,6 +38,12 @@ class OrganizationRestore(UUIDPrimaryKeyMixin, TimestampMixin, Base):
             "created_at",
         ),
         Index("ix_organization_restores_status", "status"),
+        Index(
+            "uq_organization_restores_active_target",
+            "target_organization_id",
+            unique=True,
+            postgresql_where=text("status IN ('planned', 'running')"),
+        ),
     )
 
     target_organization_id: Mapped[uuid.UUID] = mapped_column(

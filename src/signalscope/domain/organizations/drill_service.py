@@ -1,9 +1,11 @@
 import uuid
 from collections.abc import Mapping
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from signalscope.core.errors import (
+    ConflictError,
     InvalidInputError,
     ServiceUnavailableError,
     SignalScopeError,
@@ -20,6 +22,7 @@ from signalscope.domain.organizations.export_inventory import OrganizationExport
 from signalscope.domain.organizations.export_verification import (
     OrganizationExportVerificationService,
 )
+from signalscope.domain.organizations.model import Organization
 from signalscope.domain.organizations.restore_conflicts import OrganizationRestoreConflictService
 from signalscope.domain.organizations.restore_inventory import OrganizationRestoreInventoryService
 from signalscope.domain.organizations.restore_record import (
@@ -69,9 +72,16 @@ class OrganizationDisasterRecoveryDrillService:
     ) -> OrganizationDisasterRecoveryDrill:
         if mode is DisasterRecoveryDrillMode.RESTORE_TEST and target_organization_id is None:
             raise InvalidInputError("A restore-test drill needs an empty target organization.")
+        if (
+            mode is DisasterRecoveryDrillMode.RESTORE_TEST
+            and await self.session.get(Organization, target_organization_id) is None
+        ):
+            raise InvalidInputError("The restore-test target organization does not exist.")
 
         now = self.clock()
+        drill_id = uuid.uuid4()
         drill = OrganizationDisasterRecoveryDrill(
+            id=drill_id,
             organization_id=organization_id,
             target_organization_id=target_organization_id,
             requested_by_user_id=requested_by_user_id,
@@ -80,7 +90,13 @@ class OrganizationDisasterRecoveryDrillService:
             started_at=now,
         )
         self.session.add(drill)
-        await self.session.commit()
+        try:
+            await self.session.commit()
+        except IntegrityError as error:
+            await self.session.rollback()
+            raise ConflictError(
+                "A restore-test drill is already active for this target."
+            ) from error
 
         try:
             if mode is DisasterRecoveryDrillMode.VERIFICATION_ONLY:

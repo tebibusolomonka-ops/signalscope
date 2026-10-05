@@ -3,9 +3,10 @@ from contextlib import suppress
 from datetime import timedelta
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from signalscope.core.errors import SignalScopeError, short_error_message
+from signalscope.core.errors import ConflictError, SignalScopeError, short_error_message
 from signalscope.domain.organizations.backup_policy import (
     OrganizationBackupFrequency,
     OrganizationBackupPolicy,
@@ -60,16 +61,23 @@ class OrganizationBackupService:
             await self.session.flush()
 
         now = self.clock()
+        export_id = uuid.uuid4()
+        artifact_key = f"{BACKUP_ARTIFACT_PREFIX}{export_id}.zip"
         export = OrganizationExport(
+            id=export_id,
             organization_id=organization_id,
             requested_by_user_id=requested_by_user_id,
             status=OrganizationExportStatus.RUNNING,
             format_version=EXPORT_FORMAT_VERSION,
             started_at=now,
+            artifact_key=artifact_key,
         )
         self.session.add(export)
-        await self.session.flush()
-        export.artifact_key = f"{BACKUP_ARTIFACT_PREFIX}{export.id}.zip"
+        try:
+            await self.session.commit()
+        except IntegrityError as error:
+            await self.session.rollback()
+            raise ConflictError("An organization export or backup is already running.") from error
 
         try:
             archive = await self.archive.build(
@@ -78,7 +86,7 @@ class OrganizationBackupService:
             verification = OrganizationExportVerificationService().verify(archive.data)
             if not verification.valid:
                 raise ValueError("Backup export verification failed.")
-            await self.blobs.put(export.artifact_key, archive.data)
+            await self.blobs.put(artifact_key, archive.data)
             export.status = OrganizationExportStatus.COMPLETED
             export.finished_at = self.clock()
             export.size_bytes = archive.size_bytes
@@ -87,9 +95,15 @@ class OrganizationBackupService:
             policy.next_run_at = export.finished_at + _frequency_delta(policy.frequency)
             await self._apply_retention(organization_id, policy.retention_count, export)
         except Exception as error:
-            if export.artifact_key is not None:
-                with suppress(SignalScopeError):
-                    await self.blobs.delete(export.artifact_key)
+            await self.session.rollback()
+            with suppress(SignalScopeError):
+                await self.blobs.delete(artifact_key)
+            stored_export = await self.session.get(OrganizationExport, export_id)
+            stored_policy = await self.session.get(OrganizationBackupPolicy, organization_id)
+            if stored_export is None or stored_policy is None:
+                raise
+            export = stored_export
+            policy = stored_policy
             export.status = OrganizationExportStatus.FAILED
             export.finished_at = self.clock()
             export.safe_error = _safe_error(error)

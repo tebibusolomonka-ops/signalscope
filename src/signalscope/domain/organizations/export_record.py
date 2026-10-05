@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from enum import StrEnum
 
-from sqlalchemy import BigInteger, CheckConstraint, DateTime, ForeignKey, Index, String
+from sqlalchemy import BigInteger, CheckConstraint, DateTime, ForeignKey, Index, String, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from signalscope.core.errors import ERROR_MESSAGE_MAX_LENGTH
@@ -32,6 +32,12 @@ class OrganizationExport(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         CheckConstraint("sha256 IS NULL OR sha256 ~ '^[0-9a-f]{64}$'", name="sha256_is_hex"),
         Index("ix_organization_exports_organization_created_at", "organization_id", "created_at"),
         Index("ix_organization_exports_status_expires_at", "status", "expires_at"),
+        Index(
+            "uq_organization_exports_active_organization",
+            "organization_id",
+            unique=True,
+            postgresql_where=text("status = 'running'"),
+        ),
     )
 
     organization_id: Mapped[uuid.UUID] = mapped_column(

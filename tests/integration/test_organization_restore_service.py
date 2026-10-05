@@ -1,12 +1,13 @@
 import hashlib
 import uuid
+from datetime import UTC, datetime
 
 import httpx
 import pytest
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from signalscope.core.errors import InvalidInputError, ServiceUnavailableError
+from signalscope.core.errors import ConflictError, InvalidInputError, ServiceUnavailableError
 from signalscope.domain.claims.model import ClaimEvidence
 from signalscope.domain.documents.asset import DocumentAsset
 from signalscope.domain.documents.model import Document
@@ -174,6 +175,31 @@ async def test_restore_refuses_populated_target_before_writing_record(
         count = await session.scalar(select(func.count()).select_from(OrganizationRestore))
 
     assert count == 0
+
+
+async def test_restore_blocks_a_second_active_operation_for_the_target(
+    auth_client: httpx.AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    tenants = await make_tenants(auth_client, session_factory)
+    data, *_ = await archive_with_asset(session_factory, tenants.a.id)
+    async with session_factory() as session:
+        session.add(
+            OrganizationRestore(
+                target_organization_id=tenants.b.id,
+                requested_by_user_id=tenants.b.owner_id,
+                source_export_sha256="a" * 64,
+                status=OrganizationRestoreStatus.RUNNING,
+                started_at=datetime.now(UTC),
+            )
+        )
+        await session.commit()
+
+    async with session_factory() as session:
+        with pytest.raises(ConflictError, match="already active"):
+            await OrganizationRestoreService(session, MemoryBlobs()).restore(
+                data, tenants.b.id, tenants.b.owner_id
+            )
 
 
 async def test_restore_requires_all_asset_content(

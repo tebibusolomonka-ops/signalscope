@@ -58,9 +58,16 @@ class FakeSession:
         self.added: list[Any] = []
         self.commits = 0
 
-    async def get(self, model: Any, key: Any) -> OrganizationBackupPolicy:
-        assert key == ORGANIZATION_ID
-        return self.policy
+    async def get(self, model: Any, key: Any) -> Any:
+        if model is OrganizationBackupPolicy:
+            assert key == ORGANIZATION_ID
+            return self.policy
+        if model is OrganizationExport:
+            return next(
+                (value for value in self.added if isinstance(value, model) and value.id == key),
+                None,
+            )
+        raise AssertionError(f"Unexpected model: {model}")
 
     def add(self, value: Any) -> None:
         self.added.append(value)
@@ -75,6 +82,9 @@ class FakeSession:
 
     async def commit(self) -> None:
         self.commits += 1
+
+    async def rollback(self) -> None:
+        return None
 
 
 class FakeArchive:
@@ -144,7 +154,7 @@ async def test_success_updates_policy_and_stores_verified_export() -> None:
     assert session.policy.last_run_at == NOW
     assert session.policy.next_run_at == NOW + timedelta(days=1)
     assert fake_archive.include_assets is False
-    assert session.commits == 1
+    assert session.commits == 2
 
 
 @pytest.mark.anyio
@@ -163,6 +173,7 @@ async def test_verification_failure_does_not_update_policy() -> None:
     assert session.policy.last_run_at is None
     assert session.policy.next_run_at == NOW + timedelta(days=1)
     assert blobs.values == {}
+    assert session.commits == 2
 
 
 @pytest.mark.anyio

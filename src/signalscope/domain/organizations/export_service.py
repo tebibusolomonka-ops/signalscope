@@ -3,9 +3,11 @@ from contextlib import suppress
 from dataclasses import dataclass
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from signalscope.core.errors import (
+    ConflictError,
     ForbiddenError,
     NotFoundError,
     ServiceUnavailableError,
@@ -69,18 +71,23 @@ class OrganizationExportService:
             raise ServiceUnavailableError("File storage is not configured.")
         now = self.clock()
         actor_id = self.actor.id
+        export_id = uuid.uuid4()
+        artifact_key = f"organization-exports/{export_id}.zip"
         export = OrganizationExport(
+            id=export_id,
             organization_id=organization_id,
             requested_by_user_id=actor_id,
             status=OrganizationExportStatus.RUNNING,
             format_version=EXPORT_FORMAT_VERSION,
             started_at=now,
+            artifact_key=artifact_key,
         )
         self.session.add(export)
-        await self.session.flush()
-        export.artifact_key = f"organization-exports/{export.id}.zip"
-        export_id = export.id
-        artifact_key = export.artifact_key
+        try:
+            await self.session.commit()
+        except IntegrityError as error:
+            await self.session.rollback()
+            raise ConflictError("An organization export or backup is already running.") from error
         try:
             archive = await OrganizationExportArchiveService(
                 OrganizationExportInventoryService(self.session),
@@ -88,7 +95,7 @@ class OrganizationExportService:
                 self.clock,
                 self.max_assets,
                 self.max_bytes,
-            ).store(organization_id, export.artifact_key)
+            ).store(organization_id, artifact_key)
             export.status = OrganizationExportStatus.COMPLETED
             export.finished_at = self.clock()
             export.size_bytes = archive.size_bytes
@@ -103,20 +110,15 @@ class OrganizationExportService:
             await self.session.commit()
         except Exception as error:
             await self.session.rollback()
-            if artifact_key is not None:
-                with suppress(SignalScopeError):
-                    await self.blobs.delete(artifact_key)
-            failed = OrganizationExport(
-                id=export_id,
-                organization_id=organization_id,
-                requested_by_user_id=actor_id,
-                status=OrganizationExportStatus.FAILED,
-                format_version=EXPORT_FORMAT_VERSION,
-                started_at=now,
-                finished_at=self.clock(),
-                safe_error=_safe_error(error),
-            )
-            self.session.add(failed)
+            with suppress(SignalScopeError):
+                await self.blobs.delete(artifact_key)
+            failed = await self.session.get(OrganizationExport, export_id)
+            if failed is None:
+                raise
+            failed.status = OrganizationExportStatus.FAILED
+            failed.finished_at = self.clock()
+            failed.artifact_key = None
+            failed.safe_error = _safe_error(error)
             await self.session.commit()
             return failed
         return export

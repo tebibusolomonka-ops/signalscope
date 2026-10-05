@@ -7,11 +7,13 @@ from enum import Enum
 from typing import Any
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.inspection import inspect
 from sqlalchemy.orm import DeclarativeBase
 
 from signalscope.core.errors import (
+    ConflictError,
     InvalidInputError,
     ServiceUnavailableError,
     SignalScopeError,
@@ -95,7 +97,9 @@ class OrganizationRestoreService:
         self._require_asset_content(archive)
 
         now = self.clock()
+        restore_id = uuid.uuid4()
         restore = OrganizationRestore(
+            id=restore_id,
             target_organization_id=target_organization_id,
             requested_by_user_id=requested_by_user_id,
             source_export_sha256=hashlib.sha256(data).hexdigest(),
@@ -104,9 +108,13 @@ class OrganizationRestoreService:
             summary={"planned": inventory.counts},
         )
         self.session.add(restore)
-        await self.session.commit()
-        # A rollback below expires the record, so keep its id for the failure path.
-        restore_id = restore.id
+        try:
+            await self.session.commit()
+        except IntegrityError as error:
+            await self.session.rollback()
+            raise ConflictError(
+                "An organization restore is already active for this target."
+            ) from error
 
         staged_keys: list[str] = []
         final_keys: list[str] = []

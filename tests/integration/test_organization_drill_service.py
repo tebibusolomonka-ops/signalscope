@@ -1,16 +1,18 @@
 import hashlib
 import uuid
+from datetime import UTC, datetime
 
 import httpx
 import pytest
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from signalscope.core.errors import InvalidInputError, ServiceUnavailableError
+from signalscope.core.errors import ConflictError, InvalidInputError, ServiceUnavailableError
 from signalscope.domain.documents.asset import DocumentAsset
 from signalscope.domain.organizations.drill_record import (
     DisasterRecoveryDrillMode,
     DisasterRecoveryDrillStatus,
+    OrganizationDisasterRecoveryDrill,
 )
 from signalscope.domain.organizations.drill_service import (
     OrganizationDisasterRecoveryDrillService,
@@ -140,6 +142,34 @@ async def test_restore_test_requires_a_target(
                 tenants.a.id,
                 tenants.a.owner_id,
                 mode=DisasterRecoveryDrillMode.RESTORE_TEST,
+            )
+
+
+async def test_restore_test_blocks_a_second_running_drill_for_the_target(
+    auth_client: httpx.AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    tenants = await make_tenants(auth_client, session_factory)
+    async with session_factory() as session:
+        session.add(
+            OrganizationDisasterRecoveryDrill(
+                organization_id=tenants.a.id,
+                target_organization_id=tenants.b.id,
+                requested_by_user_id=tenants.a.owner_id,
+                mode=DisasterRecoveryDrillMode.RESTORE_TEST,
+                status=DisasterRecoveryDrillStatus.RUNNING,
+                started_at=datetime.now(UTC),
+            )
+        )
+        await session.commit()
+
+    async with session_factory() as session:
+        with pytest.raises(ConflictError, match="already active"):
+            await OrganizationDisasterRecoveryDrillService(session, MemoryBlobs()).run(
+                tenants.a.id,
+                tenants.a.owner_id,
+                mode=DisasterRecoveryDrillMode.RESTORE_TEST,
+                target_organization_id=tenants.b.id,
             )
 
 
