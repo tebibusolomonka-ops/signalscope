@@ -38,6 +38,13 @@ from signalscope.domain.claims.job_repository import ClaimExtractionJobRepositor
 from signalscope.domain.claims.queue import ClaimExtractionQueueService
 from signalscope.domain.claims.worker import ClaimExtractionWorker
 from signalscope.domain.diagnostics.deployment import DeploymentDiagnosticsService
+from signalscope.domain.diagnostics.deployment_validation import (
+    DeploymentProfileError,
+    DeploymentValidationResult,
+    DeploymentValidationService,
+    latest_verified_backup,
+    load_deployment_validation_profile,
+)
 from signalscope.domain.diagnostics.migration_compatibility import (
     MigrationCompatibilityReport,
     MigrationCompatibilityService,
@@ -330,6 +337,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(startup_preflight(settings, json_output=args.json))
     if args.command == "check-migration-compatibility":
         return asyncio.run(check_migration_compatibility(settings, json_output=args.json))
+    if args.command == "validate-deployment":
+        return asyncio.run(validate_deployment(args.profile, settings, json_output=args.json))
     if args.command == "create-support-bundle":
         return asyncio.run(create_support_bundle(args.output, settings, overwrite=args.overwrite))
     if args.command == "pilot-readiness":
@@ -811,6 +820,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="compare the database revision with the application migration graph",
     )
     migration_check.add_argument("--json", action="store_true", help="write JSON output")
+
+    deployment_validation = commands.add_parser(
+        "validate-deployment", help="validate explicit deployment requirements"
+    )
+    deployment_validation.add_argument("profile", type=Path, help="versioned JSON profile")
+    deployment_validation.add_argument("--json", action="store_true", help="write JSON output")
 
     support_bundle = commands.add_parser(
         "create-support-bundle", help="write a safe diagnostics ZIP with no secrets"
@@ -1830,6 +1845,45 @@ async def check_migration_compatibility(
         print(f"Application heads: {', '.join(report.application_heads) or 'none'}", file=out)
         print(f"Detail: {report.message}", file=out)
     return 0 if report.current else 1
+
+
+async def validate_deployment(
+    profile_path: Path,
+    settings: Settings,
+    out: TextIO | None = None,
+    err: TextIO | None = None,
+    *,
+    json_output: bool = False,
+    result: DeploymentValidationResult | None = None,
+) -> int:
+    """Validate a deployment against an explicit profile."""
+    out = sys.stdout if out is None else out
+    err = sys.stderr if err is None else err
+    if result is None:
+        try:
+            profile = load_deployment_validation_profile(profile_path)
+        except DeploymentProfileError as error:
+            print(f"Error: {error}", file=err)
+            return 1
+        preflight_service = StartupPreflightService(settings)
+        backup = None
+        if settings.database_url is None:
+            preflight = preflight_service.without_database()
+        else:
+            blobs = LocalBlobStore(settings.blob_dir) if settings.blob_dir is not None else None
+            async with _database(settings) as session_factory, session_factory() as session:
+                preflight = await preflight_service.collect(session, blobs)
+                backup = await latest_verified_backup(session)
+        result = DeploymentValidationService(settings, profile).validate(preflight, backup)
+    if json_output:
+        print(json.dumps(result.to_dict(), sort_keys=True), file=out)
+    else:
+        for finding in result.results:
+            print(
+                f"{finding.status.value.upper()}: {finding.requirement}: {finding.message}",
+                file=out,
+            )
+    return 0 if result.passed else 1
 
 
 async def create_support_bundle(
