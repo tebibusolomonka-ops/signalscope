@@ -219,8 +219,18 @@ signalscope cleanup-organization-invitations --limit 1000
 ### Sessions
 
 Signed in users can see their sessions with `GET /auth/sessions` (never the
-tokens), revoke one with `DELETE /auth/sessions/{session_id}`, and end every
-session, the current one included, with `POST /auth/logout-all`.
+tokens), revoke one with `DELETE /auth/sessions/{session_id}`, sign out every
+other session but keep the current one with `POST /auth/sessions/revoke-others`,
+and end every session, the current one included, with `POST /auth/logout-all`.
+Each listed session shows its effective expiry, the earliest of its stored
+expiry and the absolute and idle limits.
+
+Two limits bound every session. The absolute limit is
+`SIGNALSCOPE_AUTH_SESSION_MAX_AGE_SECONDS` (7 days by default), measured from
+when the session was created and never extended by activity. The idle limit is
+`SIGNALSCOPE_AUTH_SESSION_IDLE_SECONDS` (1 day by default), measured from the
+last use. A session past either limit stops working and is revoked; the idle
+limit must not exceed the absolute limit.
 
 Change your password with `POST /auth/change-password` and
 `{"current_password": "...", "new_password": "..."}`. Your other sessions are

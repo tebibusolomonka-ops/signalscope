@@ -101,6 +101,14 @@ authentication throttles).
   Restores have durable lifecycle records and audit events, a system-admin
   apply API (`POST /organizations/:id/restore`) and a `signalscope
   restore-organization` command that is a dry run unless `--apply` is given.
+- Sessions have absolute and idle lifetimes
+  (`SIGNALSCOPE_AUTH_SESSION_MAX_AGE_SECONDS`, 7 days;
+  `SIGNALSCOPE_AUTH_SESSION_IDLE_SECONDS`, 1 day). Session validation revokes a
+  session past either limit; activity refreshes the idle clock but never the
+  absolute one. The session inventory (self and admin) reports the effective
+  expiry, users can sign out other sessions while keeping the current one
+  (`POST /auth/sessions/revoke-others`), and revocations are audited. No token,
+  token hash or password is ever returned or logged.
 - Operational observability builds on operation attempt history. An operation
   trend service gives factual time-bucket (hour/day) counts of attempts,
   successes, failures, recovered and retried attempts, and a latency service
