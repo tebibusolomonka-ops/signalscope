@@ -406,3 +406,15 @@ def test_session_idle_is_bounded(seconds: int) -> None:
 def test_idle_must_not_exceed_absolute_lifetime() -> None:
     with pytest.raises(SettingsError, match="must not exceed"):
         Settings(auth_session_max_age_seconds=600, auth_session_idle_seconds=1200)
+
+
+def test_json_request_limit_default_and_env() -> None:
+    assert Settings().max_json_request_bytes == 1_000_000
+    loaded = load_settings({"SIGNALSCOPE_MAX_JSON_REQUEST_BYTES": "2048"})
+    assert loaded.max_json_request_bytes == 2048
+
+
+@pytest.mark.parametrize("value", [0, 1023, 100_000_001])
+def test_json_request_limit_is_bounded(value: int) -> None:
+    with pytest.raises(SettingsError, match="max_json_request_bytes"):
+        Settings(max_json_request_bytes=value)

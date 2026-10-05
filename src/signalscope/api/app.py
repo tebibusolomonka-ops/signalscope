@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from signalscope.api.errors import add_error_handlers
 from signalscope.api.lifespan import lifespan
 from signalscope.api.middleware import (
+    JsonRequestSizeLimitMiddleware,
     RequestIDMiddleware,
     RequestLoggingMiddleware,
     SecurityHeadersMiddleware,
@@ -68,6 +69,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # The last middleware added runs first, so the request ID is set before logging.
     app.add_middleware(RequestLoggingMiddleware)
     app.add_middleware(RequestIDMiddleware)
+    app.add_middleware(JsonRequestSizeLimitMiddleware, max_bytes=settings.max_json_request_bytes)
     app.add_middleware(
         SecurityHeadersMiddleware,
         content_security_policy=content_security_policy(settings),

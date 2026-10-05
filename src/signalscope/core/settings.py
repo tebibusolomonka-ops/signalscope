@@ -17,6 +17,9 @@ MAX_AUTH_SESSION_RETENTION_DAYS = 3650
 # Absolute and idle session lifetimes, in seconds. One year is the ceiling.
 MIN_AUTH_SESSION_SECONDS = 60
 MAX_AUTH_SESSION_SECONDS = 31_536_000
+# Bounds for the maximum accepted JSON request body, in bytes.
+MIN_JSON_REQUEST_BYTES = 1_024
+MAX_JSON_REQUEST_BYTES = 100_000_000
 MAX_AUTH_LOGIN_WINDOW_SECONDS = 86_400
 MAX_AUTH_LOGIN_FAILURES = 100
 MAX_AUTH_LOGIN_BLOCK_SECONDS = 604_800
@@ -97,6 +100,9 @@ class Settings:
     # How long expired and revoked sessions are kept before cleanup-auth-sessions
     # deletes them.
     auth_session_retention_days: int = 30
+    # The largest JSON request body the API accepts. Larger ones answer 413.
+    # Binary uploads such as archives have their own, larger limits.
+    max_json_request_bytes: int = 1_000_000
     auth_login_window_seconds: int = 900
     auth_login_max_failures: int = 10
     auth_login_block_seconds: int = 900
@@ -154,6 +160,11 @@ class Settings:
         if self.auth_session_idle_seconds > self.auth_session_max_age_seconds:
             raise SettingsError(
                 "auth_session_idle_seconds must not exceed auth_session_max_age_seconds"
+            )
+        if not MIN_JSON_REQUEST_BYTES <= self.max_json_request_bytes <= MAX_JSON_REQUEST_BYTES:
+            raise SettingsError(
+                "max_json_request_bytes must be from "
+                f"{MIN_JSON_REQUEST_BYTES} to {MAX_JSON_REQUEST_BYTES}"
             )
         if not 1 <= self.auth_session_retention_days <= MAX_AUTH_SESSION_RETENTION_DAYS:
             raise SettingsError(
@@ -264,6 +275,9 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
         auth_enabled=_read_bool(env, "SIGNALSCOPE_AUTH_ENABLED", defaults.auth_enabled),
         auth_session_days=_read_int(
             env, "SIGNALSCOPE_AUTH_SESSION_DAYS", defaults.auth_session_days
+        ),
+        max_json_request_bytes=_read_int(
+            env, "SIGNALSCOPE_MAX_JSON_REQUEST_BYTES", defaults.max_json_request_bytes
         ),
         auth_session_max_age_seconds=_read_int(
             env,

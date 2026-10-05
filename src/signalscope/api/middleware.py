@@ -43,6 +43,56 @@ class RequestIDMiddleware:
         await self.app(scope, receive, send_with_request_id)
 
 
+PAYLOAD_TOO_LARGE = (
+    b'{"error":{"code":"payload_too_large","message":"The request body is too large."}}'
+)
+
+
+class JsonRequestSizeLimitMiddleware:
+    """Reject oversized JSON request bodies with 413, before the route reads them.
+
+    It applies only to application/json requests, so binary uploads such as
+    organization archives keep their own, larger limits. The declared
+    Content-Length is checked before the route reads the body, so an oversized
+    request is rejected without being buffered.
+    """
+
+    def __init__(self, app: ASGIApp, max_bytes: int) -> None:
+        self.app = app
+        self.max_bytes = max_bytes
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        headers = dict(scope.get("headers") or [])
+        content_type = headers.get(b"content-type", b"")
+        length = headers.get(b"content-length")
+        if (
+            content_type.startswith(b"application/json")
+            and length is not None
+            and length.isdigit()
+            and int(length) > self.max_bytes
+        ):
+            await _send_payload_too_large(send)
+            return
+        await self.app(scope, receive, send)
+
+
+async def _send_payload_too_large(send: Send) -> None:
+    await send(
+        {
+            "type": "http.response.start",
+            "status": 413,
+            "headers": [
+                (b"content-type", b"application/json"),
+                (b"content-length", str(len(PAYLOAD_TOO_LARGE)).encode()),
+            ],
+        }
+    )
+    await send({"type": "http.response.body", "body": PAYLOAD_TOO_LARGE})
+
+
 SECURITY_HEADERS = {
     "X-Content-Type-Options": "nosniff",
     "Referrer-Policy": "no-referrer",
