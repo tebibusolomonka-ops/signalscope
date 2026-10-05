@@ -8,9 +8,7 @@ UPLOAD_LIMIT = 4096
 
 
 def client() -> TestClient:
-    settings = Settings(
-        max_json_request_bytes=JSON_LIMIT, max_upload_request_bytes=UPLOAD_LIMIT
-    )
+    settings = Settings(max_json_request_bytes=JSON_LIMIT, max_upload_request_bytes=UPLOAD_LIMIT)
     return TestClient(create_app(settings))
 
 
