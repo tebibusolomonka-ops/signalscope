@@ -372,3 +372,37 @@ def test_answer_tokens_must_be_a_number() -> None:
 def test_answer_device_must_not_be_blank() -> None:
     with pytest.raises(SettingsError, match="local_answer_device"):
         Settings(local_answer_device=" ")
+
+
+def test_session_lifetime_defaults() -> None:
+    settings = Settings()
+    assert settings.auth_session_max_age_seconds == 604_800
+    assert settings.auth_session_idle_seconds == 86_400
+
+
+def test_load_settings_reads_session_lifetimes() -> None:
+    settings = load_settings(
+        {
+            "SIGNALSCOPE_AUTH_SESSION_MAX_AGE_SECONDS": "7200",
+            "SIGNALSCOPE_AUTH_SESSION_IDLE_SECONDS": "1800",
+        }
+    )
+    assert settings.auth_session_max_age_seconds == 7200
+    assert settings.auth_session_idle_seconds == 1800
+
+
+@pytest.mark.parametrize("seconds", [0, 59, 31_536_001])
+def test_session_max_age_is_bounded(seconds: int) -> None:
+    with pytest.raises(SettingsError, match="auth_session_max_age_seconds"):
+        Settings(auth_session_max_age_seconds=seconds)
+
+
+@pytest.mark.parametrize("seconds", [0, 31_536_001])
+def test_session_idle_is_bounded(seconds: int) -> None:
+    with pytest.raises(SettingsError, match="auth_session_idle_seconds"):
+        Settings(auth_session_idle_seconds=seconds)
+
+
+def test_idle_must_not_exceed_absolute_lifetime() -> None:
+    with pytest.raises(SettingsError, match="must not exceed"):
+        Settings(auth_session_max_age_seconds=600, auth_session_idle_seconds=1200)

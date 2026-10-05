@@ -14,6 +14,9 @@ DATABASE_URL_PREFIX = "postgresql+asyncpg://"
 MAX_ANSWER_TOKENS = 4096
 MAX_AUTH_SESSION_DAYS = 365
 MAX_AUTH_SESSION_RETENTION_DAYS = 3650
+# Absolute and idle session lifetimes, in seconds. One year is the ceiling.
+MIN_AUTH_SESSION_SECONDS = 60
+MAX_AUTH_SESSION_SECONDS = 31_536_000
 MAX_AUTH_LOGIN_WINDOW_SECONDS = 86_400
 MAX_AUTH_LOGIN_FAILURES = 100
 MAX_AUTH_LOGIN_BLOCK_SECONDS = 604_800
@@ -85,6 +88,12 @@ class Settings:
     auth_enabled: bool = False
     # How long a login session lasts before it expires.
     auth_session_days: int = 7
+    # Absolute session lifetime: a session older than this is invalid even if
+    # used, measured from when it was created. Default 7 days.
+    auth_session_max_age_seconds: int = 604_800
+    # Idle session lifetime: a session not used within this time is invalid.
+    # Default 1 day. Must not exceed the absolute lifetime.
+    auth_session_idle_seconds: int = 86_400
     # How long expired and revoked sessions are kept before cleanup-auth-sessions
     # deletes them.
     auth_session_retention_days: int = 30
@@ -126,6 +135,26 @@ class Settings:
             )
         if not 1 <= self.auth_session_days <= MAX_AUTH_SESSION_DAYS:
             raise SettingsError(f"auth_session_days must be from 1 to {MAX_AUTH_SESSION_DAYS}")
+        if not (
+            MIN_AUTH_SESSION_SECONDS
+            <= self.auth_session_max_age_seconds
+            <= MAX_AUTH_SESSION_SECONDS
+        ):
+            raise SettingsError(
+                "auth_session_max_age_seconds must be from "
+                f"{MIN_AUTH_SESSION_SECONDS} to {MAX_AUTH_SESSION_SECONDS}"
+            )
+        if not (
+            MIN_AUTH_SESSION_SECONDS <= self.auth_session_idle_seconds <= MAX_AUTH_SESSION_SECONDS
+        ):
+            raise SettingsError(
+                "auth_session_idle_seconds must be from "
+                f"{MIN_AUTH_SESSION_SECONDS} to {MAX_AUTH_SESSION_SECONDS}"
+            )
+        if self.auth_session_idle_seconds > self.auth_session_max_age_seconds:
+            raise SettingsError(
+                "auth_session_idle_seconds must not exceed auth_session_max_age_seconds"
+            )
         if not 1 <= self.auth_session_retention_days <= MAX_AUTH_SESSION_RETENTION_DAYS:
             raise SettingsError(
                 f"auth_session_retention_days must be from 1 to {MAX_AUTH_SESSION_RETENTION_DAYS}"
@@ -235,6 +264,14 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
         auth_enabled=_read_bool(env, "SIGNALSCOPE_AUTH_ENABLED", defaults.auth_enabled),
         auth_session_days=_read_int(
             env, "SIGNALSCOPE_AUTH_SESSION_DAYS", defaults.auth_session_days
+        ),
+        auth_session_max_age_seconds=_read_int(
+            env,
+            "SIGNALSCOPE_AUTH_SESSION_MAX_AGE_SECONDS",
+            defaults.auth_session_max_age_seconds,
+        ),
+        auth_session_idle_seconds=_read_int(
+            env, "SIGNALSCOPE_AUTH_SESSION_IDLE_SECONDS", defaults.auth_session_idle_seconds
         ),
         auth_session_retention_days=_read_int(
             env,
