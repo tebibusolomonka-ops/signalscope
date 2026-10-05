@@ -121,12 +121,16 @@ class OrganizationExportService:
             return failed
         return export
 
-    async def list(self, organization_id: uuid.UUID) -> list[OrganizationExport]:
+    async def list(
+        self, organization_id: uuid.UUID, limit: int, offset: int
+    ) -> list[OrganizationExport]:
         await self._authorize(organization_id)
         exports = await self.session.scalars(
             select(OrganizationExport)
             .where(OrganizationExport.organization_id == organization_id)
             .order_by(OrganizationExport.created_at.desc(), OrganizationExport.id.desc())
+            .limit(limit)
+            .offset(offset)
         )
         return list(exports)
 

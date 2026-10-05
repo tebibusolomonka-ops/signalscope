@@ -84,7 +84,9 @@ class OrganizationDisasterRecoveryDrillAdministrationService:
         await self.session.commit()
         return drill
 
-    async def list(self, organization_id: uuid.UUID) -> list[OrganizationDisasterRecoveryDrill]:
+    async def list(
+        self, organization_id: uuid.UUID, limit: int, offset: int
+    ) -> list[OrganizationDisasterRecoveryDrill]:
         await self._authorize(organization_id, DisasterRecoveryDrillMode.VERIFICATION_ONLY)
         drills = await self.session.scalars(
             select(OrganizationDisasterRecoveryDrill)
@@ -93,6 +95,8 @@ class OrganizationDisasterRecoveryDrillAdministrationService:
                 OrganizationDisasterRecoveryDrill.created_at.desc(),
                 OrganizationDisasterRecoveryDrill.id.desc(),
             )
+            .limit(limit)
+            .offset(offset)
         )
         return list(drills)
 

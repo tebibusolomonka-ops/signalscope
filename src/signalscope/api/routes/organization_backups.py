@@ -4,6 +4,7 @@ from fastapi import APIRouter, Request, status
 
 from signalscope.api.auth import CurrentSession
 from signalscope.api.dependencies import Blobs, DatabaseSession
+from signalscope.api.pagination import Pagination
 from signalscope.domain.organizations.backup_administration import (
     OrganizationBackupAdministrationService,
 )
@@ -60,9 +61,12 @@ async def run_organization_backup(
 
 @router.get("/backups")
 async def list_organization_backups(
-    organization_id: uuid.UUID, current: CurrentSession, session: DatabaseSession
+    organization_id: uuid.UUID,
+    current: CurrentSession,
+    session: DatabaseSession,
+    page: Pagination,
 ) -> list[OrganizationExportRead]:
     exports = await OrganizationBackupAdministrationService(session, current.user).list(
-        organization_id
+        organization_id, page.limit, page.offset
     )
     return [OrganizationExportRead.model_validate(export) for export in exports]

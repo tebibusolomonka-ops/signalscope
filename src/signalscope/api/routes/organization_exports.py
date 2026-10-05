@@ -4,6 +4,7 @@ from fastapi import APIRouter, Request, Response, status
 
 from signalscope.api.auth import CurrentSession
 from signalscope.api.dependencies import Blobs, DatabaseSession
+from signalscope.api.pagination import Pagination
 from signalscope.domain.organizations.export_schemas import (
     OrganizationExportAssetsRead,
     OrganizationExportRead,
@@ -35,9 +36,14 @@ async def create_organization_export(
 
 @router.get("")
 async def list_organization_exports(
-    organization_id: uuid.UUID, current: CurrentSession, session: DatabaseSession
+    organization_id: uuid.UUID,
+    current: CurrentSession,
+    session: DatabaseSession,
+    page: Pagination,
 ) -> list[OrganizationExportRead]:
-    exports = await OrganizationExportService(session, current.user).list(organization_id)
+    exports = await OrganizationExportService(session, current.user).list(
+        organization_id, page.limit, page.offset
+    )
     return [OrganizationExportRead.model_validate(export) for export in exports]
 
 

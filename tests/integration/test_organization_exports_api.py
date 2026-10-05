@@ -200,6 +200,59 @@ async def test_system_admin_can_manage_exports(
     assert response.status_code == 201
 
 
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"limit": 0},
+        {"limit": -1},
+        {"limit": 101},
+        {"offset": -1},
+    ],
+)
+async def test_export_list_rejects_unsafe_pagination(
+    export_client: httpx.AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+    params: dict[str, int],
+) -> None:
+    tenants = await make_tenants(export_client, session_factory)
+
+    response = await export_client.get(
+        f"/organizations/{tenants.a.id}/exports",
+        headers=tenants.a.headers["owner"],
+        params=params,
+    )
+
+    assert response.status_code == 422
+
+
+async def test_export_list_accepts_maximum_limit_and_applies_offset(
+    export_client: httpx.AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    tenants = await make_tenants(export_client, session_factory)
+    records = [
+        OrganizationExport(
+            organization_id=tenants.a.id,
+            requested_by_user_id=tenants.a.owner_id,
+            status=OrganizationExportStatus.COMPLETED,
+            format_version="2",
+        )
+        for _ in range(2)
+    ]
+    async with session_factory() as session:
+        session.add_all(records)
+        await session.commit()
+
+    response = await export_client.get(
+        f"/organizations/{tenants.a.id}/exports",
+        headers=tenants.a.headers["owner"],
+        params={"limit": 100, "offset": 1},
+    )
+
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+
+
 async def test_export_cleanup_keeps_recent_and_active_exports_and_obeys_limit(
     export_client: httpx.AsyncClient,
     session_factory: async_sessionmaker[AsyncSession],
