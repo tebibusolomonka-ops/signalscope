@@ -31,6 +31,8 @@ INVALID_CREDENTIALS = "Email or password is not correct."
 WRONG_CURRENT_PASSWORD = "The current password is not correct."
 SAME_PASSWORD = "The new password must be different from the current one."
 DEFAULT_SESSION_DAYS = 7
+DEFAULT_SESSION_MAX_AGE_SECONDS = 604_800
+DEFAULT_SESSION_IDLE_SECONDS = 86_400
 # last_seen_at is only written when it is older than this, not on every request.
 LAST_SEEN_INTERVAL = timedelta(minutes=15)
 # 32 random bytes, as URL-safe text.
@@ -76,6 +78,8 @@ class AuthenticationService:
         hasher: PasswordHasher | None = None,
         clock: Clock = utc_now,
         session_days: int = DEFAULT_SESSION_DAYS,
+        session_max_age_seconds: int = DEFAULT_SESSION_MAX_AGE_SECONDS,
+        session_idle_seconds: int = DEFAULT_SESSION_IDLE_SECONDS,
         login_window_seconds: int = 900,
         login_max_failures: int = 10,
         login_block_seconds: int = 900,
@@ -84,6 +88,8 @@ class AuthenticationService:
         self.hasher = hasher or PasswordHasher()
         self.clock = clock
         self.session_days = session_days
+        self.session_max_age = timedelta(seconds=session_max_age_seconds)
+        self.session_idle = timedelta(seconds=session_idle_seconds)
         self.throttle = LoginThrottleService(
             session,
             clock,
@@ -251,6 +257,13 @@ class AuthenticationService:
         stored: UserSession = row[0]
         user: User = row[1]
         if stored.revoked_at is not None or stored.expires_at <= now or not user.is_active:
+            raise UnauthenticatedError()
+        # Absolute and idle limits. Activity never extends the absolute lifetime.
+        if now - stored.created_at >= self.session_max_age or (
+            now - stored.last_seen_at >= self.session_idle
+        ):
+            stored.revoked_at = now
+            await self.session.commit()
             raise UnauthenticatedError()
         if now - stored.last_seen_at >= LAST_SEEN_INTERVAL:
             stored.last_seen_at = now

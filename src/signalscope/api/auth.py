@@ -40,6 +40,8 @@ def authentication_service(request: Request, session: DatabaseSession) -> Authen
         session,
         hasher,
         session_days=settings.auth_session_days,
+        session_max_age_seconds=settings.auth_session_max_age_seconds,
+        session_idle_seconds=settings.auth_session_idle_seconds,
         login_window_seconds=settings.auth_login_window_seconds,
         login_max_failures=settings.auth_login_max_failures,
         login_block_seconds=settings.auth_login_block_seconds,
