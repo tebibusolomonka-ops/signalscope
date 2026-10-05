@@ -48,34 +48,37 @@ PAYLOAD_TOO_LARGE = (
 )
 
 
-class JsonRequestSizeLimitMiddleware:
-    """Reject oversized JSON request bodies with 413, before the route reads them.
+class RequestSizeLimitMiddleware:
+    """Reject oversized request bodies with 413, before the route reads them.
 
-    It applies only to application/json requests, so binary uploads such as
-    organization archives keep their own, larger limits. The declared
+    JSON requests use the smaller JSON limit; other bodies, such as binary
+    uploads and organization archives, use the larger upload limit. The declared
     Content-Length is checked before the route reads the body, so an oversized
-    request is rejected without being buffered.
+    request is rejected without being buffered. Routes keep their own, tighter
+    checks (streamed file size, inner archive member limits).
     """
 
-    def __init__(self, app: ASGIApp, max_bytes: int) -> None:
+    def __init__(self, app: ASGIApp, max_json_bytes: int, max_upload_bytes: int) -> None:
         self.app = app
-        self.max_bytes = max_bytes
+        self.max_json_bytes = max_json_bytes
+        self.max_upload_bytes = max_upload_bytes
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
         headers = dict(scope.get("headers") or [])
-        content_type = headers.get(b"content-type", b"")
         length = headers.get(b"content-length")
-        if (
-            content_type.startswith(b"application/json")
-            and length is not None
-            and length.isdigit()
-            and int(length) > self.max_bytes
-        ):
-            await _send_payload_too_large(send)
-            return
+        if length is not None and length.isdigit():
+            content_type = headers.get(b"content-type", b"")
+            limit = (
+                self.max_json_bytes
+                if content_type.startswith(b"application/json")
+                else self.max_upload_bytes
+            )
+            if int(length) > limit:
+                await _send_payload_too_large(send)
+                return
         await self.app(scope, receive, send)
 
 

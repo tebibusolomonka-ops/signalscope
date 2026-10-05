@@ -418,3 +418,15 @@ def test_json_request_limit_default_and_env() -> None:
 def test_json_request_limit_is_bounded(value: int) -> None:
     with pytest.raises(SettingsError, match="max_json_request_bytes"):
         Settings(max_json_request_bytes=value)
+
+
+def test_upload_request_limit_default_and_env() -> None:
+    assert Settings().max_upload_request_bytes == 512_000_000
+    loaded = load_settings({"SIGNALSCOPE_MAX_UPLOAD_REQUEST_BYTES": "4096"})
+    assert loaded.max_upload_request_bytes == 4096
+
+
+@pytest.mark.parametrize("value", [0, 1023, 2_000_000_001])
+def test_upload_request_limit_is_bounded(value: int) -> None:
+    with pytest.raises(SettingsError, match="max_upload_request_bytes"):
+        Settings(max_upload_request_bytes=value)
