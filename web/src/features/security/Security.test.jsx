@@ -124,6 +124,25 @@ describe("security page", () => {
     expect(await screen.findByRole("heading", { name: "Sign in" })).toBeInTheDocument();
     expect(sessionStorage.getItem("signalscope.session")).toBeNull();
   });
+
+  it("signs out other sessions while keeping the current one", async () => {
+    const { calls } = renderApp({
+      path: "/security",
+      routes: routes(ADMIN, [], {
+        "POST /auth/sessions/revoke-others": { body: { revoked_sessions: 1 } },
+      }),
+    });
+    const user = userEvent.setup();
+
+    await screen.findByText("This session");
+    await user.click(screen.getByRole("button", { name: "Sign out other sessions" }));
+
+    await waitFor(() =>
+      expect(calls.some((call) => call.path === "/auth/sessions/revoke-others")).toBe(true),
+    );
+    // The current session remains, so the page did not sign out.
+    expect(screen.queryByRole("heading", { name: "Sign in" })).not.toBeInTheDocument();
+  });
 });
 
 describe("admin session controls", () => {

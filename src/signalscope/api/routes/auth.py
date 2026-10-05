@@ -8,6 +8,7 @@ from signalscope.domain.users.schemas import (
     LoginRequest,
     LoginResponse,
     PasswordChange,
+    RevokedSessions,
     SessionRead,
     UserRead,
 )
@@ -81,6 +82,15 @@ async def revoke_session(
 async def logout_all(current: CurrentSession, service: Authentication) -> None:
     """Revoke every session of the signed in user, including the current one."""
     await service.revoke_all_sessions(current.user.id)
+
+
+@router.post("/sessions/revoke-others")
+async def revoke_other_sessions(
+    current: CurrentSession, service: Authentication
+) -> RevokedSessions:
+    """Revoke every other session of the signed in user, keeping this one."""
+    revoked = await service.revoke_other_sessions(current.user.id, current.session.id)
+    return RevokedSessions(revoked_sessions=revoked)
 
 
 @router.post("/change-password", status_code=status.HTTP_204_NO_CONTENT)

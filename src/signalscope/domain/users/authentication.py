@@ -338,6 +338,29 @@ class AuthenticationService:
         await self.session.commit()
         return revoked
 
+    async def revoke_other_sessions(self, user_id: uuid.UUID, keep_session_id: uuid.UUID) -> int:
+        """Revoke every active session of the user except the one to keep."""
+        result = await self.session.execute(
+            update(UserSession)
+            .where(
+                UserSession.user_id == user_id,
+                UserSession.revoked_at.is_(None),
+                UserSession.id != keep_session_id,
+            )
+            .values(revoked_at=self.clock())
+            .execution_options(synchronize_session=False)
+        )
+        revoked = int(result.rowcount)  # type: ignore[attr-defined]
+        self.audit.record(
+            AuditAction.LOGOUT_ALL,
+            actor_user_id=user_id,
+            resource_type="user",
+            resource_id=user_id,
+            details={"revoked_sessions": revoked},
+        )
+        await self.session.commit()
+        return revoked
+
     async def change_password(
         self, current: ResolvedSession, current_password: str, new_password: str
     ) -> int:

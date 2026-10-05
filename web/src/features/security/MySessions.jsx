@@ -32,6 +32,16 @@ export function MySessions() {
     }
   }
 
+  async function revokeOthers() {
+    setActionError(null);
+    try {
+      await api.post("/auth/sessions/revoke-others");
+      reload();
+    } catch (failure) {
+      setActionError(failure);
+    }
+  }
+
   return (
     <section className="panel" aria-labelledby="my-sessions-heading">
       <h2 id="my-sessions-heading">My sessions</h2>
@@ -72,6 +82,9 @@ export function MySessions() {
           </tbody>
         </table>
       )}
+      <button type="button" className="secondary" onClick={revokeOthers}>
+        Sign out other sessions
+      </button>
       <button type="button" onClick={logoutAll}>
         Sign out everywhere
       </button>

@@ -81,3 +81,21 @@ async def test_logout_all(
     for token in tokens:
         assert (await auth_client.get("/auth/me", headers=bearer(token))).status_code == 401
     assert (await auth_client.get("/auth/me", headers=bearer(other))).status_code == 200
+
+
+async def test_revoke_other_sessions_keeps_current(
+    auth_client: httpx.AsyncClient, session_factory: async_sessionmaker[AsyncSession]
+) -> None:
+    await create_account(session_factory, "ana@example.org")
+    phone = await login(auth_client, "ana@example.org")
+    laptop = await login(auth_client, "ana@example.org")
+    tablet = await login(auth_client, "ana@example.org")
+
+    response = await auth_client.post("/auth/sessions/revoke-others", headers=bearer(laptop))
+
+    assert response.status_code == 200
+    assert response.json()["revoked_sessions"] == 2
+    # The current session still works; the others are revoked.
+    assert (await auth_client.get("/auth/me", headers=bearer(laptop))).status_code == 200
+    assert (await auth_client.get("/auth/me", headers=bearer(phone))).status_code == 401
+    assert (await auth_client.get("/auth/me", headers=bearer(tablet))).status_code == 401
