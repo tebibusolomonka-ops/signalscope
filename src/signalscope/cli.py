@@ -40,6 +40,10 @@ from signalscope.domain.claims.worker import ClaimExtractionWorker
 from signalscope.domain.diagnostics.deployment import DeploymentDiagnosticsService
 from signalscope.domain.diagnostics.pilot_readiness import PilotReadinessEvaluator
 from signalscope.domain.diagnostics.production_config import ProductionConfigurationValidator
+from signalscope.domain.diagnostics.startup_preflight import (
+    StartupPreflightReport,
+    StartupPreflightService,
+)
 from signalscope.domain.diagnostics.support_bundle import SupportBundleService
 from signalscope.domain.documents.files import MAX_FILE_BYTES
 from signalscope.domain.entities.job import EntityExtractionJobStatus
@@ -318,6 +322,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return validate_production_config(settings, json_output=args.json)
     if args.command == "deployment-diagnostics":
         return asyncio.run(deployment_diagnostics(settings, json_output=args.json))
+    if args.command == "startup-preflight":
+        return asyncio.run(startup_preflight(settings, json_output=args.json))
     if args.command == "create-support-bundle":
         return asyncio.run(create_support_bundle(args.output, settings, overwrite=args.overwrite))
     if args.command == "pilot-readiness":
@@ -788,6 +794,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="report environment, config, readiness, migration and queue facts",
     )
     deployment.add_argument("--json", action="store_true", help="write JSON output")
+
+    preflight = commands.add_parser(
+        "startup-preflight", help="run read-only checks before starting a deployment"
+    )
+    preflight.add_argument("--json", action="store_true", help="write JSON output")
 
     support_bundle = commands.add_parser(
         "create-support-bundle", help="write a safe diagnostics ZIP with no secrets"
@@ -1756,6 +1767,31 @@ async def deployment_diagnostics(
                 file=out,
             )
     return 0 if report.healthy else 1
+
+
+async def startup_preflight(
+    settings: Settings,
+    out: TextIO | None = None,
+    *,
+    json_output: bool = False,
+    report: StartupPreflightReport | None = None,
+) -> int:
+    """Run non-destructive startup checks and return nonzero for blocking errors."""
+    out = sys.stdout if out is None else out
+    if report is None:
+        service = StartupPreflightService(settings)
+        if settings.database_url is None:
+            report = service.without_database()
+        else:
+            blobs = LocalBlobStore(settings.blob_dir) if settings.blob_dir is not None else None
+            async with _database(settings) as session_factory, session_factory() as session:
+                report = await service.collect(session, blobs)
+    if json_output:
+        print(json.dumps(report.to_dict(), sort_keys=True), file=out)
+    else:
+        for check in report.checks:
+            print(f"{check.level.value.upper()}: {check.check}: {check.message}", file=out)
+    return 0 if report.passed else 1
 
 
 async def create_support_bundle(
