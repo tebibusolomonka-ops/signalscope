@@ -17,6 +17,7 @@ class AcceptanceEvidence:
     values: dict[str, bool | None]
     references: dict[str, str]
     warnings: tuple[str, ...] = ()
+    facts: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,6 +32,7 @@ class AcceptanceResult:
     profile_version: int
     checks: tuple[AcceptanceCheck, ...]
     evidence_references: dict[str, str]
+    evidence: dict[str, Any] | None = None
 
     @property
     def passed(self) -> bool:
@@ -65,6 +67,7 @@ class AcceptanceResult:
                 for check in self.checks
             ],
             "evidence_references": dict(sorted(self.evidence_references.items())),
+            "evidence": self.evidence or {},
         }
 
 
@@ -91,4 +94,9 @@ class AcceptanceRunner:
             AcceptanceCheck("evidence", AcceptanceStatus.WARNING, warning)
             for warning in evidence.warnings
         )
-        return AcceptanceResult(profile.version, tuple(checks), evidence.references)
+        return AcceptanceResult(
+            profile.version,
+            tuple(checks),
+            evidence.references,
+            evidence.facts,
+        )

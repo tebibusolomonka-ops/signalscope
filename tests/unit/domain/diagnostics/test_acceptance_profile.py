@@ -25,7 +25,9 @@ def test_valid_profile(tmp_path: Path) -> None:
             "backup": {"verified_backup_exists": True, "max_age_hours": 24},
             "disaster_recovery": {
                 "drill_exists": True,
+                "verification_max_age_hours": 24,
                 "restore_test_required": False,
+                "restore_test_max_age_hours": 168,
             },
             "operations": {"startup_preflight_passes": True},
             "frontend": {"lint_passes": True, "tests_pass": True},

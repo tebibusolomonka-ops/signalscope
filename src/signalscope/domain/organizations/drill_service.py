@@ -135,6 +135,7 @@ class OrganizationDisasterRecoveryDrillService:
         conflicts = await OrganizationRestoreConflictService(self.session).analyze(read)
         return {
             "mode": DisasterRecoveryDrillMode.VERIFICATION_ONLY.value,
+            "include_assets": include_assets,
             "archive_sha256": archive.sha256,
             "archive_size_bytes": archive.size_bytes,
             "counts": inventory.counts,
@@ -171,6 +172,7 @@ class OrganizationDisasterRecoveryDrillService:
             raise ServiceUnavailableError("The restore-test restore did not complete.")
         summary: dict[str, object] = {
             "mode": DisasterRecoveryDrillMode.RESTORE_TEST.value,
+            "include_assets": include_assets,
             "archive_sha256": archive.sha256,
             "counts": inventory.counts,
             "asset_count": inventory.asset_count,

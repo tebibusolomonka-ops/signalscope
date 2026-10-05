@@ -25,7 +25,10 @@ SECTION_FIELDS: dict[str, dict[str, type[bool] | type[int]]] = {
     "disaster_recovery": {
         "drill_exists": bool,
         "max_age_hours": int,
+        "verification_drill_exists": bool,
+        "verification_max_age_hours": int,
         "restore_test_required": bool,
+        "restore_test_max_age_hours": int,
         "asset_verification_succeeded": bool,
     },
     "operations": {

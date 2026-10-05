@@ -1,5 +1,6 @@
 import io
 import json
+import uuid
 from pathlib import Path
 
 import pytest
@@ -18,7 +19,23 @@ pytestmark = pytest.mark.anyio
 def test_arguments() -> None:
     args = build_parser().parse_args(["run-acceptance", "--profile", "acceptance.json", "--json"])
     assert args.profile == Path("acceptance.json")
+    assert args.organization_id is None
     assert args.json is True
+
+
+def test_acceptance_accepts_organization_selector() -> None:
+    organization_id = uuid.uuid4()
+    args = build_parser().parse_args(
+        [
+            "run-acceptance",
+            "--profile",
+            "acceptance.json",
+            "--organization-id",
+            str(organization_id),
+        ]
+    )
+
+    assert args.organization_id == organization_id
 
 
 async def test_json_output_and_failed_exit() -> None:

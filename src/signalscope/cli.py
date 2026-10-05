@@ -58,6 +58,9 @@ from signalscope.domain.diagnostics.deployment_validation import (
     latest_verified_backup,
     load_deployment_validation_profile,
 )
+from signalscope.domain.diagnostics.disaster_recovery_acceptance import (
+    DisasterRecoveryAcceptanceService,
+)
 from signalscope.domain.diagnostics.migration_compatibility import (
     MigrationCompatibilityReport,
     MigrationCompatibilityService,
@@ -369,7 +372,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         )
     if args.command == "run-acceptance":
-        return asyncio.run(run_acceptance(args.profile, settings, json_output=args.json))
+        return asyncio.run(
+            run_acceptance(
+                args.profile,
+                settings,
+                organization_id=args.organization_id,
+                json_output=args.json,
+            )
+        )
     if args.command == "create-support-bundle":
         return asyncio.run(create_support_bundle(args.output, settings, overwrite=args.overwrite))
     if args.command == "pilot-readiness":
@@ -876,6 +886,11 @@ def build_parser() -> argparse.ArgumentParser:
         "run-acceptance", help="evaluate a versioned acceptance profile"
     )
     acceptance.add_argument("--profile", type=Path, required=True)
+    acceptance.add_argument(
+        "--organization-id",
+        type=uuid.UUID,
+        help="organization whose backup and disaster recovery evidence is evaluated",
+    )
     acceptance.add_argument("--json", action="store_true", help="write JSON output")
 
     support_bundle = commands.add_parser(
@@ -1999,6 +2014,7 @@ async def run_acceptance(
     out: TextIO | None = None,
     err: TextIO | None = None,
     *,
+    organization_id: uuid.UUID | None = None,
     json_output: bool = False,
     result: AcceptanceResult | None = None,
 ) -> int:
@@ -2012,12 +2028,17 @@ async def run_acceptance(
             print(f"Error: {error}", file=err)
             return 1
         service = StartupPreflightService(settings)
+        dr_evidence = AcceptanceEvidence({}, {})
         if settings.database_url is None:
             preflight = service.without_database()
         else:
             blobs = LocalBlobStore(settings.blob_dir) if settings.blob_dir is not None else None
             async with _database(settings) as session_factory, session_factory() as session:
                 preflight = await service.collect(session, blobs)
+                if organization_id is not None:
+                    dr_evidence = await DisasterRecoveryAcceptanceService(session).collect(
+                        organization_id, profile
+                    )
         build = BuildMetadataService(settings).inspect()
         values: dict[str, bool | None] = {
             "deployment.migration_current": preflight.migration.current,
@@ -2026,7 +2047,17 @@ async def run_acceptance(
         references = {"migration_revision": ",".join(preflight.migration.database_revisions)}
         if build.build_sha is not None:
             references["build_sha"] = build.build_sha
-        result = AcceptanceRunner().run(profile, AcceptanceEvidence(values, references))
+        values.update(dr_evidence.values)
+        references.update(dr_evidence.references)
+        result = AcceptanceRunner().run(
+            profile,
+            AcceptanceEvidence(
+                values,
+                references,
+                dr_evidence.warnings,
+                dr_evidence.facts,
+            ),
+        )
     if json_output:
         print(json.dumps(result.to_dict(), sort_keys=True), file=out)
     else:
