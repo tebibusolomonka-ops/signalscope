@@ -1,5 +1,8 @@
 import json
+from collections.abc import AsyncIterator
 
+import httpx
+import pytest
 from fastapi.testclient import TestClient
 
 from signalscope.api.app import create_app
@@ -53,3 +56,24 @@ def test_non_json_bodies_are_not_limited() -> None:
     )
 
     assert response.status_code != 413
+
+
+@pytest.mark.anyio
+async def test_streamed_json_without_content_length_is_still_limited() -> None:
+    async def chunks() -> AsyncIterator[bytes]:
+        yield b'{"email":"a@b.co","password":"'
+        yield b"x" * (LIMIT * 2)
+        yield b'"}'
+
+    app = create_app(Settings(max_json_request_bytes=LIMIT))
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as async_client:
+        response = await async_client.post(
+            "/auth/login",
+            content=chunks(),
+            headers={"content-type": "application/json"},
+        )
+
+    assert response.status_code == 413
+    assert response.json()["error"]["code"] == "payload_too_large"

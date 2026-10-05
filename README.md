@@ -57,6 +57,26 @@ access log is turned off:
 uvicorn signalscope.api.app:create_app --factory --reload --no-access-log
 ```
 
+## Request and operation safeguards
+
+The API rejects JSON bodies larger than 1 MB by default and non-JSON uploads,
+including organization archives, larger than 512 MB. Configure the limits with
+`SIGNALSCOPE_MAX_JSON_REQUEST_BYTES` and
+`SIGNALSCOPE_MAX_UPLOAD_REQUEST_BYTES`. Declared and streamed body sizes are
+checked before a route can process an oversized payload. Document files and
+the contents of organization archives keep their own tighter validation.
+
+User-controlled list queries use bounded `limit` and non-negative `offset`
+parameters. The shared maximum page size is 100; organization exports,
+backups and disaster-recovery drill history use the same bounds without
+changing their existing response shapes.
+
+Organization exports and manual backups share a PostgreSQL guard that permits
+only one running archive operation per organization. Restores permit one
+planned or running operation per target, and restore-test drills permit one
+running drill per target. Unrelated organizations and completed or failed
+history are not blocked. Conflicting requests return HTTP 409.
+
 Start the local PostgreSQL database and point SignalScope at it. The user,
 password and database name in `compose.yaml` are all `signalscope`. They are
 for local development only, so do not use them anywhere else.

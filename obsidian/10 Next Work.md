@@ -55,6 +55,12 @@ support diagnostics bundle, a pilot readiness evaluator and end-to-end pilot
 coverage are complete through planned commit 459. Knowledge-graph relation
 persistence remains deferred, and real-model evaluation remains separate work.
 
+Batch 460 to 479 is complete through disaster-recovery drills, operational
+trends and latency, session expiry and administration, JSON and upload request
+limits, bounded pagination, database-backed concurrent operation guards and
+cross-feature abuse-protection coverage. The next planned work starts with
+application build metadata and deployment preflight evidence.
+
 ## Next batch
 
 1. Run the real structured-extraction and answer-model smoke checks

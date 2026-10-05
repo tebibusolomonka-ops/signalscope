@@ -74,6 +74,12 @@ manifest metadata, checksums and safe restore planning without database writes.
 Backup tests cover policy constraints, verified export generation, asset options,
 retention isolation, due-policy locking, API permissions and the administration
 workspace.
+`test_abuse_protection_end_to_end.py` covers small JSON and file requests,
+tenant-scoped research, export, backup and restore planning in one flow, then
+checks oversized JSON, file and archive rejection, bounded pagination and the
+database-backed duplicate backup conflict. Dedicated database tests cover the
+restore and restore-test partial unique indexes, unrelated organizations and
+terminal history.
 `EvidenceNavigationFlow.test.jsx` opens evidence at an exact late chunk from
 search and entity pages and steps passages, proving the direct lookup needs
 no page scan. `ResearchNavigationFlow.test.jsx` is a web end-to-end test: it signs in,

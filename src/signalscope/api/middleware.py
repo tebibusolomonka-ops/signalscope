@@ -2,6 +2,7 @@ import logging
 import re
 import time
 import uuid
+from contextlib import suppress
 
 from starlette.datastructures import MutableHeaders
 from starlette.requests import Request
@@ -48,6 +49,10 @@ PAYLOAD_TOO_LARGE = (
 )
 
 
+class RequestBodyTooLarge(Exception):
+    pass
+
+
 class RequestSizeLimitMiddleware:
     """Reject oversized request bodies with 413, before the route reads them.
 
@@ -69,17 +74,36 @@ class RequestSizeLimitMiddleware:
             return
         headers = dict(scope.get("headers") or [])
         length = headers.get(b"content-length")
-        if length is not None and length.isdigit():
-            content_type = headers.get(b"content-type", b"")
-            limit = (
-                self.max_json_bytes
-                if content_type.startswith(b"application/json")
-                else self.max_upload_bytes
-            )
-            if int(length) > limit:
-                await _send_payload_too_large(send)
-                return
-        await self.app(scope, receive, send)
+        content_type = headers.get(b"content-type", b"")
+        limit = (
+            self.max_json_bytes
+            if content_type.startswith(b"application/json")
+            else self.max_upload_bytes
+        )
+        if length is not None and length.isdigit() and int(length) > limit:
+            await _send_payload_too_large(send)
+            return
+
+        received = 0
+        rejected = False
+
+        async def receive_with_limit() -> Message:
+            nonlocal received, rejected
+            message = await receive()
+            if message["type"] == "http.request":
+                received += len(message.get("body", b""))
+                if received > limit:
+                    rejected = True
+                    await _send_payload_too_large(send)
+                    raise RequestBodyTooLarge
+            return message
+
+        async def send_unless_rejected(message: Message) -> None:
+            if not rejected:
+                await send(message)
+
+        with suppress(RequestBodyTooLarge):
+            await self.app(scope, receive_with_limit, send_unless_rejected)
 
 
 async def _send_payload_too_large(send: Send) -> None:

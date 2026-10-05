@@ -5,8 +5,10 @@ One Python package, `src/signalscope`, with one PostgreSQL database. See
 
 ## Layers
 
-- **API** (`api/`): FastAPI app, routes, error handlers, request ID and logging
-  middleware. Routes stay thin and call services. Model registries live on
+- **API** (`api/`): FastAPI app, routes, error handlers, request ID, logging,
+  security headers and request-size middleware. JSON and upload limits check
+  declared and streamed bytes before route processing. Routes stay thin and
+  call services. Model registries live on
   `app.state` and are built from settings at startup without loading models.
   Route list: [[04 API Map]].
 - **Command line** (`cli.py`): ingestion, imports, backlogs, workers, model
@@ -83,6 +85,11 @@ One Python package, `src/signalscope`, with one PostgreSQL database. See
   exports. Backup retention expires only older backup artifacts, never exports
   created by an administrator. PostgreSQL row locks prevent two schedulers
   from starting the same due policy.
+- Partial unique PostgreSQL indexes prevent overlapping archive work for one
+  organization, active restores for one target, and simultaneous restore-test
+  drills for one target. Services commit the running record before expensive
+  work and translate a constraint conflict into the API's normal conflict
+  response.
 - **Dashboard** (`dashboard/`): aggregate counts and zero-filled UTC daily
   series, built with SQL aggregates.
 - **Relations** (`relations/`): relation extraction interface and an

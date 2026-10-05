@@ -292,6 +292,18 @@ Decisions that should hold unless there is a clear reason to change them.
   portable archive and verifier as organization exports. Daily or weekly policy
   rows live in PostgreSQL, schedulers lock due rows, and backup retention only
   expires artifacts created as backups.
+- **Request limits cover declared and streamed bodies.** JSON uses a smaller
+  configurable bound than files and archives. Content-Length permits early
+  rejection, but the middleware also counts received chunks so a missing or
+  false length cannot bypass the limit. Routes retain stricter format-specific
+  checks.
+- **List bounds stay shared.** User-controlled lists use the existing
+  `Pagination` dependency (`limit` 1 through 100, `offset` zero or greater).
+  Existing response shapes are not changed only to standardize pagination.
+- **Expensive organization operations use database guards.** Partial unique
+  indexes on durable running records protect exports and backups per
+  organization, restores per target, and restore-test drills per target. This
+  works across processes; completed and failed records do not block later work.
 - **Real model benchmarks are explicit developer commands.** Application
   startup, normal tests, checks and CI never load or download model weights.
 - **Evaluation evidence stays factual.** Comparisons do not declare winners,

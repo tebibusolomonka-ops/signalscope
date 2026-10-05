@@ -1,20 +1,19 @@
 # Current State
 
-Batch 420 to 459 is complete, pushed and green (HEAD `fa5dd1c`, Alembic head
-`b2d5f8a1c4e7`). Batch 460 to 489 (disaster-recovery drills, operational
-observability, session hardening, input and abuse protection, release-candidate
-and deployment gates, acceptance and release readiness) is now in progress.
+Batch 420 to 459 is complete, pushed and green. Batch 460 to 479 is implemented:
+disaster-recovery drills, operational observability, session hardening, and
+input and abuse protection. The remaining 480 to 489 deployment evidence,
+acceptance and release-readiness work is in progress. Alembic head is
+`d8e2f4a6b1c3` (Add active operation guards).
 Durable operation history and portable organization
 exports, model evaluation evidence tooling and authentication hardening were
 complete through commit 414, and exact evidence navigation through commit
 419. Measured evaluation reports can now be imported, listed, compared and
 reviewed by system admins (`evaluation_report_records`, the `/admin/evaluations`
 API and a web workspace); importing stores a report and never runs a model.
-Alembic head: `d5b2f3c6a7e1` (Add evaluation report records). Evidence navigation is
-complete through planned commit 419: a paged document chunk API, a focused
-chunk on the document page, and search results and research citations that
-link to the exact passage. Alembic head: `e4a7c8d91f20` (Create
-authentication throttles).
+Evidence navigation is complete through planned commit 419: a paged document
+chunk API, a focused chunk on the document page, and search results and
+research citations that link to the exact passage.
 
 ## Done
 
@@ -156,6 +155,13 @@ authentication throttles).
   owners, admins and system admins can manage policy, run one immediately and
   inspect recent verified or failed runs in the web workspace. Backup retention
   never expires manually created exports.
+- Request and operation abuse protections are in place. JSON and non-JSON
+  request bodies have separate configurable limits, including streamed bodies
+  without a Content-Length header. User-controlled list queries use bounded
+  limits and non-negative offsets. PostgreSQL partial unique indexes prevent
+  duplicate running exports or backups for one organization, active restores
+  for one target, and concurrent restore-test drills for one target. Terminal
+  history and unrelated organizations remain available.
 - Explicit developer benchmarks report the local model environment and run
   embedding, reranker, structured extraction and fixed-evidence answer model
   measurements. Normal tests and CI use fakes and never load or download models.

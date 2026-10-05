@@ -51,6 +51,9 @@ Open problems after batch 360 to 379. Remove an item when it is fixed.
 - A retried job keeps its attempt count, so a retried ingestion that fails
   again is not tried again automatically.
 - Retention covers security audit events only.
+- Active export, restore and restore-test guards have no lease. If a process
+  stops after committing a running record, an operator must investigate and
+  mark that operation terminal before another one can use the same scope.
 
 ## Dashboard
 
@@ -88,7 +91,8 @@ Open problems after batch 360 to 379. Remove an item when it is fixed.
   API decides who may change roles and keeps the last owner.
 - Research turns are not refreshed while the answer model is busy; reload the
   page to see a new turn completed elsewhere.
-- Uploads are read into memory (at most 50 MB) before they are stored.
+- Document uploads are read into memory (at most 50 MB) before they are stored.
+  The outer upload request limit is configurable and also covers archives.
 
 ## Code
 
