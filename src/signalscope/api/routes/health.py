@@ -4,6 +4,7 @@ from fastapi import APIRouter, Request, Response, status
 from pydantic import BaseModel
 
 from signalscope.api.dependencies import Blobs, DatabaseSession
+from signalscope.domain.diagnostics.build_metadata import BuildMetadataService
 from signalscope.domain.diagnostics.readiness import (
     ComponentState,
     DependencyReadinessService,
@@ -29,6 +30,14 @@ class ReadinessResponse(BaseModel):
     components: list[ComponentReadinessResponse]
 
 
+class VersionResponse(BaseModel):
+    application_version: str
+    python_version: str
+    build_sha: str | None
+    build_time: str | None
+    release_name: str | None
+
+
 @router.get("/health")
 async def health() -> HealthResponse:
     return HealthResponse(status="ok")
@@ -38,6 +47,18 @@ async def health() -> HealthResponse:
 async def live() -> HealthResponse:
     """Process-level liveness. It needs no database and answers even if it is down."""
     return HealthResponse(status="ok")
+
+
+@router.get("/version")
+async def version(request: Request) -> VersionResponse:
+    metadata = BuildMetadataService(request.app.state.settings).inspect()
+    return VersionResponse(
+        application_version=metadata.application_version,
+        python_version=metadata.python_version,
+        build_sha=metadata.build_sha,
+        build_time=metadata.build_time,
+        release_name=metadata.release_name,
+    )
 
 
 @router.get("/health/ready")

@@ -39,6 +39,20 @@ def test_custom_values() -> None:
     assert settings.log_level is LogLevel.WARNING
 
 
+def test_load_settings_reads_build_metadata() -> None:
+    settings = load_settings(
+        {
+            "SIGNALSCOPE_BUILD_SHA": " abc123 ",
+            "SIGNALSCOPE_BUILD_TIME": " 2026-10-05T10:00:00Z ",
+            "SIGNALSCOPE_RELEASE_NAME": " October release ",
+        }
+    )
+
+    assert settings.build_sha == "abc123"
+    assert settings.build_time == "2026-10-05T10:00:00Z"
+    assert settings.release_name == "October release"
+
+
 def test_settings_cannot_be_changed() -> None:
     settings = Settings()
 

@@ -54,6 +54,9 @@ class LogLevel(StrEnum):
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Settings:
     app_name: str = "SignalScope"
+    build_sha: str | None = None
+    build_time: str | None = None
+    release_name: str | None = None
     environment: Environment = Environment.DEVELOPMENT
     debug: bool = False
     log_level: LogLevel = LogLevel.INFO
@@ -235,6 +238,9 @@ def load_settings(environ: Mapping[str, str] | None = None) -> Settings:
     defaults = Settings()
     return Settings(
         app_name=_read_str(env, "SIGNALSCOPE_APP_NAME", defaults.app_name),
+        build_sha=_read(env, "SIGNALSCOPE_BUILD_SHA"),
+        build_time=_read(env, "SIGNALSCOPE_BUILD_TIME"),
+        release_name=_read(env, "SIGNALSCOPE_RELEASE_NAME"),
         environment=_read_enum(env, "SIGNALSCOPE_ENVIRONMENT", Environment, defaults.environment),
         debug=_read_bool(env, "SIGNALSCOPE_DEBUG", defaults.debug),
         log_level=_read_enum(env, "SIGNALSCOPE_LOG_LEVEL", LogLevel, defaults.log_level),

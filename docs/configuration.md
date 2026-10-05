@@ -7,6 +7,9 @@ empty, keeps its default value. An invalid value raises `SettingsError`.
 | Variable | Default | Allowed values |
 | --- | --- | --- |
 | `SIGNALSCOPE_APP_NAME` | `SignalScope` | Any non-empty text |
+| `SIGNALSCOPE_BUILD_SHA` | Not set | The source revision supplied by the build system |
+| `SIGNALSCOPE_BUILD_TIME` | Not set | The build timestamp supplied by the build system |
+| `SIGNALSCOPE_RELEASE_NAME` | Not set | The release name supplied by the build system |
 | `SIGNALSCOPE_ENVIRONMENT` | `development` | `development`, `test`, `production` |
 | `SIGNALSCOPE_DEBUG` | `false` | `true`, `false`, `1`, `0`, `yes`, `no`, `on`, `off` |
 | `SIGNALSCOPE_LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL` |
