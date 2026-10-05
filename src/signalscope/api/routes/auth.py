@@ -56,6 +56,7 @@ async def list_sessions(current: CurrentSession, service: Authentication) -> lis
             session_id=stored.id,
             created_at=stored.created_at,
             expires_at=stored.expires_at,
+            effective_expires_at=service.effective_expiry(stored),
             last_seen_at=stored.last_seen_at,
             revoked=stored.revoked_at is not None,
             revoked_at=stored.revoked_at,

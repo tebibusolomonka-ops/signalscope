@@ -42,6 +42,7 @@ async def test_list_and_revoke(
         "session_id",
         "created_at",
         "expires_at",
+        "effective_expires_at",
         "last_seen_at",
         "revoked_at",
         "active",

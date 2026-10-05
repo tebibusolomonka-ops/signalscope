@@ -49,6 +49,8 @@ class SessionRead(BaseModel):
     session_id: uuid.UUID
     created_at: datetime
     expires_at: datetime
+    # The earliest of the stored expiry and the absolute and idle limits.
+    effective_expires_at: datetime
     last_seen_at: datetime
     revoked: bool
     revoked_at: datetime | None
@@ -98,9 +100,11 @@ class AdminSessionRead(BaseModel):
     session_id: uuid.UUID
     created_at: datetime
     expires_at: datetime
+    # The earliest of the stored expiry and the absolute and idle limits.
+    effective_expires_at: datetime
     last_seen_at: datetime
     revoked_at: datetime | None
-    # Not revoked and not expired.
+    # Not revoked and not past its effective expiry.
     active: bool
 
 

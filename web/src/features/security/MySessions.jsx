@@ -56,7 +56,7 @@ export function MySessions() {
               <tr key={session.session_id}>
                 <td>{session.created_at}</td>
                 <td>{session.last_seen_at}</td>
-                <td>{session.expires_at}</td>
+                <td>{session.effective_expires_at ?? session.expires_at}</td>
                 <td>
                   {session.current_session ? "This session" : session.revoked ? "Revoked" : "Active"}
                 </td>

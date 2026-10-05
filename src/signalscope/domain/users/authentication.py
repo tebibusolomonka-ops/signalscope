@@ -50,6 +50,17 @@ def hash_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
+def effective_session_expiry(
+    stored: UserSession, max_age_seconds: int, idle_seconds: int
+) -> datetime:
+    """Earliest of the stored expiry and the absolute and idle limits."""
+    return min(
+        stored.expires_at,
+        stored.created_at + timedelta(seconds=max_age_seconds),
+        stored.last_seen_at + timedelta(seconds=idle_seconds),
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class NewSession:
     # Given to the client once. It is not stored anywhere.
@@ -282,6 +293,14 @@ class AuthenticationService:
                 resource_id=stored.id,
             )
             await self.session.commit()
+
+    def effective_expiry(self, stored: UserSession) -> datetime:
+        """When a session stops working, counting the absolute and idle limits."""
+        return min(
+            stored.expires_at,
+            stored.created_at + self.session_max_age,
+            stored.last_seen_at + self.session_idle,
+        )
 
     async def list_sessions(self, user_id: uuid.UUID) -> list[UserSession]:
         """A user's sessions, newest first, including revoked and expired ones."""

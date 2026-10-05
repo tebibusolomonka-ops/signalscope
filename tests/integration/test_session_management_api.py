@@ -27,6 +27,7 @@ async def test_list_sessions(
         "session_id",
         "created_at",
         "expires_at",
+        "effective_expires_at",
         "last_seen_at",
         "revoked",
         "revoked_at",

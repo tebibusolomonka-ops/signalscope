@@ -8,6 +8,7 @@ from signalscope.api.dependencies import DatabaseSession
 from signalscope.api.pagination import Page, Pagination
 from signalscope.domain.sources.scheduling import utc_now
 from signalscope.domain.users.administration import UserAdministrationService
+from signalscope.domain.users.authentication import effective_session_expiry
 from signalscope.domain.users.schemas import (
     AdminSessionRead,
     AdminUserCreate,
@@ -88,20 +89,31 @@ async def change_user_status(
 
 
 @router.get("/{user_id}/sessions")
-async def list_user_sessions(user_id: uuid.UUID, service: Administration) -> list[AdminSessionRead]:
+async def list_user_sessions(
+    user_id: uuid.UUID, service: Administration, request: Request
+) -> list[AdminSessionRead]:
     """The user's sessions, newest first, at most 100."""
     now = utc_now()
-    return [
-        AdminSessionRead(
-            session_id=stored.id,
-            created_at=stored.created_at,
-            expires_at=stored.expires_at,
-            last_seen_at=stored.last_seen_at,
-            revoked_at=stored.revoked_at,
-            active=stored.revoked_at is None and stored.expires_at > now,
+    settings = request.app.state.settings
+    read = []
+    for stored in await service.list_user_sessions(user_id):
+        effective = effective_session_expiry(
+            stored,
+            settings.auth_session_max_age_seconds,
+            settings.auth_session_idle_seconds,
         )
-        for stored in await service.list_user_sessions(user_id)
-    ]
+        read.append(
+            AdminSessionRead(
+                session_id=stored.id,
+                created_at=stored.created_at,
+                expires_at=stored.expires_at,
+                effective_expires_at=effective,
+                last_seen_at=stored.last_seen_at,
+                revoked_at=stored.revoked_at,
+                active=stored.revoked_at is None and effective > now,
+            )
+        )
+    return read
 
 
 @router.delete("/{user_id}/sessions/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
