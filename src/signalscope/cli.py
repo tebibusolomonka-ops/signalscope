@@ -37,6 +37,15 @@ from signalscope.domain.claims.job import ClaimExtractionJobStatus
 from signalscope.domain.claims.job_repository import ClaimExtractionJobRepository
 from signalscope.domain.claims.queue import ClaimExtractionQueueService
 from signalscope.domain.claims.worker import ClaimExtractionWorker
+from signalscope.domain.diagnostics.acceptance import (
+    AcceptanceEvidence,
+    AcceptanceResult,
+    AcceptanceRunner,
+)
+from signalscope.domain.diagnostics.acceptance_profile import (
+    AcceptanceProfileError,
+    load_acceptance_profile,
+)
 from signalscope.domain.diagnostics.build_metadata import BuildMetadataService
 from signalscope.domain.diagnostics.deployment import (
     DeploymentDiagnosticsService,
@@ -359,6 +368,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 overwrite=args.overwrite,
             )
         )
+    if args.command == "run-acceptance":
+        return asyncio.run(run_acceptance(args.profile, settings, json_output=args.json))
     if args.command == "create-support-bundle":
         return asyncio.run(create_support_bundle(args.output, settings, overwrite=args.overwrite))
     if args.command == "pilot-readiness":
@@ -860,6 +871,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="evaluation report ID to reference; may be repeated",
     )
     release_candidate.add_argument("--overwrite", action="store_true")
+
+    acceptance = commands.add_parser(
+        "run-acceptance", help="evaluate a versioned acceptance profile"
+    )
+    acceptance.add_argument("--profile", type=Path, required=True)
+    acceptance.add_argument("--json", action="store_true", help="write JSON output")
 
     support_bundle = commands.add_parser(
         "create-support-bundle", help="write a safe diagnostics ZIP with no secrets"
@@ -1974,6 +1991,51 @@ async def create_release_candidate(
     _write_atomically(output, json.dumps(manifest.to_dict(), indent=2, sort_keys=True) + "\n")
     print(f"Release candidate: {output}", file=out)
     return 0
+
+
+async def run_acceptance(
+    profile_path: Path,
+    settings: Settings,
+    out: TextIO | None = None,
+    err: TextIO | None = None,
+    *,
+    json_output: bool = False,
+    result: AcceptanceResult | None = None,
+) -> int:
+    """Evaluate factual acceptance evidence and list checks needing a person."""
+    out = sys.stdout if out is None else out
+    err = sys.stderr if err is None else err
+    if result is None:
+        try:
+            profile = load_acceptance_profile(profile_path)
+        except AcceptanceProfileError as error:
+            print(f"Error: {error}", file=err)
+            return 1
+        service = StartupPreflightService(settings)
+        if settings.database_url is None:
+            preflight = service.without_database()
+        else:
+            blobs = LocalBlobStore(settings.blob_dir) if settings.blob_dir is not None else None
+            async with _database(settings) as session_factory, session_factory() as session:
+                preflight = await service.collect(session, blobs)
+        build = BuildMetadataService(settings).inspect()
+        values: dict[str, bool | None] = {
+            "deployment.migration_current": preflight.migration.current,
+            "operations.startup_preflight_passes": preflight.passed,
+        }
+        references = {"migration_revision": ",".join(preflight.migration.database_revisions)}
+        if build.build_sha is not None:
+            references["build_sha"] = build.build_sha
+        result = AcceptanceRunner().run(profile, AcceptanceEvidence(values, references))
+    if json_output:
+        print(json.dumps(result.to_dict(), sort_keys=True), file=out)
+    else:
+        for check in result.checks:
+            print(
+                f"{check.status.value.upper()}: {check.requirement}: {check.message}",
+                file=out,
+            )
+    return 0 if result.passed else 1
 
 
 async def create_support_bundle(
