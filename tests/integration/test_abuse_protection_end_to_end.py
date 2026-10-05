@@ -15,7 +15,9 @@ from signalscope.domain.organizations.export_record import (
     OrganizationExport,
     OrganizationExportStatus,
 )
+from signalscope.domain.organizations.service import OrganizationService
 from signalscope.domain.sources.model import Source, SourceType
+from signalscope.domain.users.model import User
 from tenancy_helpers import add_document, add_source, make_tenants
 
 pytestmark = pytest.mark.anyio
@@ -59,6 +61,17 @@ async def add_upload_source(
         return source.id
 
 
+async def add_restore_target(
+    session_factory: async_sessionmaker[AsyncSession], owner_id: uuid.UUID
+) -> uuid.UUID:
+    async with session_factory() as session:
+        owner = await session.get_one(User, owner_id)
+        target = await OrganizationService(session).create(
+            owner, "Protected restore target", "protected-restore-target"
+        )
+        return target.id
+
+
 async def test_abuse_guards_preserve_normal_tenant_workflows(
     protected_client: httpx.AsyncClient,
     session_factory: async_sessionmaker[AsyncSession],
@@ -68,6 +81,7 @@ async def test_abuse_guards_preserve_normal_tenant_workflows(
     b_source = await add_source(session_factory, tenants.b.id, "Tenant B feed")
     await add_document(session_factory, a_source, "A report", ["Harbour alpha evidence."])
     await add_document(session_factory, b_source, "B report", ["Harbour bravo evidence."])
+    restore_target_id = await add_restore_target(session_factory, tenants.b.owner_id)
 
     research = await protected_client.post(
         "/research/context",
@@ -118,7 +132,7 @@ async def test_abuse_guards_preserve_normal_tenant_workflows(
     assert backup.json()["status"] == "completed"
 
     plan = await protected_client.post(
-        f"/organizations/{tenants.b.id}/restore-plan",
+        f"/organizations/{restore_target_id}/restore-plan",
         headers={"content-type": "application/zip", **tenants.system},
         content=archive.content,
     )
@@ -162,7 +176,7 @@ async def test_abuse_guards_preserve_normal_tenant_workflows(
         content=b"x" * (UPLOAD_LIMIT + 1),
     )
     oversized_archive = await protected_client.post(
-        f"/organizations/{tenants.b.id}/restore-plan",
+        f"/organizations/{restore_target_id}/restore-plan",
         headers={"content-type": "application/zip", **tenants.system},
         content=b"x" * (UPLOAD_LIMIT + 1),
     )
