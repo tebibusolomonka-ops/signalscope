@@ -456,6 +456,34 @@ signalscope deployment-diagnostics --json
 It exits nonzero when the configuration has errors, a required dependency is
 unavailable, or the database is not at the current migration head.
 
+For deployment automation, `startup-preflight` reports configuration,
+database, storage, migration, queue and build facts without changing them.
+Migration compatibility can also be checked separately. Both support JSON and
+exit nonzero on a blocking result.
+
+```bash
+signalscope startup-preflight --json
+signalscope check-migration-compatibility --json
+```
+
+`validate-deployment` reads a version 1 JSON profile of explicit requirements,
+such as authentication, storage, a current migration, security headers, CSP and
+a recent verified backup. It reports requirements met, missed and warnings; it
+does not produce a score. Once validation passes, create a deterministic release
+candidate manifest. Selected imported evaluation reports are references only.
+
+```bash
+signalscope validate-deployment deployment-profile.json --json
+signalscope create-release-candidate --profile deployment-profile.json \
+  --output release-candidate.json --evaluation-report <report-id>
+```
+
+The manifest contains build metadata, the application migration head,
+validation results, the latest verified backup reference, selected evaluation
+report IDs and fingerprints, a security configuration summary and its creation
+time. It contains no database URL, password, token, tenant content or model
+prompt, and it does not deploy or migrate anything.
+
 When something goes wrong in a pilot, create a support bundle to share. It is a
 ZIP of the configuration summary, migration state, readiness, queue counts and
 the recent short worker error messages, each with a checksum. It never contains

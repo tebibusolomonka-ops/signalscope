@@ -1,9 +1,10 @@
 # Current State
 
-Batch 420 to 459 is complete, pushed and green. Batch 460 to 479 is implemented:
+Batch 420 to 459 is complete, pushed and green. Batch 460 to 484 is implemented:
 disaster-recovery drills, operational observability, session hardening, and
-input and abuse protection. The remaining 480 to 489 deployment evidence,
-acceptance and release-readiness work is in progress. Alembic head is
+input and abuse protection, plus build metadata, startup preflight, migration
+compatibility, deployment validation and release-candidate evidence. The
+remaining 485 to 489 acceptance and release-readiness work is in progress. Alembic head is
 `d8e2f4a6b1c3` (Add active operation guards).
 Durable operation history and portable organization
 exports, model evaluation evidence tooling and authentication hardening were
@@ -162,6 +163,10 @@ research citations that link to the exact passage.
   duplicate running exports or backups for one organization, active restores
   for one target, and concurrent restore-test drills for one target. Terminal
   history and unrelated organizations remain available.
+- Deployment evidence includes a safe `/version` endpoint, read-only startup
+  preflight, Alembic-graph migration compatibility, explicit versioned
+  deployment validation profiles and deterministic release-candidate manifests.
+  These commands do not deploy, migrate, restore, load models or expose secrets.
 - Explicit developer benchmarks report the local model environment and run
   embedding, reranker, structured extraction and fixed-evidence answer model
   measurements. Normal tests and CI use fakes and never load or download models.

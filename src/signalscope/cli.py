@@ -37,7 +37,11 @@ from signalscope.domain.claims.job import ClaimExtractionJobStatus
 from signalscope.domain.claims.job_repository import ClaimExtractionJobRepository
 from signalscope.domain.claims.queue import ClaimExtractionQueueService
 from signalscope.domain.claims.worker import ClaimExtractionWorker
-from signalscope.domain.diagnostics.deployment import DeploymentDiagnosticsService
+from signalscope.domain.diagnostics.build_metadata import BuildMetadataService
+from signalscope.domain.diagnostics.deployment import (
+    DeploymentDiagnosticsService,
+    alembic_migration_head,
+)
 from signalscope.domain.diagnostics.deployment_validation import (
     DeploymentProfileError,
     DeploymentValidationResult,
@@ -51,6 +55,12 @@ from signalscope.domain.diagnostics.migration_compatibility import (
 )
 from signalscope.domain.diagnostics.pilot_readiness import PilotReadinessEvaluator
 from signalscope.domain.diagnostics.production_config import ProductionConfigurationValidator
+from signalscope.domain.diagnostics.release_candidate import (
+    EvaluationEvidenceReference,
+    ReleaseCandidateManifest,
+    ReleaseCandidateService,
+    evaluation_evidence_references,
+)
 from signalscope.domain.diagnostics.startup_preflight import (
     StartupPreflightReport,
     StartupPreflightService,
@@ -339,6 +349,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         return asyncio.run(check_migration_compatibility(settings, json_output=args.json))
     if args.command == "validate-deployment":
         return asyncio.run(validate_deployment(args.profile, settings, json_output=args.json))
+    if args.command == "create-release-candidate":
+        return asyncio.run(
+            create_release_candidate(
+                args.profile,
+                args.output,
+                settings,
+                evaluation_report_ids=args.evaluation_report,
+                overwrite=args.overwrite,
+            )
+        )
     if args.command == "create-support-bundle":
         return asyncio.run(create_support_bundle(args.output, settings, overwrite=args.overwrite))
     if args.command == "pilot-readiness":
@@ -826,6 +846,20 @@ def build_parser() -> argparse.ArgumentParser:
     )
     deployment_validation.add_argument("profile", type=Path, help="versioned JSON profile")
     deployment_validation.add_argument("--json", action="store_true", help="write JSON output")
+
+    release_candidate = commands.add_parser(
+        "create-release-candidate", help="write deterministic release-candidate evidence"
+    )
+    release_candidate.add_argument("--profile", type=Path, required=True)
+    release_candidate.add_argument("--output", type=Path, required=True)
+    release_candidate.add_argument(
+        "--evaluation-report",
+        type=uuid.UUID,
+        action="append",
+        default=[],
+        help="evaluation report ID to reference; may be repeated",
+    )
+    release_candidate.add_argument("--overwrite", action="store_true")
 
     support_bundle = commands.add_parser(
         "create-support-bundle", help="write a safe diagnostics ZIP with no secrets"
@@ -1884,6 +1918,62 @@ async def validate_deployment(
                 file=out,
             )
     return 0 if result.passed else 1
+
+
+async def create_release_candidate(
+    profile_path: Path,
+    output: Path,
+    settings: Settings,
+    out: TextIO | None = None,
+    err: TextIO | None = None,
+    *,
+    evaluation_report_ids: list[uuid.UUID] | None = None,
+    overwrite: bool = False,
+    manifest: ReleaseCandidateManifest | None = None,
+) -> int:
+    """Write release-candidate evidence after deployment validation passes."""
+    out = sys.stdout if out is None else out
+    err = sys.stderr if err is None else err
+    if output.exists() and not overwrite:
+        print(f"Error: {output} already exists. Use --overwrite to replace it.", file=err)
+        return 1
+    if manifest is None:
+        try:
+            profile = load_deployment_validation_profile(profile_path)
+        except DeploymentProfileError as error:
+            print(f"Error: {error}", file=err)
+            return 1
+        preflight_service = StartupPreflightService(settings)
+        backup = None
+        reports: tuple[EvaluationEvidenceReference, ...] = ()
+        if settings.database_url is None:
+            preflight = preflight_service.without_database()
+        else:
+            blobs = LocalBlobStore(settings.blob_dir) if settings.blob_dir is not None else None
+            async with _database(settings) as session_factory, session_factory() as session:
+                preflight = await preflight_service.collect(session, blobs)
+                backup = await latest_verified_backup(session)
+                try:
+                    reports = await evaluation_evidence_references(
+                        session, evaluation_report_ids or []
+                    )
+                except ValueError as error:
+                    print(f"Error: {error}", file=err)
+                    return 1
+        validation = DeploymentValidationService(settings, profile).validate(preflight, backup)
+        if not validation.passed:
+            print("Error: Deployment validation failed; no manifest was written.", file=err)
+            return 1
+        manifest = ReleaseCandidateService(settings).create(
+            build=BuildMetadataService(settings).inspect(),
+            migration_head=alembic_migration_head(),
+            validation=validation,
+            backup=backup,
+            evaluation_reports=reports,
+        )
+    _write_atomically(output, json.dumps(manifest.to_dict(), indent=2, sort_keys=True) + "\n")
+    print(f"Release candidate: {output}", file=out)
+    return 0
 
 
 async def create_support_bundle(
