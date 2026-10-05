@@ -9,11 +9,14 @@ SECTION_FIELDS: dict[str, dict[str, type[bool] | type[int]]] = {
     "deployment": {
         "validation_passes": bool,
         "migration_current": bool,
+        "production_configuration_valid": bool,
     },
     "security": {
         "auth_enabled": bool,
         "login_throttling_configured": bool,
         "session_expiry_configured": bool,
+        "absolute_session_expiry_configured": bool,
+        "idle_session_expiry_configured": bool,
         "security_headers_enabled": bool,
         "csp_enabled": bool,
         "support_bundle_redaction_succeeds": bool,

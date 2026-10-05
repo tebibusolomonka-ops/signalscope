@@ -73,6 +73,9 @@ from signalscope.domain.diagnostics.release_candidate import (
     ReleaseCandidateService,
     evaluation_evidence_references,
 )
+from signalscope.domain.diagnostics.security_acceptance import (
+    SecurityDeploymentAcceptanceService,
+)
 from signalscope.domain.diagnostics.startup_preflight import (
     StartupPreflightReport,
     StartupPreflightService,
@@ -377,6 +380,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 args.profile,
                 settings,
                 organization_id=args.organization_id,
+                deployment_profile_path=args.deployment_profile,
                 json_output=args.json,
             )
         )
@@ -890,6 +894,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--organization-id",
         type=uuid.UUID,
         help="organization whose backup and disaster recovery evidence is evaluated",
+    )
+    acceptance.add_argument(
+        "--deployment-profile",
+        type=Path,
+        help="deployment validation profile used as acceptance evidence",
     )
     acceptance.add_argument("--json", action="store_true", help="write JSON output")
 
@@ -2015,6 +2024,7 @@ async def run_acceptance(
     err: TextIO | None = None,
     *,
     organization_id: uuid.UUID | None = None,
+    deployment_profile_path: Path | None = None,
     json_output: bool = False,
     result: AcceptanceResult | None = None,
 ) -> int:
@@ -2027,18 +2037,43 @@ async def run_acceptance(
         except AcceptanceProfileError as error:
             print(f"Error: {error}", file=err)
             return 1
+        deployment_profile = None
+        if deployment_profile_path is not None:
+            try:
+                deployment_profile = load_deployment_validation_profile(deployment_profile_path)
+            except DeploymentProfileError as error:
+                print(f"Error: {error}", file=err)
+                return 1
         service = StartupPreflightService(settings)
         dr_evidence = AcceptanceEvidence({}, {})
+        backup = None
         if settings.database_url is None:
             preflight = service.without_database()
+            support_bundle_available = bool(SupportBundleService(settings).build_without_database())
         else:
             blobs = LocalBlobStore(settings.blob_dir) if settings.blob_dir is not None else None
             async with _database(settings) as session_factory, session_factory() as session:
                 preflight = await service.collect(session, blobs)
+                backup = await latest_verified_backup(session)
+                support_bundle_available = bool(
+                    await SupportBundleService(settings).build(session, blobs)
+                )
                 if organization_id is not None:
                     dr_evidence = await DisasterRecoveryAcceptanceService(session).collect(
                         organization_id, profile
                     )
+        deployment_validation = (
+            None
+            if deployment_profile is None
+            else DeploymentValidationService(settings, deployment_profile).validate(
+                preflight, backup
+            )
+        )
+        security_evidence = SecurityDeploymentAcceptanceService(settings).collect(
+            preflight,
+            deployment_validation=deployment_validation,
+            support_bundle_available=support_bundle_available,
+        )
         build = BuildMetadataService(settings).inspect()
         values: dict[str, bool | None] = {
             "deployment.migration_current": preflight.migration.current,
@@ -2047,15 +2082,21 @@ async def run_acceptance(
         references = {"migration_revision": ",".join(preflight.migration.database_revisions)}
         if build.build_sha is not None:
             references["build_sha"] = build.build_sha
+        values.update(security_evidence.values)
         values.update(dr_evidence.values)
+        references.update(security_evidence.references)
         references.update(dr_evidence.references)
+        facts = {
+            **(security_evidence.facts or {}),
+            **(dr_evidence.facts or {}),
+        }
         result = AcceptanceRunner().run(
             profile,
             AcceptanceEvidence(
                 values,
                 references,
-                dr_evidence.warnings,
-                dr_evidence.facts,
+                security_evidence.warnings + dr_evidence.warnings,
+                facts,
             ),
         )
     if json_output:
